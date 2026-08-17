@@ -1,0 +1,27 @@
+# Configuración del proyecto en Supabase.
+#
+# Estos ajustes se aplican con:  npx supabase config push
+#
+# Se llevan aquí, en el repositorio, porque hacerlo a mano en el panel se
+# olvida y no queda rastro de por qué está cada cosa como está.
+
+project_id = "fmgyxelfkzqmaokofurf"
+
+[auth]
+enabled = true
+site_url = "http://localhost:8081"
+additional_redirect_urls = ["http://localhost:8081", "scoutpicks://entrar"]
+
+# Cualquiera puede crear cuenta. Sin esto, el registro se rechaza y la app se
+# queda parada en la pantalla de alta sin decir por qué.
+enable_signup = true
+enable_anonymous_sign_ins = false
+
+[auth.email]
+enable_signup = true
+# Durante el desarrollo se entra sin confirmar el correo: el servidor de
+# pruebas de Supabase manda cuatro correos por hora y acaban en spam.
+# ANTES DE ABRIR AL PÚBLICO hay que ponerlo en true y configurar SMTP propio.
+enable_confirmations = false
+secure_password_change = false
+

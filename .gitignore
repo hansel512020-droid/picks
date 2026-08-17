@@ -41,3 +41,10 @@ example
 # generated native folders
 /ios
 /android
+
+# datos importados y cache del importador
+.env
+.cache-datos/
+
+# Registro del importador: se regenera en cada pasada.
+scripts/refrescar.log

@@ -1,0 +1,126 @@
+# Trae los datos de las competiciones y los sube al servidor.
+#
+# La app no lleva los resultados dentro: se los descarga de Supabase al
+# arrancar. Así este robot puede refrescarlos cada día sin que haya que
+# recompilar ni volver a publicar la web, y sin que nadie toque nada.
+#
+# ── Secretos que hay que poner en GitHub ────────────────────────────────────
+#   Settings → Secrets and variables → Actions → New repository secret
+#
+#   APIFOOTBALL_KEY             la clave de API-Football, para las ligas que la
+#                               piden (sudamericanas, copas nacionales…)
+#   SUPABASE_URL                https://xxxx.supabase.co
+#   SUPABASE_SERVICE_ROLE_KEY   la clave de servicio del proyecto. Es la única
+#                               que puede escribir en Storage, y por eso vive
+#                               aquí y NUNCA en la app.
+
+name: Datos
+
+on:
+  schedule:
+    # ── Dos ritmos, y la diferencia es el margen ──────────────────────────
+    #
+    # La pasada completa pide el acta de cada partido de 36 competiciones y
+    # tarda horas. Si se lanzara a media mañana, los datos nuevos aterrizarían
+    # con los partidos ya empezados y los picks del día llegarían tarde: un
+    # pick que aparece en el minuto 20 no sirve para nada.
+    #
+    # Por eso va de madrugada, con la jornada anterior cerrada y muchas horas
+    # por delante antes de que ruede el primer balón.
+    - cron: '0 1 * * *'
+    #
+    # Y entre medias, pasadas ligeras cada cuatro horas: sin actas, solo
+    # resultados, calendario y cuotas. Terminan en minutos y mantienen al día
+    # lo que cambia durante la jornada —horarios, aplazamientos, marcadores—
+    # sin volver a pedir lo que ya se bajó de madrugada.
+    - cron: '0 5,9,13,17,21 * * *'
+  # Y a mano, desde la pestaña Actions, para no esperar al siguiente turno.
+  workflow_dispatch:
+    inputs:
+      completa:
+        description: 'Traer también el acta de cada partido (tarda horas)'
+        type: boolean
+        default: false
+
+jobs:
+  importar:
+    runs-on: ubuntu-latest
+    # Pedir el acta de cada partido de 36 competiciones lleva su rato.
+    timeout-minutes: 240
+
+    steps:
+      - uses: actions/checkout@v4
+
+      - uses: actions/setup-node@v4
+        with:
+          node-version: '20'
+          cache: npm
+
+      - run: npm ci
+
+      - name: Importar resultados y estadísticas
+        env:
+          APIFOOTBALL_KEY: ${{ secrets.APIFOOTBALL_KEY }}
+          # De madrugada, la pasada completa. En las demás, la ligera.
+          COMPLETA: ${{ github.event.schedule == '0 1 * * *' || inputs.completa }}
+        run: |
+          set -euo pipefail
+          # Las competiciones son las que ya están en el archivo: así se añaden
+          # o se quitan editando el repositorio, sin tocar este fichero.
+          LIGAS=$(node -e "console.log(Object.keys(require('./src/datos/importado.json').competiciones).join(','))")
+
+          if [ "$COMPLETA" = "true" ]; then
+            echo "Pasada COMPLETA (con actas) · $LIGAS"
+            node scripts/importar.js --ligas "$LIGAS" --detalles 400 --jugadores 40
+          else
+            # Sin actas: resultados, calendario y cuotas. Minutos, no horas.
+            echo "Pasada LIGERA (sin actas) · $LIGAS"
+            node scripts/importar.js --ligas "$LIGAS" --detalles 0
+          fi
+
+      - name: Resolver escudos y caras de jugador
+        # Solo en la pasada completa: las imágenes no cambian cada cuatro horas.
+        if: ${{ github.event.schedule == '0 1 * * *' || inputs.completa }}
+        # Si falla, no se aborta: unas imágenes que falten no valen perder los
+        # resultados del día, que es lo que de verdad importa.
+        continue-on-error: true
+        run: node scripts/logos.js
+
+      - name: Subir los datos a Supabase
+        env:
+          SUPABASE_URL: ${{ secrets.SUPABASE_URL }}
+          SUPABASE_SERVICE_ROLE_KEY: ${{ secrets.SUPABASE_SERVICE_ROLE_KEY }}
+        run: |
+          set -euo pipefail
+          PESO=$(du -h src/datos/importado.json | cut -f1)
+          echo "Subiendo importado.json ($PESO)"
+
+          # `x-upsert` sustituye el archivo anterior en vez de fallar por existir.
+          CODIGO=$(curl -sS -o /tmp/respuesta.txt -w '%{http_code}' \
+            -X POST "$SUPABASE_URL/storage/v1/object/datos/importado.json" \
+            -H "Authorization: Bearer $SUPABASE_SERVICE_ROLE_KEY" \
+            -H "Content-Type: application/json" \
+            -H "x-upsert: true" \
+            --data-binary @src/datos/importado.json)
+
+          echo "Respuesta: $CODIGO"
+          if [ "$CODIGO" != "200" ]; then
+            cat /tmp/respuesta.txt
+            exit 1
+          fi
+
+      - name: Comprobar que se sirve
+        env:
+          SUPABASE_URL: ${{ secrets.SUPABASE_URL }}
+        run: |
+          set -euo pipefail
+          # Que la subida diga 200 no basta: se comprueba que el archivo se
+          # descarga y que es un JSON con competiciones dentro. Un archivo
+          # cortado dejaría la app sin datos hasta el día siguiente.
+          curl -sS "$SUPABASE_URL/storage/v1/object/public/datos/importado.json" -o /tmp/bajado.json
+          node -e "
+            const j = require('/tmp/bajado.json');
+            const n = Object.keys(j.competiciones ?? {}).length;
+            if (!n) { console.error('El archivo subido no trae competiciones'); process.exit(1); }
+            console.log('Verificado:', n, 'competiciones en el servidor');
+          "
