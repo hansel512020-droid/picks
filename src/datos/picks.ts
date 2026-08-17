@@ -117,11 +117,13 @@ function factorDelRival(
   rival: Equipo,
   met: { valor: (p: Partido, esLocal: boolean) => number },
   mediaCompeticion: number,
+  /** Nada posterior a esta fecha: al medir el modelo, el futuro no existe. */
+  antesDe: string,
 ): number {
   if (mediaCompeticion <= 0) return 1;
 
   const suyos = partidosDelEquipoEnTodas(rival.nombre, rival.bandera)
-    .filter(({ partido }) => partido.estado === 'finalizado')
+    .filter(({ partido }) => partido.estado === 'finalizado' && partido.fecha < antesDe)
     .slice(0, 20);
   if (suyos.length < 5) return 1;
 
@@ -209,12 +211,13 @@ function notaDeContexto(
   met: { valor: (p: Partido, esLocal: boolean) => number },
   mediaCompeticion: number,
   fuerzaHoy: number | null,
+  antesDe: string,
 ): string {
   const partes: string[] = [];
 
   // ¿Es este rival muy distinto de los que viene enfrentando?
   const suyos = partidosDelEquipoEnTodas(equipo.nombre, equipo.bandera)
-    .filter(({ partido }) => partido.estado === 'finalizado')
+    .filter(({ partido }) => partido.estado === 'finalizado' && partido.fecha < antesDe)
     .slice(0, 10);
   const fuerzas = suyos
     .map(({ partido, esLocal }) => fuerzaDe(esLocal ? partido.visitanteId : partido.localId))
@@ -234,7 +237,7 @@ function notaDeContexto(
   }
 
   // ¿Y este rival concede mucho o poco de esta métrica?
-  const factor = factorDelRival(rival, met, mediaCompeticion);
+  const factor = factorDelRival(rival, met, mediaCompeticion, antesDe);
   if (factor >= 1.15)
     partes.push(`${rival.nombre} concede bastante más de lo normal en este apartado`);
   else if (factor <= 0.85)
@@ -465,7 +468,9 @@ export function picksDePartido(
     // Solo cuentan los partidos en los que tuvo minutos de verdad: una linea
     // de remates no dice nada si el jugador entro en el 88.
     const historial = (t.registrosPorJugador.get(jug.id) ?? []).filter(
-      (r) => r.partidoId !== partidoId && r.minutos >= 25,
+      // Y nada posterior: sin esto, medir el modelo contra el pasado usaria
+      // partidos que en ese momento no se habian jugado.
+      (r) => r.partidoId !== partidoId && r.minutos >= 25 && r.fecha < partido.fecha,
     );
     // Con menos de 6 partidos no hay muestra suficiente para afirmar nada.
     if (historial.length < 6) continue;
@@ -553,9 +558,23 @@ export function picksDePartido(
    * queda sin un solo pick pese a que los dos equipos tienen media temporada
    * de Serie B a sus espaldas.
    */
+  /*
+   * Solo cuenta lo que pasó ANTES de este partido.
+   *
+   * Para un partido que aún no se ha jugado da igual: todo lo terminado es
+   * anterior por definición. Importa al medir el modelo contra la temporada
+   * pasada, que es la única forma de saber si acierta: sin este filtro, el pick
+   * de un partido de octubre se calcularía con los resultados de noviembre y
+   * saldría un porcentaje de aciertos que no significa nada. Se llama mirar el
+   * futuro, y es la forma más fácil de construir un modelo que parece
+   * infalible en las pruebas y falla en cuanto se usa de verdad.
+   */
+  const antesDeEste = (p: Partido) =>
+    p.id !== partidoId && p.estado === 'finalizado' && p.fecha < partido.fecha;
+
   const historialDe = (equipo: Equipo): { p: Partido; esLocal: boolean }[] => {
     const propios = (t.partidosPorEquipo.get(equipo.id) ?? [])
-      .filter((p) => p.id !== partidoId && p.estado === 'finalizado')
+      .filter(antesDeEste)
       .map((p) => ({ p, esLocal: p.localId === equipo.id }));
     if (propios.length >= 6) {
       return propios.sort((a, b) => b.p.fecha.localeCompare(a.p.fecha));
@@ -566,8 +585,8 @@ export function picksDePartido(
     // Con la bandera: sin ella se mezclaban los clubes homónimos de países
     // distintos y el historial salía contaminado con partidos de otro equipo.
     const fuera = partidosDelEquipoEnTodas(equipo.nombre, equipo.bandera)
-      .filter(({ partido }) => partido.id !== partidoId && partido.estado === 'finalizado')
-      .map(({ partido, esLocal }) => ({ p: partido, esLocal }));
+      .filter(({ partido: otro }) => antesDeEste(otro))
+      .map(({ partido: otro, esLocal }) => ({ p: otro, esLocal }));
 
     const vistos = new Set<string>();
     return [...propios, ...fuera]
@@ -599,11 +618,16 @@ export function picksDePartido(
     for (const met of METRICAS_EQUIPO) {
       const valores = suyos.map(({ p, esLocal }) => met.valor(p, esLocal));
       // El mercado tarifica con la media de la competicion, no con la del equipo.
+      // Tambien recortada en el tiempo: la media de la competicion de hoy no
+      // se conocia el dia del partido que se esta midiendo.
       const mediaCompeticion =
         t.partidos
-          .filter((p) => p.estado === 'finalizado')
+          .filter((p) => p.estado === 'finalizado' && p.fecha < partido.fecha)
           .reduce((a, p) => a + met.valor(p, true) + met.valor(p, false), 0) /
-        Math.max(2, t.partidos.filter((p) => p.estado === 'finalizado').length * 2);
+        Math.max(
+          2,
+          t.partidos.filter((p) => p.estado === 'finalizado' && p.fecha < partido.fecha).length * 2,
+        );
 
       for (const l of met.lineas) {
         for (const sentido of ['mas', 'menos'] as const) {
@@ -618,7 +642,7 @@ export function picksDePartido(
           const prob = probabilidadAjustada(
             probabilidad(ev.aciertosL10, ev.aciertosL20, ev.muestraL20),
             tasaEnContexto(valores, pesos, l, sentido),
-            factorDelRival(rival, met, mediaCompeticion),
+            factorDelRival(rival, met, mediaCompeticion, partido.fecha),
             sentido,
           );
           const id = `${partidoId}-${equipo.id}-${met.clave}-${l}-${sentido}`;
@@ -642,7 +666,7 @@ export function picksDePartido(
               // Y si el rival de hoy cambia el cuadro, se dice. Un ajuste que
               // mueve la probabilidad sin explicarse es una caja negra, y por
               // una caja negra no se paga.
-              notaDeContexto(equipo, rival, met, mediaCompeticion, fuerzaHoy),
+              notaDeContexto(equipo, rival, met, mediaCompeticion, fuerzaHoy, partido.fecha),
             familia: met.familia,
             mercado: `${sentido === 'mas' ? 'Más' : 'Menos'} de ${linea(l)} ${met.mercado}`,
             metrica: met.clave,
@@ -682,7 +706,9 @@ export function picksDePartido(
   if (delPartido.length >= 8) {
     for (const met of METRICAS_PARTIDO) {
       const valores = delPartido.map(met.valor);
-      const jugados = t.partidos.filter((p) => p.estado === 'finalizado');
+      const jugados = t.partidos.filter(
+        (p) => p.estado === 'finalizado' && p.fecha < partido.fecha,
+      );
       const mediaCompeticion =
         jugados.reduce((a, p) => a + met.valor(p), 0) / Math.max(1, jugados.length);
 
