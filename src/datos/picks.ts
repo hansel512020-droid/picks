@@ -1,6 +1,6 @@
 import { Aleatorio } from '@/utiles/aleatorio';
 import { competicion } from './competiciones';
-import { partidosDelEquipoEnTodas } from './importado';
+import { cuandoCambienLosDatos, partidosDelEquipoEnTodas } from './importado';
 import { precioDe, probMercadoEquipo, probMercadoJugador } from './mercado';
 import { temporada } from './motor';
 import type { Equipo, Familia, Partido, Pick, RegistroJugador } from './tipos';
@@ -193,6 +193,22 @@ export const FAMILIAS: { id: Familia; nombre: string }[] = [
 ];
 
 const CACHE = new Map<string, Pick[]>();
+
+/*
+ * Se vacía cuando llegan datos nuevos, como las demás.
+ *
+ * Estos picks se calculan a partir de la temporada, que sale del archivo
+ * descargado. El motor tiraba su caché de temporadas y el índice de escudos
+ * tiraba la suya, pero esta se quedaba: después de refrescar los datos, un
+ * partido ya visitado seguía enseñando los picks calculados con los resultados
+ * de antes —líneas viejas, rachas viejas— y no había forma de que se
+ * actualizaran sin recargar la app entera.
+ *
+ * Se nota poco al abrir, porque ahora los datos llegan antes de pintar nada.
+ * Se nota cada seis horas, que es cuando la app vuelve a preguntar al servidor
+ * con la app abierta.
+ */
+cuandoCambienLosDatos(() => CACHE.clear());
 
 /** Picks de un partido concreto. */
 export function picksDePartido(
