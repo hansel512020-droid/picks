@@ -32,6 +32,40 @@ import { Cara, Enfrentamiento, Escudo, LogoCompeticion } from './imagen';
  * El color va por tramos y no en degradado porque lo que importa es el juicio
  * rápido —bien, regular, mal—, no distinguir un 71% de un 74%.
  */
+/**
+ * Qué dicen las tres ventanas juntas, en una frase.
+ *
+ * Tres porcentajes sueltos no se interpretan solos: hay que compararlos entre
+ * sí para saber si esto es algo que el sujeto hace siempre o una racha de tres
+ * semanas. Eso es trabajo que puede hacer la app, y si no lo hace lo acaba
+ * haciendo mal quien mira.
+ */
+function lecturaDeAngulos(
+  aciertosL5: number,
+  aciertosL10: number,
+  aciertosL20: number,
+): { titulo: string; texto: string; color: string; fondo: string } {
+  const corto = (aciertosL5 / 5) * 100;
+  const medio = (aciertosL10 / 10) * 100;
+  const largo = (aciertosL20 / 20) * 100;
+
+  const fuerte = { titulo: 'HISTÓRICO FUERTE', color: C.verde, fondo: C.verdeTenue };
+  const desigual = { titulo: 'HISTÓRICO DESIGUAL', color: C.ambar, fondo: C.ambarTenue };
+  const flojo = { titulo: 'HISTÓRICO FLOJO', color: C.rojo, fondo: C.rojoTenue };
+
+  if (corto >= 80 && medio >= 70 && largo >= 70)
+    return { ...fuerte, texto: 'Le sale en las tres ventanas' };
+  if (medio >= 70 && largo >= 65)
+    return { ...fuerte, texto: 'Constante en los últimos 20 partidos' };
+  if (corto >= 80 && largo < 55)
+    return { ...desigual, texto: 'En racha ahora, pero de fondo le cuesta' };
+  if (corto < 50 && largo >= 70)
+    return { ...desigual, texto: 'Lo hace de fondo, pero llega frío' };
+  if (medio >= 70) return { ...desigual, texto: 'Bien de cerca, poca muestra de fondo' };
+  if (medio < 50 && largo < 50) return { ...flojo, texto: 'No lo viene cumpliendo' };
+  return { ...desigual, texto: 'Irregular entre unas ventanas y otras' };
+}
+
 export function Angulos({
   aciertosL5,
   aciertosL10,
@@ -40,6 +74,7 @@ export function Angulos({
   media,
   metrica,
   linea,
+  sentido,
 }: {
   aciertosL5: number;
   aciertosL10: number;
@@ -49,6 +84,8 @@ export function Angulos({
   media?: number;
   metrica?: string;
   linea?: number;
+  /** Hacia dónde va el pick. Sin esto el margen sale del revés. */
+  sentido?: 'mas' | 'menos' | 'si' | 'no';
 }) {
   /*
    * Se abre a petición, no de entrada.
@@ -67,8 +104,43 @@ export function Angulos({
     { aciertos: aciertosL20, de: 20 },
   ];
 
+  const lectura = lecturaDeAngulos(aciertosL5, aciertosL10, aciertosL20);
+
   return (
     <View style={{ gap: 7 }}>
+      {/*
+        El veredicto primero, en palabras.
+
+        Debajo iban tres porcentajes y nada más, y quien mira tiene que
+        compararlos entre sí para saber si esto es algo que el sujeto hace
+        siempre o una racha de tres semanas. Ese trabajo lo puede hacer la app,
+        y si no lo hace lo acaba haciendo mal el que mira.
+
+        Habla del pasado a propósito —"histórico fuerte", no "va a entrar"—:
+        veinte partidos buenos no deciden el que viene.
+      */}
+      <View
+        style={{
+          flexDirection: 'row',
+          alignItems: 'center',
+          gap: 8,
+          paddingVertical: 6,
+          paddingHorizontal: 8,
+          borderRadius: R.sm,
+          backgroundColor: lectura.fondo,
+        }}
+      >
+        <View
+          style={{ width: 8, height: 8, borderRadius: 4, backgroundColor: lectura.color }}
+        />
+        <Text style={{ ...T.etiqueta, color: lectura.color, fontWeight: '800' }}>
+          {lectura.titulo}
+        </Text>
+        <Text style={{ ...T.etiqueta, color: C.texto2, flex: 1 }} numberOfLines={1}>
+          {lectura.texto}
+        </Text>
+      </View>
+
       {ventanas.map(({ aciertos, de }) => {
         const porcentaje = Math.round((aciertos / de) * 100);
         const color = porcentaje >= 70 ? C.verde : porcentaje >= 50 ? C.ambar : C.rojo;
@@ -129,25 +201,37 @@ export function Angulos({
           ) : null}
 
           {media !== undefined && linea !== undefined ? (
-            <View style={{ flexDirection: 'row', alignItems: 'center', gap: 8 }}>
-              <View style={{ width: 7 }} />
-              <Text style={{ ...T.etiqueta, color: C.texto2, width: 40 }}>Media</Text>
-              <Text style={{ ...T.etiqueta, color: C.texto3, flex: 1 }}>
-                {media.toFixed(1)} {metrica ?? ''} por partido · línea {linea}
-              </Text>
-              <Text
-                style={{
-                  ...T.etiqueta,
-                  color: media > linea ? C.verde : C.rojo,
-                  width: 42,
-                  textAlign: 'right',
-                  fontWeight: '800',
-                }}
-              >
-                {media > linea ? '+' : ''}
-                {(media - linea).toFixed(1)}
-              </Text>
-            </View>
+            (() => {
+              /*
+               * El margen, siempre a favor del pick.
+               *
+               * En un "menos de 14.5" una media de 13 es holgura, no déficit.
+               * Se restaba sin mirar el sentido y salía "−1.5" en rojo justo
+               * cuando el dato era bueno: el color decía lo contrario que el
+               * número, y el número lo contrario que la realidad.
+               */
+              const aFavor =
+                sentido === 'menos' || sentido === 'no' ? linea - media : media - linea;
+              return (
+                <View style={{ flexDirection: 'row', alignItems: 'center', gap: 8 }}>
+                  <View style={{ width: 7 }} />
+                  <Text style={{ ...T.etiqueta, color: C.texto2, width: 40 }}>Media</Text>
+                  <Text style={{ ...T.etiqueta, color: C.texto3, flex: 1 }}>
+                    {media.toFixed(1)} por partido · línea {linea}
+                  </Text>
+                  <Text
+                    style={{
+                      ...T.etiqueta,
+                      color: aFavor > 0 ? C.verde : C.rojo,
+                      textAlign: 'right',
+                      fontWeight: '800',
+                    }}
+                  >
+                    {Math.abs(aFavor).toFixed(1)} {aFavor > 0 ? 'a favor' : 'en contra'}
+                  </Text>
+                </View>
+              );
+            })()
           ) : null}
         </View>
       ) : null}
@@ -634,6 +718,7 @@ export function TarjetaPick({
               media={pick.media}
               metrica={pick.metrica}
               linea={pick.linea}
+              sentido={pick.sentido}
             />
             <Txt v="pequeno" color={C.texto3}>
               Últimos 5, 10 y 20 partidos · {pick.ventaja.toFixed(0)}% de ventaja según el modelo
