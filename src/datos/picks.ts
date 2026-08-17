@@ -1,6 +1,6 @@
 import { Aleatorio } from '@/utiles/aleatorio';
 import { competicion } from './competiciones';
-import { cuandoCambienLosDatos, partidosDelEquipoEnTodas } from './importado';
+import { cuandoCambienLosDatos, equiposImportados, partidosDelEquipoEnTodas } from './importado';
 import { precioDe, probMercadoEquipo, probMercadoJugador } from './mercado';
 import { temporada } from './motor';
 import type { Equipo, Familia, Partido, Pick, RegistroJugador } from './tipos';
@@ -35,6 +35,212 @@ function fechaCorta(iso: string): string {
   if (mismoDia(d, manana)) return `Mañana ${hora}`;
   const dias = ['dom', 'lun', 'mar', 'mié', 'jue', 'vie', 'sáb'];
   return `${dias[d.getDay()]} ${d.getDate()}/${d.getMonth() + 1} ${hora}`;
+}
+
+/**
+ * Fuerza de cada equipo, por identificador, de todas las competiciones.
+ *
+ * El historial de un equipo cruza competiciones —un club de Serie A juega
+ * Coppa contra uno de Serie B— y el rival de cada partido puede no estar en la
+ * temporada que se está mirando. Por eso el índice es global.
+ */
+let FUERZAS: Map<string, number> | null = null;
+cuandoCambienLosDatos(() => {
+  FUERZAS = null;
+});
+
+function fuerzaDe(equipoId: string): number | null {
+  if (!FUERZAS) {
+    FUERZAS = new Map();
+    for (const e of equiposImportados()) FUERZAS.set(e.id, e.fuerza);
+  }
+  return FUERZAS.get(equipoId) ?? null;
+}
+
+/**
+ * Cuánto vale cada partido del historial para predecir el de hoy.
+ *
+ * ── El problema ─────────────────────────────────────────────────────────────
+ *
+ * Contar "8 de sus últimos 10" trata todos los partidos como si fueran el
+ * mismo. No lo son. El Sassuolo hizo pocos remates en sus últimos diez porque
+ * jugaba contra Juventus, Inter y Milan, que le disputan el balón. Hoy juega
+ * contra el Cesena, de Serie B, que se encierra atrás y le deja rematar a
+ * placer. Ese 8 de 10 es un dato cierto sobre una situación que no se parece a
+ * la de hoy: el número está bien y la conclusión está mal.
+ *
+ * ── Lo que se hace ──────────────────────────────────────────────────────────
+ *
+ * Pesar cada partido por lo que se parezca su rival al de hoy. Si hoy juega
+ * contra uno flojo, mandan los partidos anteriores contra rivales flojos. No
+ * se inventa ningún factor de corrección: se usa lo que el propio equipo hizo
+ * en circunstancias parecidas, que es el único dato honesto que hay.
+ *
+ * La campana es ancha —15 puntos de fuerza— a propósito. Estrecha dejaría dos
+ * partidos decidiéndolo todo, y dos partidos no son una muestra.
+ */
+function pesoPorRival(fuerzaRival: number | null, fuerzaHoy: number | null): number {
+  if (fuerzaRival === null || fuerzaHoy === null) return 1;
+  const dif = fuerzaRival - fuerzaHoy;
+  return Math.exp(-(dif * dif) / (2 * 15 * 15));
+}
+
+/**
+ * Un partido contra el mismo rival vale por tres.
+ *
+ * Parecerse en fuerza es una aproximación; haberse enfrentado de verdad es el
+ * dato. Dos equipos con la misma puntuación pueden jugar de forma opuesta
+ * —uno se encierra y otro presiona arriba— y eso no lo captura ningún número
+ * de fuerza. Si el Sassuolo ya jugó contra el Cesena, lo que pasó ese día dice
+ * más que diez partidos contra equipos "parecidos" al Cesena.
+ *
+ * Se multiplica en vez de sustituir: con uno o dos enfrentamientos no hay
+ * muestra para decidir solo con ellos, pero sí para que pesen bastante más.
+ */
+const PESO_ENFRENTAMIENTO = 3;
+
+/**
+ * Cuánto de la métrica concede el rival, comparado con lo normal.
+ *
+ * Devuelve un factor: 1 es un rival del montón, 1,3 uno que concede un 30% más
+ * que la media —una defensa que se deja rematar— y 0,8 uno que concede un 20%
+ * menos.
+ *
+ * Sin esto solo se mira la mitad del partido. "Remates del Sassuolo" no
+ * depende solo del Sassuolo: un rival que se encierra y regala el balón
+ * dispara ese número aunque el Sassuolo juegue exactamente igual que siempre.
+ *
+ * Se mide sobre lo que el rival ha concedido en sus propios partidos, que es
+ * un dato suyo y no una suposición a partir de su categoría.
+ */
+function factorDelRival(
+  rival: Equipo,
+  met: { valor: (p: Partido, esLocal: boolean) => number },
+  mediaCompeticion: number,
+): number {
+  if (mediaCompeticion <= 0) return 1;
+
+  const suyos = partidosDelEquipoEnTodas(rival.nombre, rival.bandera)
+    .filter(({ partido }) => partido.estado === 'finalizado')
+    .slice(0, 20);
+  if (suyos.length < 5) return 1;
+
+  // Lo que le hicieron A ÉL: el valor del otro lado del marcador.
+  const concedido =
+    suyos.reduce((a, { partido, esLocal }) => a + met.valor(partido, !esLocal), 0) / suyos.length;
+
+  /*
+   * Se recorta a un ±35%. Un rival recién ascendido con cinco partidos malos
+   * daría un factor de 2 y convertiría cualquier línea en un pick seguro, que
+   * es exactamente el error que estamos arreglando, solo que del otro lado.
+   */
+  return Math.min(1.35, Math.max(0.65, concedido / mediaCompeticion));
+}
+
+/**
+ * La tasa de acierto contando cada partido por lo que se parece al de hoy.
+ *
+ * Devuelve `null` cuando no hay muestra suficiente entre los partidos que se
+ * parecen: en ese caso no se corrige nada y manda el conteo de siempre. Es
+ * preferible quedarse con el dato crudo que fabricar una probabilidad a partir
+ * de dos partidos.
+ */
+function tasaEnContexto(
+  valores: number[],
+  pesos: number[],
+  linea: number,
+  sentido: 'mas' | 'menos',
+): number | null {
+  const acierta = (v: number) => (sentido === 'mas' ? v > linea : v < linea);
+  let aciertos = 0;
+  let total = 0;
+  for (let i = 0; i < Math.min(valores.length, 20); i++) {
+    const peso = pesos[i] ?? 1;
+    if (acierta(valores[i])) aciertos += peso;
+    total += peso;
+  }
+  // Menos de cuatro partidos equivalentes no es una muestra, es una anécdota.
+  return total >= 4 ? aciertos / total : null;
+}
+
+/**
+ * Junta el histórico crudo con lo que dice el contexto de hoy.
+ *
+ * Las dos correcciones tiran en la misma dirección pero por caminos distintos:
+ * el contexto mira qué hizo ESTE equipo contra rivales así, y el factor mira
+ * qué concede ESE rival a cualquiera. Cuando las dos coinciden, la corrección
+ * es fuerte; cuando se contradicen, se anulan entre ellas y queda algo parecido
+ * al dato crudo, que es lo prudente.
+ *
+ * La mezcla es al 50% a propósito, no al 100% de la corregida: el conteo de los
+ * últimos partidos sigue siendo un dato real y no se tira por la borda porque
+ * el rival de hoy sea distinto.
+ */
+function probabilidadAjustada(
+  base: number,
+  enContexto: number | null,
+  factorRival: number,
+  sentido: 'mas' | 'menos',
+): number {
+  let p = enContexto === null ? base : base * 0.5 + enContexto * 0.5;
+
+  /*
+   * Un rival que concede más empuja hacia arriba los "más de" y hunde los
+   * "menos de". El desvío se reparte a la mitad porque el factor ya viene de
+   * una media de veinte partidos y aplicarlo entero exagera.
+   */
+  const desvio = (factorRival - 1) * 0.5;
+  p += sentido === 'mas' ? desvio * p : -desvio * p;
+
+  return Math.min(0.94, Math.max(0.06, p));
+}
+
+/**
+ * Lo que el histórico no cuenta, en una frase, para pegar al argumento.
+ *
+ * Solo habla cuando hay algo que decir: si el rival de hoy se parece a los de
+ * siempre y no concede nada raro, devuelve cadena vacía y el argumento queda
+ * como estaba. Añadir una coletilla a todos los picks es la mejor forma de que
+ * nadie lea ninguna.
+ */
+function notaDeContexto(
+  equipo: Equipo,
+  rival: Equipo,
+  met: { valor: (p: Partido, esLocal: boolean) => number },
+  mediaCompeticion: number,
+  fuerzaHoy: number | null,
+): string {
+  const partes: string[] = [];
+
+  // ¿Es este rival muy distinto de los que viene enfrentando?
+  const suyos = partidosDelEquipoEnTodas(equipo.nombre, equipo.bandera)
+    .filter(({ partido }) => partido.estado === 'finalizado')
+    .slice(0, 10);
+  const fuerzas = suyos
+    .map(({ partido, esLocal }) => fuerzaDe(esLocal ? partido.visitanteId : partido.localId))
+    .filter((f): f is number => f !== null);
+
+  if (fuerzas.length >= 5 && fuerzaHoy !== null) {
+    const media = fuerzas.reduce((a, b) => a + b, 0) / fuerzas.length;
+    const dif = fuerzaHoy - media;
+    if (dif <= -8)
+      partes.push(
+        `${rival.nombre} es más flojo que los rivales que viene enfrentando, así que es probable que domine más de lo normal`,
+      );
+    else if (dif >= 8)
+      partes.push(
+        `${rival.nombre} es más fuerte que sus rivales recientes, así que le costará más que de costumbre`,
+      );
+  }
+
+  // ¿Y este rival concede mucho o poco de esta métrica?
+  const factor = factorDelRival(rival, met, mediaCompeticion);
+  if (factor >= 1.15)
+    partes.push(`${rival.nombre} concede bastante más de lo normal en este apartado`);
+  else if (factor <= 0.85)
+    partes.push(`${rival.nombre} concede bastante menos de lo normal en este apartado`);
+
+  return partes.length ? ` ${partes.join('; y ')}.` : '';
 }
 
 /** Cuenta cuantas veces la serie supera la linea, del mas reciente al mas viejo. */
@@ -374,6 +580,22 @@ export function picksDePartido(
     const suyos = historialDe(equipo);
     if (suyos.length < 6) continue;
 
+    /*
+     * Contra quién juega hoy, y cuánto se le parece cada rival del historial.
+     *
+     * Esto es lo que evita el error del Sassuolo: sus últimos diez partidos
+     * fueron contra rivales de Serie A y hoy juega contra uno de Serie B. Los
+     * partidos contra equipos parecidos al de hoy pesan más, y los
+     * enfrentamientos directos con ese mismo rival pesan el triple.
+     */
+    const rival = equipo.id === local.id ? visitante : local;
+    const fuerzaHoy = fuerzaDe(rival.id) ?? rival.fuerza ?? null;
+    const pesos = suyos.map(({ p, esLocal }) => {
+      const rivalId = esLocal ? p.visitanteId : p.localId;
+      const peso = pesoPorRival(fuerzaDe(rivalId), fuerzaHoy);
+      return rivalId === rival.id ? peso * PESO_ENFRENTAMIENTO : peso;
+    });
+
     for (const met of METRICAS_EQUIPO) {
       const valores = suyos.map(({ p, esLocal }) => met.valor(p, esLocal));
       // El mercado tarifica con la media de la competicion, no con la del equipo.
@@ -387,7 +609,18 @@ export function picksDePartido(
         for (const sentido of ['mas', 'menos'] as const) {
           const ev = evalua(valores, l, sentido);
           if (ev.aciertosL10 < 7) continue;
-          const prob = probabilidad(ev.aciertosL10, ev.aciertosL20, ev.muestraL20);
+          /*
+           * El conteo crudo —8 de 10— sigue siendo el que se enseña: es un
+           * hecho y no se toca. Lo que se corrige es la probabilidad, que
+           * siempre fue una estimación, y con ella la ventaja, que decide si
+           * el pick llega a publicarse.
+           */
+          const prob = probabilidadAjustada(
+            probabilidad(ev.aciertosL10, ev.aciertosL20, ev.muestraL20),
+            tasaEnContexto(valores, pesos, l, sentido),
+            factorDelRival(rival, met, mediaCompeticion),
+            sentido,
+          );
           const id = `${partidoId}-${equipo.id}-${met.clave}-${l}-${sentido}`;
           const mediaPropia = valores.reduce((a, b) => a + b, 0) / Math.max(1, valores.length);
           const pMercado = probMercadoEquipo(met.clave, l, mediaCompeticion, mediaPropia);
@@ -404,7 +637,12 @@ export function picksDePartido(
             sujetoId: equipo.id,
             titulo: equipo.nombre,
             contexto,
-            argumento: `${equipo.nombre} ${sentido === 'mas' ? 'superó' : 'no llegó a'} ${coma(l)} ${met.mercado} en ${ev.aciertosL10} de sus últimos 10 partidos (${coma(ev.media)} de media).`,
+            argumento:
+              `${equipo.nombre} ${sentido === 'mas' ? 'superó' : 'no llegó a'} ${coma(l)} ${met.mercado} en ${ev.aciertosL10} de sus últimos 10 partidos (${coma(ev.media)} de media).` +
+              // Y si el rival de hoy cambia el cuadro, se dice. Un ajuste que
+              // mueve la probabilidad sin explicarse es una caja negra, y por
+              // una caja negra no se paga.
+              notaDeContexto(equipo, rival, met, mediaCompeticion, fuerzaHoy),
             familia: met.familia,
             mercado: `${sentido === 'mas' ? 'Más' : 'Menos'} de ${linea(l)} ${met.mercado}`,
             metrica: met.clave,
