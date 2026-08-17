@@ -76,7 +76,7 @@ const PARCIALES: Oferta[] = [
 ];
 
 const VENTAJAS: { icono: Parameters<typeof Icono>[0]['nombre']; texto: string }[] = [
-  { icono: 'rayo', texto: 'Todos los picks con ventaja de cada partido' },
+  { icono: 'rayo', texto: 'Todos los picks donde el modelo ve ventaja' },
   { icono: 'usuario', texto: 'Jugadores y equipos de las ligas bloqueadas' },
   // Se cuentan las descargadas, no el catálogo entero: prometer 61 cuando
   // la mitad no tiene datos es vender humo.

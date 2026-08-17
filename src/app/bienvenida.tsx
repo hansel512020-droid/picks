@@ -80,13 +80,31 @@ function EjemploPick() {
         racha={[true, true, true, true, true, true, false, true, true, true]}
         porcentaje={90}
       />
+      {/* El partido y el jugador son inventados, igual que el resto de la maqueta. */}
+      <Txt v="mini" color={C.texto3} style={{ textAlign: 'center' }}>
+        Ejemplo ilustrativo
+      </Txt>
     </Tarjeta>
   );
 }
 
+/*
+ * Estos números son inventados y hay que decirlo.
+ *
+ * Son la maqueta de la pantalla de Rendimiento, pero puestos en la bienvenida
+ * sin más se leen como lo que da la app: "82,1% de aciertos" y "34,7% de
+ * retorno" es una promesa de rentabilidad con dos decimales. Nadie puede
+ * prometer eso, y prometerlo es de las cosas que hacen que una pasarela cierre
+ * una cuenta y que un cliente pida el dinero de vuelta con razón.
+ *
+ * La maqueta se queda —enseñar la pantalla vacía no cuenta nada— pero rotulada.
+ */
 function EjemploRendimiento() {
   return (
     <Tarjeta style={{ padding: E.lg, gap: E.md }}>
+      <View style={{ alignItems: 'center' }}>
+        <Insignia texto="EJEMPLO · NO SON RESULTADOS REALES" color={C.texto3} fondo={C.carta2} />
+      </View>
       <View
         style={{
           flexDirection: 'row',
@@ -114,23 +132,18 @@ function EjemploRendimiento() {
           </Txt>
         </View>
       </View>
-      <View
-        style={{
-          flexDirection: 'row',
-          justifyContent: 'space-between',
-          paddingHorizontal: E.md,
-          paddingVertical: 12,
-          borderRadius: R.md,
-          backgroundColor: C.verdeTenue,
-        }}
-      >
-        <Txt v="cuerpo" color={C.verde}>
-          Retorno de inversión
-        </Txt>
-        <Txt v="cuerpoFuerte" color={C.verde}>
-          34.7%
-        </Txt>
-      </View>
+      {/*
+        Aquí había un "Retorno de inversión 34.7%" en verde.
+
+        Fuera. Un retorno de inversión con un decimal, en la primera pantalla
+        que ve alguien que aún no ha pagado, es una promesa de rentabilidad: se
+        lee como lo que gana quien usa la app. Nadie puede prometer eso, ni con
+        el mejor modelo, porque el resultado de un partido no lo decide nadie.
+
+        Y no es solo cuestión de imagen: prometer rendimientos convierte esto en
+        un producto financiero a ojos de cualquier pasarela de pago, y es motivo
+        de devolución para cualquier cliente que no vea ese número.
+      */}
     </Tarjeta>
   );
 }
@@ -176,7 +189,7 @@ function cuantasCompeticiones(): number {
 }
 
 function resumen(): { icono: NombreIcono; texto: string }[] { return [
-  { icono: 'rayo', texto: 'Picks con ventaja estadística' },
+  { icono: 'rayo', texto: 'Picks donde el modelo ve ventaja' },
   { icono: 'filtro', texto: 'Filtros avanzados' },
   { icono: 'usuario', texto: 'Qué elige la comunidad' },
   { icono: 'grafico', texto: 'Tu rendimiento partido a partido' },
@@ -265,7 +278,7 @@ function diapositivas(): Diapositiva[] { return [
   {
     titulo: 'TU RENDIMIENTO',
     destacado: 'PARTIDO A PARTIDO',
-    detalle: 'Consulta tu porcentaje de acierto, picks guardados y actividad',
+    detalle: 'Consulta tu porcentaje de acierto, picks guardados y actividad. Los números del ejemplo son inventados.',
     contenido: <EjemploRendimiento />,
   },
   {
