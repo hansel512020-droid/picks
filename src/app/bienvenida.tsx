@@ -1,5 +1,5 @@
 import { router } from 'expo-router';
-import { useRef, useState } from 'react';
+import { useMemo, useRef, useState } from 'react';
 import {
   ScrollView,
   Text,
@@ -14,6 +14,7 @@ import { Icono, type NombreIcono } from '@/componentes/iconos';
 import { Simbolo } from '@/componentes/marca';
 import { BarraL10, FilaMercado } from '@/componentes/pick';
 import { COMPETICIONES } from '@/datos/competiciones';
+import { competicionesImportadas } from '@/datos/importado';
 import { useTienda } from '@/estado/tienda';
 import { C, E, R, anchoLienzo } from '@/tema';
 
@@ -158,16 +159,33 @@ function EjemploCompeticiones() {
   );
 }
 
-const RESUMEN: { icono: NombreIcono; texto: string }[] = [
+/**
+ * Cuántas competiciones se anuncian.
+ *
+ * Las que tienen datos descargados, no las que hay en el catálogo. Anunciaba 61
+ * —todas las que la app sabe dibujar, incluidos el Mundial y la Eurocopa, que
+ * no se juegan ahora— mientras enseñaba 36. Es lo primero que lee alguien que
+ * va a pagar, y prometer 25 competiciones que no están es una mala forma de
+ * empezar a cobrar.
+ *
+ * Antes de que lleguen los datos no hay nada descargado, así que se cae al
+ * catálogo; en cuanto llegan, el árbol se repinta entero y sale el número real.
+ */
+function cuantasCompeticiones(): number {
+  return competicionesImportadas().length || COMPETICIONES.length;
+}
+
+function resumen(): { icono: NombreIcono; texto: string }[] { return [
   { icono: 'rayo', texto: 'Picks con ventaja estadística' },
   { icono: 'filtro', texto: 'Filtros avanzados' },
   { icono: 'usuario', texto: 'Qué elige la comunidad' },
   { icono: 'grafico', texto: 'Tu rendimiento partido a partido' },
-  { icono: 'mundo', texto: `+${COMPETICIONES.length} competiciones` },
-  { icono: 'moneda', texto: 'Cuotas y estadísticas en vivo' },
+  { icono: 'mundo', texto: `+${cuantasCompeticiones()} competiciones` },
+  { icono: 'moneda', texto: 'Precios y estadísticas en vivo' },
 ];
+}
 
-const DIAPOSITIVAS: Diapositiva[] = [
+function diapositivas(): Diapositiva[] { return [
   {
     titulo: 'CONVIERTE DATOS',
     destacado: 'EN DECISIONES',
@@ -181,7 +199,7 @@ const DIAPOSITIVAS: Diapositiva[] = [
     contenido: (
       <Tarjeta style={{ padding: E.lg, gap: E.md }}>
         {[
-          ['Cuotas', 'Compara 10 casas de apuestas'],
+          ['Precios', 'Compara 10 fuentes del mercado'],
           ['Insights', 'Picks, alineaciones y lesiones'],
           ['Duelo', 'Cara a cara de los dos equipos'],
         ].map(([t, d]) => (
@@ -251,7 +269,7 @@ const DIAPOSITIVAS: Diapositiva[] = [
     contenido: <EjemploRendimiento />,
   },
   {
-    titulo: `${COMPETICIONES.length}`,
+    titulo: `${cuantasCompeticiones()}`,
     destacado: 'COMPETICIONES.',
     detalle: 'Desde la Champions hasta la Libertadores, cubrimos todas las ligas que sigues.',
     contenido: <EjemploCompeticiones />,
@@ -262,7 +280,7 @@ const DIAPOSITIVAS: Diapositiva[] = [
     detalle: 'Picks con valor. Análisis en segundos. La comunidad. Tu rendimiento.',
     contenido: (
       <View style={{ gap: E.sm }}>
-        {RESUMEN.map((r) => (
+        {resumen().map((r) => (
           <View
             key={r.texto}
             style={{
@@ -298,12 +316,20 @@ const DIAPOSITIVAS: Diapositiva[] = [
     ),
   },
 ];
+}
 
 export default function Bienvenida() {
   const { terminaOnboarding } = useTienda();
   const insets = useSafeAreaInsets();
   const [pagina, setPagina] = useState(0);
   const scroll = useRef<ScrollView>(null);
+
+  /*
+   * Se arman al pintar, no al cargar el módulo, porque el número de
+   * competiciones sale de los datos y esos llegan después. Cuando llegan, el
+   * árbol entero se repinta y esto se rehace con la cifra buena.
+   */
+  const DIAPOSITIVAS = useMemo(diapositivas, []);
 
   /*
    * Cada diapositiva ocupa el ancho del lienzo, no el de la ventana. En un
@@ -412,7 +438,7 @@ export default function Bienvenida() {
         </View>
         <Boton ancho texto={ultima ? 'Empezar' : 'Siguiente'} onPress={avanza} />
         <View style={{ alignItems: 'center' }}>
-          <Insignia texto="SOLO MAYORES DE 18 AÑOS · JUEGA CON RESPONSABILIDAD" />
+          <Insignia texto="SOLO MAYORES DE 18 AÑOS · CONTENIDO INFORMATIVO" />
         </View>
       </View>
     </View>

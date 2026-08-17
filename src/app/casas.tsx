@@ -16,7 +16,7 @@ export default function Casas() {
 
   return (
     <View style={{ flex: 1, backgroundColor: C.fondo, paddingTop: insets.top + E.sm }}>
-      <CabeceraAtras titulo="Casa de apuestas" subtitulo="Las cuotas de la app usarán su margen" />
+      <CabeceraAtras titulo="Fuente de precios" subtitulo="Los precios de la app usarán su margen" />
 
       <ScrollView contentContainerStyle={{ paddingBottom: E.xxxl, gap: E.lg }}>
         <Tarjeta style={{ marginHorizontal: E.lg, overflow: 'hidden' }}>

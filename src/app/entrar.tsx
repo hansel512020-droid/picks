@@ -386,7 +386,7 @@ export default function Entrar() {
       </View>
 
       <View style={{ alignItems: 'center', marginTop: 'auto', paddingBottom: insets.bottom + E.lg }}>
-        <Insignia texto="SOLO MAYORES DE 18 AÑOS · JUEGA CON RESPONSABILIDAD" />
+        <Insignia texto="SOLO MAYORES DE 18 AÑOS · CONTENIDO INFORMATIVO" />
       </View>
     </View>
   );

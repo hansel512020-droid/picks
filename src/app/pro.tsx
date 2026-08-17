@@ -84,7 +84,7 @@ const VENTAJAS: { icono: Parameters<typeof Icono>[0]['nombre']; texto: string }[
   { icono: 'filtro', texto: 'Filtros avanzados y cortes por contexto' },
   { icono: 'camiseta', texto: 'Alineaciones probables, bajas y sustituciones' },
   { icono: 'grafico', texto: '30+ métricas por jugador y partido' },
-  { icono: 'moneda', texto: 'Comparador de cuotas entre 10 casas' },
+  { icono: 'moneda', texto: 'Comparador de precios entre 10 fuentes del mercado' },
 ];
 
 function TarjetaPlan({

@@ -105,10 +105,11 @@ export default function Metodo() {
             gap: 4,
           }}
         >
-          <Txt v="pequenoFuerte">Juega con responsabilidad</Txt>
+          <Txt v="pequenoFuerte">Uso responsable</Txt>
           <Txt v="mini" color={C.texto3}>
-            Solo para mayores de 18 años. Apuesta únicamente lo que puedas permitirte perder y
-            establece límites antes de empezar.
+            Solo para mayores de 18 años. Esta app no acepta apuestas ni depósitos. Si usas esta
+            información para apostar en otro sitio, arriesga solo lo que puedas permitirte perder y
+            ponte un límite antes de empezar.
           </Txt>
         </View>
       </ScrollView>
