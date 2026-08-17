@@ -108,7 +108,7 @@ function Interruptor({
  * cobraba de verdad.
  */
 /** A dónde escribe el usuario cuando algo falla. */
-const CORREO_CONTACTO = 'werxter1@proton.me';
+const CORREO_CONTACTO = 'PicksGolden@proton.me';
 
 const NOMBRES_PLAN: Record<string, string> = {
   semanal: 'Pro · Semanal',
