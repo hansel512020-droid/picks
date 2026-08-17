@@ -224,6 +224,20 @@ export function Angulos({
                */
               const aFavor =
                 sentido === 'menos' || sentido === 'no' ? linea - media : media - linea;
+
+              /*
+               * El margen, en color, igual que los porcentajes.
+               *
+               * Se mide contra la línea y no en bruto: sobrarle 0,5 en una
+               * línea de 0,5 es el doble de lo que hace falta, y sobrarle 0,5
+               * en una de 14,5 es ir pegado. El mismo número, dos situaciones
+               * distintas, y sin dividir no se distinguen.
+               */
+              const holgura = linea > 0 ? aFavor / linea : aFavor;
+              const colorMargen = holgura >= 0.25 ? C.verde : holgura > 0.05 ? C.ambar : C.rojo;
+              const juicio =
+                holgura >= 0.25 ? 'margen holgado' : holgura > 0.05 ? 'va justo' : 'sin margen';
+
               return (
                 <View style={{ gap: 3 }}>
                   {/*
@@ -231,19 +245,39 @@ export function Angulos({
                     todo el bloque: si el margen contra la línea es holgado, un
                     partido flojo no tumba el pick.
                   */}
-                  <Text style={{ ...T.pequeno, color: C.texto }}>
+                  <Text style={{ ...T.pequeno, color: C.texto2 }}>
                     Media: {media.toFixed(1)} por partido · la línea está en {linea}
                   </Text>
-                  <Text
+                  <View
                     style={{
-                      ...T.pequenoFuerte,
-                      color: aFavor > 0 ? C.verde : C.rojo,
+                      flexDirection: 'row',
+                      alignItems: 'center',
+                      gap: 8,
+                      paddingVertical: 5,
+                      paddingHorizontal: 8,
+                      borderRadius: R.sm,
+                      backgroundColor:
+                        colorMargen === C.verde
+                          ? C.verdeTenue
+                          : colorMargen === C.ambar
+                            ? C.ambarTenue
+                            : C.rojoTenue,
                     }}
                   >
-                    {aFavor > 0
-                      ? `Le sobran ${Math.abs(aFavor).toFixed(1)} de margen`
-                      : `Le faltan ${Math.abs(aFavor).toFixed(1)} para la línea`}
-                  </Text>
+                    <View
+                      style={{
+                        width: 8,
+                        height: 8,
+                        borderRadius: 4,
+                        backgroundColor: colorMargen,
+                      }}
+                    />
+                    <Text style={{ ...T.pequenoFuerte, color: colorMargen }}>
+                      {aFavor > 0
+                        ? `Le sobran ${aFavor.toFixed(1)} — ${juicio}`
+                        : `Le faltan ${Math.abs(aFavor).toFixed(1)} para la línea`}
+                    </Text>
+                  </View>
                 </View>
               );
             })()
