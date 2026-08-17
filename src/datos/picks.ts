@@ -316,14 +316,32 @@ const VENTAJA_MINIMA_MENOS = 25;
  */
 const FAMILIAS_APAGADAS = new Set<Familia>(['faltas']);
 
-function admisible(
-  cuota: number,
-  ventaja: number,
-  sentido: 'mas' | 'menos',
-  familia: Familia,
-): boolean {
-  if (FAMILIAS_APAGADAS.has(familia)) return false;
+/**
+ * Si el pick existe siquiera.
+ *
+ * Listón bajo: sirve para que la ficha de un partido tenga algo que enseñar.
+ * Quien busca el Necaxa–León quiere ver análisis de ESE partido, y una pantalla
+ * vacía no le ayuda a nada.
+ */
+function admisible(cuota: number, ventaja: number, sentido: 'mas' | 'menos'): boolean {
   if (cuota < 1.18 || cuota > 6) return false;
+  return ventaja >= (sentido === 'menos' ? 11 : 6);
+}
+
+/**
+ * Si el pick se recomienda de verdad.
+ *
+ * Este es el listón que sale del backtest, y el que separa lo que la app pone
+ * en la portada de lo que solo enseña si vas a buscarlo. Los que no lo pasan
+ * siguen existiendo en la ficha del partido, marcados como lo que son: una
+ * tendencia sin ventaja suficiente sobre el precio.
+ *
+ * La diferencia importa para poder decir la verdad: el 25,8% de retorno medido
+ * es el de los recomendados. Si se mezclaran, ese número dejaría de aplicar a
+ * nada concreto.
+ */
+function recomendable(ventaja: number, sentido: 'mas' | 'menos', familia: Familia): boolean {
+  if (FAMILIAS_APAGADAS.has(familia)) return false;
   return ventaja >= (sentido === 'menos' ? VENTAJA_MINIMA_MENOS : VENTAJA_MINIMA);
 }
 
@@ -535,7 +553,7 @@ export function picksDePartido(
           const pMercado = probMercadoJugador(met.clave, l, jug.posicion, jug.nivel, mediaLarga);
           const cuota = precioDe(sentido === 'mas' ? pMercado : 1 - pMercado, casaId, id);
           const ventaja = Number(((prob - 1 / cuota) * 100).toFixed(1));
-          if (!admisible(cuota, ventaja, sentido, met.familia)) continue;
+          if (!admisible(cuota, ventaja, sentido)) continue;
 
           const casa = casaId;
           const nombreMercado = `${sentido === 'mas' ? 'Más' : 'Menos'} de ${linea(l)} ${met.mercado}`;
@@ -568,6 +586,7 @@ export function picksDePartido(
             cuota,
             casa,
             precioReal: false,
+            recomendado: recomendable(ventaja, sentido, met.familia),
             racha: ev.racha,
             aciertosL5: ev.aciertosL5,
             aciertosL10: ev.aciertosL10,
@@ -687,7 +706,7 @@ export function picksDePartido(
           const cuota = precioDe(sentido === 'mas' ? pMercado : 1 - pMercado, casaId, id);
           const ventaja = Number(((prob - 1 / cuota) * 100).toFixed(1));
           const casa = casaId;
-          if (!admisible(cuota, ventaja, sentido, met.familia)) continue;
+          if (!admisible(cuota, ventaja, sentido)) continue;
 
           picks.push({
             id,
@@ -711,6 +730,7 @@ export function picksDePartido(
             cuota,
             casa,
             precioReal: false,
+            recomendado: recomendable(ventaja, sentido, met.familia),
             racha: ev.racha,
             aciertosL5: ev.aciertosL5,
             aciertosL10: ev.aciertosL10,
@@ -759,7 +779,7 @@ export function picksDePartido(
           const cuota = precioDe(sentido === 'mas' ? pMercado : 1 - pMercado, casaId, id);
           const ventaja = Number(((prob - 1 / cuota) * 100).toFixed(1));
           const casa = casaId;
-          if (!admisible(cuota, ventaja, sentido, met.familia)) continue;
+          if (!admisible(cuota, ventaja, sentido)) continue;
 
           picks.push({
             id,
@@ -778,6 +798,7 @@ export function picksDePartido(
             cuota,
             casa,
             precioReal: false,
+            recomendado: recomendable(ventaja, sentido, met.familia),
             racha: ev.racha,
             aciertosL5: ev.aciertosL5,
             aciertosL10: ev.aciertosL10,
@@ -850,6 +871,12 @@ export function picksDePartido(
         // El 1X2 sí sale de una cuota publicada: por eso hay picks de 1X2
         // solo cuando el partido trae precios.
         precioReal: true,
+        /*
+         * El 1X2 se recomienda con el mismo liston, pero su ventaja es la mas
+         * fiable de todas: se mide contra un precio que alguien publico, no
+         * contra uno que calcula la propia app.
+         */
+        recomendado: ventaja >= VENTAJA_MINIMA,
         racha: gano,
         aciertosL5: gano.slice(0, 5).filter(Boolean).length,
         aciertosL10: gano.filter(Boolean).length,
@@ -992,7 +1019,19 @@ export function picksDeCompeticion(
      * tan bajos que estrangulaban la lista antes de que actuara el filtro de
      * calidad, que es el que de verdad debe decidir que sale.
      */
-    for (const pick of picksDePartido(competicionId, p.id, casaId, libres).slice(0, 10)) {
+    /*
+     * A la portada solo van los recomendados.
+     *
+     * La ficha de un partido enseña también los que no llegan al corte, para
+     * que quien busca ese partido concreto encuentre análisis. Pero la portada
+     * es lo que la app pone delante sin que nadie lo pida, y ahí solo debe
+     * haber lo que el backtest respalda. Mezclarlos haría que el 25,8% de
+     * retorno medido no aplicara a nada que el usuario pueda distinguir.
+     */
+    const recomendados = picksDePartido(competicionId, p.id, casaId, libres)
+      .filter((x) => x.recomendado)
+      .slice(0, 10);
+    for (const pick of recomendados) {
       const delSujeto = porSujetoPortada.get(pick.sujetoId) ?? 0;
       if (delSujeto >= 2) continue;
       const mercado = `${pick.metrica}|${pick.sentido}`;

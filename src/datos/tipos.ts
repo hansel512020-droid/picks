@@ -247,6 +247,14 @@ export interface Pick {
    * lugar de colgarle el sello de una casa de apuestas.
    */
   precioReal?: boolean;
+  /**
+   * Si la app lo recomienda o solo lo enseña.
+   *
+   * Los recomendados son los que pasan el corte de ventaja que salio de medir
+   * el modelo contra 3.446 partidos. El resto existe para que la ficha de un
+   * partido no salga vacia, pero no va a la portada ni cuenta como consejo.
+   */
+  recomendado: boolean;
   /** Historial de los ultimos 10: true cuando el pick habria acertado. */
   racha: boolean[];
   aciertosL5: number;
