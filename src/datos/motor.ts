@@ -213,9 +213,9 @@ function creaPartido(
       visitante: estadisticasEquipo(golesVisitante, visitante.fuerza, local.fuerza, false, rnd),
     },
     cuotas: {
-      local: porCasa.bet365.local,
-      empate: porCasa.bet365.empate,
-      visitante: porCasa.bet365.visitante,
+      local: porCasa.medio.local,
+      empate: porCasa.medio.empate,
+      visitante: porCasa.medio.visitante,
       mas25: precio(m.pMas25, 1.055, rnd),
       menos25: precio(m.pMenos25, 1.055, rnd),
       ambosMarcan: precio(m.pAmbos, 1.055, rnd),

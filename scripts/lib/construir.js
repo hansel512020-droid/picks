@@ -157,7 +157,19 @@ function equiposDelHistorial(competicionId, partidos, bandera) {
 
 // -------------------------------------------------------------- partidos
 
-const CASAS_APP = ['bet365', 'betano', '1xbet', 'betfair', 'pinnacle', 'bwin', 'williamhill', 'codere', 'betsson', 'rushbet'];
+/*
+ * Perfiles de margen, no marcas.
+ *
+ * Aqui habia diez nombres de casas reales y a cada uno se le derivaba un precio
+ * a partir del unico que publicaba la fuente. La app los enseniaba en una tabla
+ * como si cada casa hubiera dado el suyo: en un Necaxa-Leon el dato real era de
+ * DraftKings y salian diez casas con precios que ninguna habia publicado.
+ *
+ * Derivar el precio con distintos margenes es util —enseña a que precio saldria
+ * la misma jugada en un mercado mas o menos ajustado— pero hay que llamarlo por
+ * su nombre. Las marcas se quedan solo para las cuotas que vienen de esa casa.
+ */
+const PERFILES = { ajustado: 1.025, medio: 1.055, amplio: 1.08 };
 
 /**
  * Completa las casas que Football-Data no publica derivandolas de las que si,
@@ -172,9 +184,8 @@ function cuotasCompletas(cuotas) {
    * miraban las diez y la lista salia vacia aunque el precio fuera real, con
    * lo que la app no podia distinguir un precio de mercado de uno derivado.
    */
-  const reales = Object.keys(cuotas.porCasa ?? {}).filter(
-    (c) => CASAS_APP.includes(c) || c !== 'media',
-  );
+  // Todo lo que venia de la fuente es real. Lo derivado se aniade despues.
+  const reales = Object.keys(cuotas.porCasa ?? {}).filter((c) => c !== 'media');
   /*
    * La casa de la que sale el precio de partida, y su nombre. Hace falta el
    * nombre porque el resumen del partido tiene que enseñar ESE precio y no uno
@@ -189,21 +200,16 @@ function cuotasCompletas(cuotas) {
   const referencia = cuotas.porCasa?.[nombreReferencia];
   if (!referencia) return null;
 
-  const porCasa = {};
-  const margenes = {
-    bet365: 1.055, betano: 1.06, '1xbet': 1.07, betfair: 1.03, pinnacle: 1.025,
-    bwin: 1.065, williamhill: 1.06, codere: 1.075, betsson: 1.07, rushbet: 1.08,
-  };
+  // Las que publicaron precio se copian tal cual, con su nombre. Son el dato.
+  const porCasa = { ...(cuotas.porCasa ?? {}) };
+
   // Margen implicito de la casa de referencia.
   const suma = 1 / referencia.local + 1 / referencia.empate + 1 / referencia.visitante;
 
-  for (const casa of CASAS_APP) {
-    if (cuotas.porCasa?.[casa]) {
-      porCasa[casa] = cuotas.porCasa[casa];
-      continue;
-    }
-    const factor = suma / margenes[casa];
-    porCasa[casa] = {
+  // Y encima, el mismo precio a distintos margenes. Sin nombre de nadie.
+  for (const [perfil, margen] of Object.entries(PERFILES)) {
+    const factor = suma / margen;
+    porCasa[perfil] = {
       local: Number((referencia.local * factor).toFixed(2)),
       empate: Number((referencia.empate * factor).toFixed(2)),
       visitante: Number((referencia.visitante * factor).toFixed(2)),
@@ -351,7 +357,7 @@ function partidosDeHistorial(competicionId, historial, proximos, equipos) {
 
 function cuotasVacias() {
   const porCasa = {};
-  for (const casa of CASAS_APP) porCasa[casa] = { local: 0, empate: 0, visitante: 0 };
+  for (const perfil of Object.keys(PERFILES)) porCasa[perfil] = { local: 0, empate: 0, visitante: 0 };
   return {
     local: 0, empate: 0, visitante: 0, mas25: 0, menos25: 0,
     ambosMarcan: 0, ambosNoMarcan: 0, porCasa, casasReales: [],

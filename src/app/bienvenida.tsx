@@ -73,7 +73,7 @@ function EjemploPick() {
       <FilaMercado
         mercado="Más de 0.5 remates a puerta"
         cuota={1.22}
-        casaId="bet365"
+        casaId="medio"
         ventaja={24}
       />
       <BarraL10
@@ -199,7 +199,7 @@ function diapositivas(): Diapositiva[] { return [
     contenido: (
       <Tarjeta style={{ padding: E.lg, gap: E.md }}>
         {[
-          ['Precios', 'Compara 10 fuentes del mercado'],
+          ['Precios', 'Precios de mercado y márgenes'],
           ['Insights', 'Picks, alineaciones y lesiones'],
           ['Duelo', 'Cara a cara de los dos equipos'],
         ].map(([t, d]) => (

@@ -19,7 +19,7 @@ import { Escudo } from '@/componentes/imagen';
 import { CabeceraAtras, FilaDato, Pestanas, Segmentado, TiraChips } from '@/componentes/navegacion';
 import { SelloCasa, TarjetaPick } from '@/componentes/pick';
 import { alineacionesDelPartido, type OnceEquipo } from '@/datos/alineaciones';
-import { CASAS } from '@/datos/casas';
+import { CASAS, casa as casaPorId } from '@/datos/casas';
 import { competicion } from '@/datos/competiciones';
 import { extrasDelPartido, type Extras } from '@/datos/penales';
 import { alineacion, lesiones, temporada } from '@/datos/motor';
@@ -135,6 +135,29 @@ export default function PantallaPartido() {
   }
 
   const { partido, local, visitante, posLocal, posVisitante, jugadores } = datos;
+
+  /*
+   * Las filas de la tabla de precios, en dos bloques y en este orden.
+   *
+   * Primero las casas que publicaron el precio de verdad, con su nombre.
+   * Después el mismo precio llevado a distintos márgenes, sin nombre de nadie.
+   *
+   * La tabla enseñaba diez marcas con un precio cada una y solo había un dato
+   * real: los otros nueve se derivaban del primero. Quien leía "Pinnacle 2.58"
+   * y se iba a Pinnacle no encontraba ese precio.
+   */
+  const filasDePrecio = (() => {
+    const porCasa = partido.cuotas?.porCasa ?? {};
+    const reales = (partido.cuotas?.casasReales ?? [])
+      .filter((id) => porCasa[id])
+      .map((id) => ({ casa: casaPorId(id), c: porCasa[id] }));
+    const estimados = CASAS.filter((x) => porCasa[x.id]).map((x) => ({
+      casa: x,
+      c: porCasa[x.id],
+    }));
+    return [...reales, ...estimados];
+  })();
+  const hayReales = (partido.cuotas?.casasReales ?? []).length > 0;
   // Lo que ESPN diga ahora mismo pesa más que la foto del archivo importado.
   const estado = enDirecto?.estado ?? partido.estado;
   const golesLocal = enDirecto?.golesLocal ?? partido.golesLocal;
@@ -518,16 +541,15 @@ export default function PantallaPartido() {
                 }}
               >
                 <Txt v="mini" color={C.texto3} style={{ flex: 1 }}>
-                  CASA
+                  FUENTE
                 </Txt>
-                {['1', 'X', '2'].map((t) => (
+                {['1', '×', '2'].map((t) => (
                   <Txt key={t} v="mini" color={C.texto3} style={{ width: 54, textAlign: 'center' }}>
                     {t}
                   </Txt>
                 ))}
               </View>
-              {CASAS.map((casa, i) => {
-                const c = partido.cuotas.porCasa[casa.id];
+              {filasDePrecio.map(({ casa, c }, i) => {
                 const mejor = Math.max(c.local, c.empate, c.visitante);
                 return (
                   <View key={casa.id}>
@@ -563,6 +585,20 @@ export default function PantallaPartido() {
                 );
               })}
             </Tarjeta>
+
+            {/*
+              Quién dijo qué, en una línea.
+
+              Sin esto la tabla vuelve a mentir por omisión: las filas de arriba
+              son precios publicados y las de abajo son cuentas nuestras, y a
+              simple vista se leen igual. Quien va a arriesgar dinero con esos
+              números tiene derecho a saber cuál puede ir a buscar.
+            */}
+            <Txt v="mini" color={C.texto3} style={{ paddingHorizontal: E.sm }}>
+              {hayReales
+                ? 'Arriba, precios publicados por su fuente. Debajo, el mismo precio llevado a distintos márgenes de mercado: son cálculos nuestros, no ofertas de nadie.'
+                : 'Nadie ha publicado precio para este partido todavía. Lo que ves son estimaciones a distintos márgenes de mercado, calculadas por la app.'}
+            </Txt>
 
             <Tarjeta style={{ padding: E.md }}>
               <Txt v="cuerpoFuerte" style={{ marginBottom: E.sm }}>
