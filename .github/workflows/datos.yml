@@ -227,9 +227,17 @@ jobs:
             fi
           }
 
-          subir importado.json.gz         importado.json.gz application/gzip
-          # Y el normal, para los clientes que no sepan descomprimir.
-          subir src/datos/importado.json  importado.json    application/json
+          subir importado.json.gz importado.json.gz application/gzip
+
+          # El archivo sin comprimir NO se sube. Son 74 MB y Supabase rechaza
+          # todo lo que pase de 50: devuelve 413 y tumba el trabajo entero
+          # cuando el comprimido, que es el que de verdad usa la app, ya había
+          # subido bien.
+          #
+          # Tampoco se pierde nada. Ningún cliente debería bajarse 74 MB
+          # pudiendo bajar 4, y quien no sepa descomprimir se queda con los
+          # datos que vienen dentro de la app: viejos, pero suficientes para
+          # que abra y se vea algo.
 
       - name: Comprobar que se sirve
         env:

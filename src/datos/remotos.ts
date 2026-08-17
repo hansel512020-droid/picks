@@ -37,8 +37,12 @@ const RUTA_GZ = `${RUTA}.gz`;
  * que el navegador no lo descomprime solo: hay que hacerlo aquí.
  *
  * `DecompressionStream` existe en los navegadores modernos, pero no en todas
- * partes. Donde no esté, se baja el archivo sin comprimir: pesa mucho más,
- * pero funciona, y es mejor que dejar la app sin datos por ahorrar megas.
+ * partes. Donde no esté se intenta el archivo sin comprimir, que **puede no
+ * existir**: pesa 74 MB y el servidor no admite tanto, así que solo estará ahí
+ * si alguien lo subió a mano alguna vez. Si no está, esto devuelve null y la
+ * app se queda con lo guardado o con los datos que trae dentro. Eso es
+ * deliberado: quedarse con resultados de ayer es mejor que una pantalla vacía,
+ * y desde luego mejor que tragarse 74 MB en el móvil.
  */
 async function bajaArchivo(): Promise<string | null> {
   if (typeof DecompressionStream !== 'undefined') {
