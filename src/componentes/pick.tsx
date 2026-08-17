@@ -89,9 +89,12 @@ export function Angulos({
                 overflow: 'hidden',
               }}
             >
-              <View
-                style={{ width: `${porcentaje}%`, height: '100%', backgroundColor: '#3C424B' }}
-              />
+              {/*
+                La barra va del color del porcentaje, no en gris. Con el gris
+                había que leer el número para saber si el dato era bueno; así el
+                bloque entero se juzga de un vistazo y el número solo confirma.
+              */}
+              <View style={{ width: `${porcentaje}%`, height: '100%', backgroundColor: color }} />
             </View>
             <Text
               style={{ ...T.etiqueta, color, width: 42, textAlign: 'right', fontWeight: '800' }}
