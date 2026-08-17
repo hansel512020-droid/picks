@@ -49,6 +49,48 @@ jobs:
     timeout-minutes: 240
 
     steps:
+      # Lo primero, antes de gastar tres cuartos de hora importando: comprobar
+      # que están las claves para subir. Descubrirlo al final significa esperar
+      # toda la importación para que te digan que falta un secreto, y volver a
+      # esperarla entera después de ponerlo.
+      #
+      # Nunca imprime el valor. Solo si está y cuántos caracteres tiene, que
+      # basta para detectar el error clásico: pegar la clave a medias.
+      - name: Comprobar las claves antes de empezar
+        env:
+          SUPABASE_URL: ${{ secrets.SUPABASE_URL }}
+          SUPABASE_SERVICE_ROLE_KEY: ${{ secrets.SUPABASE_SERVICE_ROLE_KEY }}
+        run: |
+          set -uo pipefail
+          FALTA=0
+          if [ -z "${SUPABASE_URL:-}" ]; then
+            echo "::error::Falta SUPABASE_URL"; FALTA=1
+          else
+            echo "SUPABASE_URL presente (${#SUPABASE_URL} caracteres)"
+          fi
+          if [ -z "${SUPABASE_SERVICE_ROLE_KEY:-}" ]; then
+            echo "::error::Falta SUPABASE_SERVICE_ROLE_KEY"; FALTA=1
+          else
+            echo "SUPABASE_SERVICE_ROLE_KEY presente (${#SUPABASE_SERVICE_ROLE_KEY} caracteres)"
+          fi
+          if [ "$FALTA" = "1" ]; then
+            echo "Settings -> Secrets and variables -> Actions -> Repository secrets"
+            exit 1
+          fi
+
+          # Y que la clave sirva de verdad, no solo que exista. Una copiada a
+          # medias o de otro proyecto pasa la prueba de arriba y revienta al
+          # final. Esto lo caza ahora, en un segundo.
+          CODIGO=$(curl -sS -o /dev/null -w '%{http_code}' \
+            "$SUPABASE_URL/storage/v1/bucket/datos" \
+            -H "Authorization: Bearer $SUPABASE_SERVICE_ROLE_KEY")
+          echo "Supabase responde $CODIGO al preguntar por el almacén"
+          if [ "$CODIGO" != "200" ]; then
+            echo "::error::Las claves no sirven para escribir en Supabase (HTTP $CODIGO)"
+            exit 1
+          fi
+          echo "Claves correctas. Adelante con la importación."
+
       - uses: actions/checkout@v4
 
       - uses: actions/setup-node@v4
