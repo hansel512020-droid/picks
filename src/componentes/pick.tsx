@@ -146,12 +146,12 @@ export function Angulos({
         const color = porcentaje >= 70 ? C.verde : porcentaje >= 50 ? C.ambar : C.rojo;
         return (
           <View key={de} style={{ flexDirection: 'row', alignItems: 'center', gap: 8 }}>
-            <View
-              style={{ width: 7, height: 7, borderRadius: 4, backgroundColor: C.texto3 }}
-            />
-            <Text style={{ ...T.etiqueta, color: C.texto2, width: 40 }}>
-              {aciertos}/{de}
-            </Text>
+            {/*
+              "Últimos 10" y no "7/10" a secas: el número suelto no dice de qué
+              habla, y había tres filas de números sueltos uno encima de otro.
+              El recuento va donde tiene sentido, pegado a su porcentaje.
+            */}
+            <Text style={{ ...T.etiqueta, color: C.texto2, width: 62 }}>Últimos {de}</Text>
             <View
               style={{
                 flex: 1,
@@ -168,8 +168,11 @@ export function Angulos({
               */}
               <View style={{ width: `${porcentaje}%`, height: '100%', backgroundColor: color }} />
             </View>
+            <Text style={{ ...T.etiqueta, color: C.texto3, width: 46, textAlign: 'right' }}>
+              {aciertos} de {de}
+            </Text>
             <Text
-              style={{ ...T.etiqueta, color, width: 42, textAlign: 'right', fontWeight: '800' }}
+              style={{ ...T.etiqueta, color, width: 38, textAlign: 'right', fontWeight: '800' }}
             >
               {porcentaje}%
             </Text>
@@ -180,23 +183,32 @@ export function Angulos({
       {hayExtra && abierto ? (
         <View style={{ gap: 7, paddingTop: 2 }}>
           {racha?.length ? (
-            <View style={{ flexDirection: 'row', alignItems: 'center', gap: 8 }}>
-              <View style={{ width: 7 }} />
-              <Text style={{ ...T.etiqueta, color: C.texto2, width: 40 }}>Uno a uno</Text>
-              <View style={{ flex: 1, flexDirection: 'row', gap: 3 }}>
+            <View style={{ gap: 4 }}>
+              {/*
+                "Uno a uno" a secas no dice qué son esas barritas ni qué
+                significa el color. Se explica: es el orden de los partidos, del
+                más viejo al más reciente, y el color dice si el pick habría
+                entrado en cada uno.
+              */}
+              <Text style={{ ...T.etiqueta, color: C.texto2 }}>
+                Partido a partido, del más antiguo al más reciente
+              </Text>
+              <View style={{ flexDirection: 'row', gap: 3 }}>
                 {racha.map((acierto, i) => (
                   <View
                     key={i}
                     style={{
                       flex: 1,
-                      height: 7,
+                      height: 8,
                       borderRadius: 3,
                       backgroundColor: acierto ? C.verde : C.rojo,
                     }}
                   />
                 ))}
               </View>
-              <View style={{ width: 42 }} />
+              <Text style={{ ...T.etiqueta, color: C.texto3 }}>
+                Verde: se habría cumplido · Rojo: no
+              </Text>
             </View>
           ) : null}
 
@@ -213,21 +225,25 @@ export function Angulos({
               const aFavor =
                 sentido === 'menos' || sentido === 'no' ? linea - media : media - linea;
               return (
-                <View style={{ flexDirection: 'row', alignItems: 'center', gap: 8 }}>
-                  <View style={{ width: 7 }} />
-                  <Text style={{ ...T.etiqueta, color: C.texto2, width: 40 }}>Media</Text>
-                  <Text style={{ ...T.etiqueta, color: C.texto3, flex: 1 }}>
-                    {media.toFixed(1)} por partido · línea {linea}
+                <View style={{ gap: 3 }}>
+                  {/*
+                    Se leía en gris casi invisible y era el dato más útil de
+                    todo el bloque: si el margen contra la línea es holgado, un
+                    partido flojo no tumba el pick.
+                  */}
+                  <Text style={{ ...T.etiqueta, color: C.texto2 }}>
+                    Media: {media.toFixed(1)} por partido · la línea está en {linea}
                   </Text>
                   <Text
                     style={{
                       ...T.etiqueta,
                       color: aFavor > 0 ? C.verde : C.rojo,
-                      textAlign: 'right',
                       fontWeight: '800',
                     }}
                   >
-                    {Math.abs(aFavor).toFixed(1)} {aFavor > 0 ? 'a favor' : 'en contra'}
+                    {aFavor > 0
+                      ? `Le sobran ${Math.abs(aFavor).toFixed(1)} de margen`
+                      : `Le faltan ${Math.abs(aFavor).toFixed(1)} para la línea`}
                   </Text>
                 </View>
               );
