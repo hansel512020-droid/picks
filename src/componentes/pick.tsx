@@ -44,10 +44,12 @@ function lecturaDeAngulos(
   aciertosL5: number,
   aciertosL10: number,
   aciertosL20: number,
+  /** Partidos reales de la ventana larga: no siempre son veinte. */
+  deLarga: number,
 ): { titulo: string; texto: string; color: string; fondo: string } {
   const corto = (aciertosL5 / 5) * 100;
   const medio = (aciertosL10 / 10) * 100;
-  const largo = (aciertosL20 / 20) * 100;
+  const largo = (aciertosL20 / Math.max(1, deLarga)) * 100;
 
   const fuerte = { titulo: 'HISTÓRICO FUERTE', color: C.verde, fondo: C.verdeTenue };
   const desigual = { titulo: 'HISTÓRICO DESIGUAL', color: C.ambar, fondo: C.ambarTenue };
@@ -56,7 +58,7 @@ function lecturaDeAngulos(
   if (corto >= 80 && medio >= 70 && largo >= 70)
     return { ...fuerte, texto: 'Le sale en las tres ventanas' };
   if (medio >= 70 && largo >= 65)
-    return { ...fuerte, texto: 'Constante en los últimos 20 partidos' };
+    return { ...fuerte, texto: 'Constante en la muestra larga' };
   if (corto >= 80 && largo < 55)
     return { ...desigual, texto: 'En racha ahora, pero de fondo le cuesta' };
   if (corto < 50 && largo >= 70)
@@ -70,6 +72,7 @@ export function Angulos({
   aciertosL5,
   aciertosL10,
   aciertosL20,
+  muestraL20,
   racha,
   media,
   metrica,
@@ -79,6 +82,8 @@ export function Angulos({
   aciertosL5: number;
   aciertosL10: number;
   aciertosL20: number;
+  /** Cuantos partidos hay de verdad en la ventana larga. */
+  muestraL20?: number;
   /** Los diez últimos, uno a uno. Solo al desplegar. */
   racha?: boolean[];
   media?: number;
@@ -98,13 +103,22 @@ export function Angulos({
   const [abierto, setAbierto] = useState(false);
   const hayExtra = !!racha?.length || media !== undefined;
 
+  /*
+   * La ventana larga dice cuántos partidos hay de verdad, no siempre veinte.
+   *
+   * Ponía "0 de 20" cuando la muestra eran diez, y "5 de 20" cuando eran
+   * catorce: el porcentaje salía mal y el dato mentía por lo bajo. Un equipo
+   * con doce partidos jugados no tiene veinte, y decir que sí no lo arregla.
+   */
+  const largo = muestraL20 && muestraL20 > 0 ? Math.min(20, muestraL20) : 20;
+
   const ventanas = [
     { aciertos: aciertosL5, de: 5 },
     { aciertos: aciertosL10, de: 10 },
-    { aciertos: aciertosL20, de: 20 },
+    { aciertos: aciertosL20, de: largo },
   ];
 
-  const lectura = lecturaDeAngulos(aciertosL5, aciertosL10, aciertosL20);
+  const lectura = lecturaDeAngulos(aciertosL5, aciertosL10, aciertosL20, largo);
 
   return (
     <View style={{ gap: 7 }}>
@@ -763,6 +777,7 @@ export function TarjetaPick({
               aciertosL5={pick.aciertosL5}
               aciertosL10={pick.aciertosL10}
               aciertosL20={pick.aciertosL20}
+              muestraL20={pick.muestraL20}
               racha={pick.racha}
               media={pick.media}
               metrica={pick.metrica}

@@ -822,12 +822,18 @@ export function picksDePartido(
     const hayCuotas =
       partido.cuotas.local > 1 && partido.cuotas.empate > 1 && partido.cuotas.visitante > 1;
     const implicita = (c: number) => 1 / c;
-    const opciones: { nombre: string; cuota: number; prob: number }[] = [
+    const opciones: {
+      nombre: string;
+      cuota: number;
+      prob: number;
+      /** De quien habla la opcion. Sin esto la racha era siempre la del local. */
+      tipo: 'local' | 'empate' | 'visitante';
+    }[] = [
       // El nombre entero del club, no las siglas: "Gana GUC" no lo entiende
       // nadie, y este texto se lee también en el argumento y en el historial.
-      { nombre: `Gana ${local.nombre}`, cuota: partido.cuotas.local, prob: implicita(partido.cuotas.local) },
-      { nombre: 'Empate', cuota: partido.cuotas.empate, prob: implicita(partido.cuotas.empate) },
-      { nombre: `Gana ${visitante.nombre}`, cuota: partido.cuotas.visitante, prob: implicita(partido.cuotas.visitante) },
+      { nombre: `Gana ${local.nombre}`, cuota: partido.cuotas.local, prob: implicita(partido.cuotas.local), tipo: 'local' },
+      { nombre: 'Empate', cuota: partido.cuotas.empate, prob: implicita(partido.cuotas.empate), tipo: 'empate' },
+      { nombre: `Gana ${visitante.nombre}`, cuota: partido.cuotas.visitante, prob: implicita(partido.cuotas.visitante), tipo: 'visitante' },
     ];
     const suma = opciones.reduce((a, b) => a + b.prob, 0);
     for (const op of hayCuotas ? opciones : []) {
@@ -838,12 +844,25 @@ export function picksDePartido(
       const ajustada = Math.min(0.9, prob * rnd.rango(1.0, 1.12));
       const ventaja = Number(((ajustada - implicita(op.cuota)) * 100).toFixed(1));
       if (ventaja < 1) continue;
+      /*
+       * El historial del equipo del que habla el pick, y de lo que dice.
+       *
+       * Antes miraba siempre las victorias del LOCAL, fuera cual fuera la
+       * opción: en "Gana Lecce" enseñaba lo que hizo el Palermo, y en "Empate"
+       * enseñaba victorias en vez de empates. El resultado eran barras que no
+       * tenían nada que ver con el pick que acompañaban —un "0 de 10" debajo de
+       * un pick recomendado— y no había forma de que cuadraran.
+       */
+      const equipoDeLaOpcion = op.tipo === 'visitante' ? visitante : local;
       const gano = delPartido
-        .filter((p) => p.localId === local.id || p.visitanteId === local.id)
+        .filter((p) => p.localId === equipoDeLaOpcion.id || p.visitanteId === equipoDeLaOpcion.id)
         .slice(0, 10)
-        .map((p) =>
-          p.localId === local.id ? p.golesLocal > p.golesVisitante : p.golesVisitante > p.golesLocal,
-        );
+        .map((p) => {
+          if (op.tipo === 'empate') return p.golesLocal === p.golesVisitante;
+          return p.localId === equipoDeLaOpcion.id
+            ? p.golesLocal > p.golesVisitante
+            : p.golesVisitante > p.golesLocal;
+        });
 
       picks.push({
         id,
