@@ -100,6 +100,18 @@ function pesoPorRival(fuerzaRival: number | null, fuerzaHoy: number | null): num
 const PESO_ENFRENTAMIENTO = 3;
 
 /**
+ * Cuota de dos resultados que no pueden darse a la vez.
+ *
+ * No es una aproximación: con cuotas de 2,00 y 3,00 la probabilidad conjunta es
+ * 1/2 + 1/3 = 0,833, y 1 / 0,833 son exactamente los 1,20 que da la fórmula.
+ * Hereda el margen de las cuotas de las que sale, así que no inventa valor.
+ */
+function dobleOportunidad(a: number, b: number): number {
+  if (a <= 1 || b <= 1) return 0;
+  return Number(((a * b) / (a + b)).toFixed(2));
+}
+
+/**
  * Cuánto de la métrica concede el rival, comparado con lo normal.
  *
  * Devuelve un factor: 1 es un rival del montón, 1,3 uno que concede un 30% más
@@ -827,15 +839,65 @@ export function picksDePartido(
       cuota: number;
       prob: number;
       /** De quien habla la opcion. Sin esto la racha era siempre la del local. */
-      tipo: 'local' | 'empate' | 'visitante';
+      tipo:
+        | 'local'
+        | 'empate'
+        | 'visitante'
+        | 'local-o-empate'
+        | 'visitante-o-empate'
+        | 'sin-empate';
     }[] = [
       // El nombre entero del club, no las siglas: "Gana GUC" no lo entiende
       // nadie, y este texto se lee también en el argumento y en el historial.
       { nombre: `Gana ${local.nombre}`, cuota: partido.cuotas.local, prob: implicita(partido.cuotas.local), tipo: 'local' },
       { nombre: 'Empate', cuota: partido.cuotas.empate, prob: implicita(partido.cuotas.empate), tipo: 'empate' },
       { nombre: `Gana ${visitante.nombre}`, cuota: partido.cuotas.visitante, prob: implicita(partido.cuotas.visitante), tipo: 'visitante' },
+
+      /*
+       * Doble oportunidad: gana o empata.
+       *
+       * Es el mercado para cuando un equipo se ve por encima pero no como para
+       * fiarse de la victoria seca. Las casas lo ofrecen siempre y no hacía
+       * falta ningún dato nuevo: sale de las mismas tres cuotas.
+       *
+       * La cuota de dos resultados excluyentes es (c1 × c2) / (c1 + c2). No es
+       * una aproximación: con cuotas de 2,00 y 3,00 la probabilidad conjunta es
+       * 1/2 + 1/3 = 0,833, y 1 / 0,833 son exactamente los 1,20 que da la
+       * fórmula. Hereda el margen de las cuotas de las que sale, así que no
+       * inventa valor donde no lo hay.
+       *
+       * Pagan poco por definición —cubren dos de los tres resultados— y por eso
+       * pocos pasarán el corte de ventaja. Los que pasen serán los buenos.
+       */
+      {
+        nombre: `${local.nombre} gana o empata`,
+        cuota: dobleOportunidad(partido.cuotas.local, partido.cuotas.empate),
+        prob: implicita(partido.cuotas.local) + implicita(partido.cuotas.empate),
+        tipo: 'local-o-empate',
+      },
+      {
+        nombre: `${visitante.nombre} gana o empata`,
+        cuota: dobleOportunidad(partido.cuotas.visitante, partido.cuotas.empate),
+        prob: implicita(partido.cuotas.visitante) + implicita(partido.cuotas.empate),
+        tipo: 'visitante-o-empate',
+      },
+      {
+        nombre: 'Gana uno de los dos (sin empate)',
+        cuota: dobleOportunidad(partido.cuotas.local, partido.cuotas.visitante),
+        prob: implicita(partido.cuotas.local) + implicita(partido.cuotas.visitante),
+        tipo: 'sin-empate',
+      },
     ];
-    const suma = opciones.reduce((a, b) => a + b.prob, 0);
+    /*
+     * Normalizar solo con los tres resultados básicos.
+     *
+     * Las dobles oportunidades se solapan con ellos: "gana o empata" contiene
+     * "gana" y contiene "empata". Meterlas en la suma daría un total del 200% y
+     * hundiría todas las probabilidades a la mitad.
+     */
+    const suma = opciones
+      .filter((o) => o.tipo === 'local' || o.tipo === 'empate' || o.tipo === 'visitante')
+      .reduce((a, b) => a + b.prob, 0);
     for (const op of hayCuotas ? opciones : []) {
       const prob = op.prob / suma;
       if (prob < 0.34) continue;
@@ -853,15 +915,24 @@ export function picksDePartido(
        * tenían nada que ver con el pick que acompañaban —un "0 de 10" debajo de
        * un pick recomendado— y no había forma de que cuadraran.
        */
-      const equipoDeLaOpcion = op.tipo === 'visitante' ? visitante : local;
+      const equipoDeLaOpcion =
+        op.tipo === 'visitante' || op.tipo === 'visitante-o-empate' ? visitante : local;
       const gano = delPartido
         .filter((p) => p.localId === equipoDeLaOpcion.id || p.visitanteId === equipoDeLaOpcion.id)
         .slice(0, 10)
         .map((p) => {
-          if (op.tipo === 'empate') return p.golesLocal === p.golesVisitante;
-          return p.localId === equipoDeLaOpcion.id
-            ? p.golesLocal > p.golesVisitante
-            : p.golesVisitante > p.golesLocal;
+          const empate = p.golesLocal === p.golesVisitante;
+          const ganoEl =
+            p.localId === equipoDeLaOpcion.id
+              ? p.golesLocal > p.golesVisitante
+              : p.golesVisitante > p.golesLocal;
+          if (op.tipo === 'empate') return empate;
+          // En la doble oportunidad "acertar" es que se diera cualquiera de las
+          // dos cosas que cubre, no solo la victoria.
+          if (op.tipo === 'local-o-empate' || op.tipo === 'visitante-o-empate')
+            return ganoEl || empate;
+          if (op.tipo === 'sin-empate') return !empate;
+          return ganoEl;
         });
 
       picks.push({
