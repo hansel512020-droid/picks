@@ -148,9 +148,24 @@ export default function PantallaPartido() {
    */
   const filasDePrecio = (() => {
     const porCasa = partido.cuotas?.porCasa ?? {};
+
+    /*
+     * El precio publicado, con el nombre de quien lo publicó.
+     *
+     * No siempre está dentro de `porCasa`: cuando la fuente es el proveedor de
+     * ESPN —DraftKings, casi siempre— el precio va en el 1X2 de cabecera y en
+     * `casasReales` solo queda el nombre. Buscándolo únicamente en `porCasa` la
+     * fila desaparecía, y la tabla se quedaba con tres cálculos nuestros y
+     * ningún dato real, que es justo lo contrario de lo que queríamos.
+     */
+    const cabecera = {
+      local: partido.cuotas?.local ?? 0,
+      empate: partido.cuotas?.empate ?? 0,
+      visitante: partido.cuotas?.visitante ?? 0,
+    };
     const reales = (partido.cuotas?.casasReales ?? [])
-      .filter((id) => porCasa[id])
-      .map((id) => ({ casa: casaPorId(id), c: porCasa[id] }));
+      .map((id) => ({ casa: casaPorId(id), c: porCasa[id] ?? cabecera }))
+      .filter(({ c }) => c.local > 0);
 
     const estimados = CASAS.map((x) => {
       // El perfil, o la clave antigua equivalente mientras no se reimporte.
@@ -574,6 +589,17 @@ export default function PantallaPartido() {
                         <Txt v="pequeno" numberOfLines={1}>
                           {casa.nombre}
                         </Txt>
+                        {/*
+                          Cuál es un precio que alguien publicó y cuál una
+                          cuenta nuestra. El orden y la nota de abajo lo dicen,
+                          pero en una tabla se lee fila a fila, no de arriba
+                          abajo: la marca tiene que estar en la propia fila.
+                        */}
+                        {casa.real ? (
+                          <Insignia texto="PUBLICADO" color={C.lima} fondo={C.limaTenue} />
+                        ) : (
+                          <Insignia texto="CALCULADO" color={C.texto3} fondo={C.carta2} />
+                        )}
                       </View>
                       {[c.local, c.empate, c.visitante].map((v, k) => (
                         <Txt
