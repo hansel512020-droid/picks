@@ -108,10 +108,40 @@ export async function descargaDatos(forzar = false): Promise<boolean> {
     if (!datos?.competiciones || !Object.keys(datos.competiciones).length) return false;
 
     aplicaDatos(datos);
-    await AsyncStorage.setItem(CLAVE, texto);
-    await AsyncStorage.setItem(CLAVE_FECHA, String(Date.now()));
+
+    /*
+     * Guardar es un extra, no parte del trabajo.
+     *
+     * Antes iba en el mismo `try` y arruinaba todo: el archivo son 76 MB, el
+     * navegador no guarda más de 10, y al reventar caía en el `catch` que
+     * devolvía `false`. Los datos buenos ya estaban aplicados, pero quien
+     * llamaba entendía "no hay nada nuevo" y no repintaba. Resultado: la web
+     * descargaba los resultados de verdad y seguía enseñando los de relleno,
+     * cada vez, para todo el mundo.
+     *
+     * Ahora se intenta aparte y si falla no pasa nada: se pierde el arranque
+     * rápido de la próxima visita, no los datos de esta.
+     */
+    guardaSiCabe(texto);
     return true;
   } catch {
     return false;
+  }
+}
+
+/**
+ * Deja copia para la próxima visita, si el navegador la admite.
+ *
+ * No se comprueba el tamaño por adelantado porque el límite lo pone cada
+ * navegador y no hay forma fiable de preguntárselo: se intenta y se acepta el
+ * no por respuesta.
+ */
+async function guardaSiCabe(texto: string): Promise<void> {
+  try {
+    await AsyncStorage.setItem(CLAVE, texto);
+    await AsyncStorage.setItem(CLAVE_FECHA, String(Date.now()));
+  } catch {
+    // Sin sitio. La app funciona igual, solo tarda más en arrancar la próxima
+    // vez porque vuelve a descargar en lugar de leer lo guardado.
   }
 }
