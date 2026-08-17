@@ -94,6 +94,30 @@ jobs:
         run: |
           set -euo pipefail
 
+          # Antes de nada, decir en voz alta qué falta. Sin esto, un secreto sin
+          # poner se manifiesta como un curl que revienta en dos segundos con un
+          # error críptico, y se pierde la tarde buscando en el sitio
+          # equivocado. Nunca se imprime el valor: solo si está o no está.
+          FALTA=0
+          if [ -z "${SUPABASE_URL:-}" ]; then
+            echo "::error::Falta el secreto SUPABASE_URL"
+            FALTA=1
+          fi
+          if [ -z "${SUPABASE_SERVICE_ROLE_KEY:-}" ]; then
+            echo "::error::Falta el secreto SUPABASE_SERVICE_ROLE_KEY"
+            FALTA=1
+          fi
+          if [ "$FALTA" = "1" ]; then
+            echo "Ponlos en Settings -> Secrets and variables -> Actions."
+            exit 1
+          fi
+
+          if [ ! -s src/datos/importado.json ]; then
+            echo "::error::El importador no dejó src/datos/importado.json"
+            ls -la src/datos/ || true
+            exit 1
+          fi
+
           # Comprimido primero: el JSON baja de ~70 MB a ~4, un 94% menos. Es lo
           # que se descarga la app, y en un móvil con datos esa diferencia es la
           # que decide si la app abre o el usuario se cansa y la cierra.
