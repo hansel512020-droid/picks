@@ -19,7 +19,7 @@ import { Escudo } from '@/componentes/imagen';
 import { CabeceraAtras, FilaDato, Pestanas, Segmentado, TiraChips } from '@/componentes/navegacion';
 import { SelloCasa, TarjetaPick } from '@/componentes/pick';
 import { alineacionesDelPartido, type OnceEquipo } from '@/datos/alineaciones';
-import { CASAS, casa as casaPorId } from '@/datos/casas';
+import { ANTIGUOS_POR_PERFIL, CASAS, casa as casaPorId } from '@/datos/casas';
 import { competicion } from '@/datos/competiciones';
 import { extrasDelPartido, type Extras } from '@/datos/penales';
 import { alineacion, lesiones, temporada } from '@/datos/motor';
@@ -151,10 +151,15 @@ export default function PantallaPartido() {
     const reales = (partido.cuotas?.casasReales ?? [])
       .filter((id) => porCasa[id])
       .map((id) => ({ casa: casaPorId(id), c: porCasa[id] }));
-    const estimados = CASAS.filter((x) => porCasa[x.id]).map((x) => ({
-      casa: x,
-      c: porCasa[x.id],
-    }));
+
+    const estimados = CASAS.map((x) => {
+      // El perfil, o la clave antigua equivalente mientras no se reimporte.
+      const c =
+        porCasa[x.id] ??
+        (ANTIGUOS_POR_PERFIL[x.id] ?? []).map((viejo) => porCasa[viejo]).find(Boolean);
+      return c ? { casa: x, c } : null;
+    }).filter((x): x is { casa: (typeof CASAS)[number]; c: (typeof porCasa)[string] } => !!x);
+
     return [...reales, ...estimados];
   })();
   const hayReales = (partido.cuotas?.casasReales ?? []).length > 0;
@@ -614,8 +619,8 @@ export default function PantallaPartido() {
             </Tarjeta>
 
             <Txt v="mini" color={C.texto3}>
-              Precios de referencia calculados por el modelo de Golden. Comprueba siempre la cuota
-              real en tu casa antes de decidir.
+              Precios de referencia calculados por el modelo de Golden. Comprueba siempre el precio
+              real en su fuente antes de decidir.
             </Txt>
           </View>
         ) : null}

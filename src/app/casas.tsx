@@ -53,8 +53,9 @@ export default function Casas() {
         </Tarjeta>
 
         <Txt v="mini" color={C.texto3} style={{ paddingHorizontal: E.xl, textAlign: 'center' }}>
-          Golden no tiene acuerdos con ninguna casa. El margen sirve solo para estimar el precio que
-          verías en cada una; comprueba siempre la cuota real antes de decidir.
+          Golden no tiene acuerdos con nadie ni cobra comisión de nadie. El margen sirve solo para
+          estimar a qué precio saldría la misma jugada en un mercado más o menos ajustado;
+          comprueba siempre el precio real en su fuente antes de decidir.
         </Txt>
       </ScrollView>
     </View>

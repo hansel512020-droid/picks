@@ -66,6 +66,23 @@ const EQUIVALENCIAS: Record<string, string> = {
   rushbet: 'amplio',
 };
 
+/**
+ * Qué claves antiguas sirven para cada perfil.
+ *
+ * El archivo que hay en el servidor se generó con el catálogo viejo: trae
+ * `bet365`, `pinnacle`, `rushbet`… y ninguna de las tres nuevas. Sin esto la
+ * tabla de precios sale vacía hasta que el robot vuelva a importar, que es de
+ * madrugada. Se busca la primera que exista y se enseña como el perfil que le
+ * corresponde por margen.
+ *
+ * Se puede borrar cuando todos los datos estén reimportados.
+ */
+export const ANTIGUOS_POR_PERFIL: Record<string, string[]> = {
+  ajustado: ['pinnacle', 'betfair'],
+  medio: ['bet365', 'betano', 'williamhill', 'bwin'],
+  amplio: ['rushbet', 'codere', 'betsson', '1xbet'],
+};
+
 /** Nombre presentable de una casa que sí publicó el precio. */
 function bonito(id: string): string {
   const conocidos: Record<string, string> = {
