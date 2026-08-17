@@ -229,6 +229,21 @@ jobs:
 
           subir importado.json.gz importado.json.gz application/gzip
 
+          # El catálogo de escudos y caras, si esta pasada lo ha regenerado.
+          #
+          # Se subía nada: el paso de arriba resolvía caras nuevas cada
+          # madrugada, terminaba, y la máquina se apagaba con ellas dentro. Las
+          # imágenes solo crecían si alguien ejecutaba el script en su ordenador
+          # y hacía commit, así que llevaban 1.858 caras para 38.000 jugadores.
+          #
+          # Va suelto y sin comprimir porque son unos cientos de kB de puras
+          # direcciones, y porque cambia mucho menos que los resultados.
+          if [ -s src/datos/logos.json ]; then
+            subir src/datos/logos.json logos.json application/json
+          else
+            echo "  (sin catálogo de imágenes en esta pasada)"
+          fi
+
           # El archivo sin comprimir NO se sube. Son 74 MB y Supabase rechaza
           # todo lo que pase de 50: devuelve 413 y tumba el trabajo entero
           # cuando el comprimido, que es el que de verdad usa la app, ya había

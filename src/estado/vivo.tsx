@@ -270,7 +270,10 @@ export function ProveedorVivo({ children }: { children: ReactNode }) {
       await avisa(
         cabecera,
         `${g.titulo} · ${g.mercado} — ${cierre}`,
-        `/pick/${encodeURIComponent(g.pickId)}?comp=${g.competicionId}`,
+        // Con el partido delante. La pantalla del pick lo necesita para
+        // rehacer la lista donde vive; sin él intenta deducirlo del propio
+        // identificador, y eso solo funciona con los datos generados.
+        `/pick/${encodeURIComponent(g.pickId)}?comp=${g.competicionId}&partido=${encodeURIComponent(g.partidoId)}`,
       );
     }
   }, [guardados, ajustes.notificarResultados, avisa]);
@@ -326,8 +329,10 @@ export function ProveedorVivo({ children }: { children: ReactNode }) {
         await avisa(
           `Nuevo pick en ${competicion(liga).corto}`,
           `${pick.titulo} · ${pick.mercado} @ ${pick.cuota.toFixed(2)} · ${pick.aciertosL10}/10`,
-          // Al tocar el aviso se abre el pick del que habla.
-          `/pick/${encodeURIComponent(pick.id)}?comp=${liga}`,
+          // Al tocar el aviso se abre el pick del que habla. Con el partido:
+          // sin él la pantalla no sabe dónde buscarlo y enseña "este pick ya no
+          // está disponible" justo después de anunciarlo.
+          `/pick/${encodeURIComponent(pick.id)}?comp=${liga}&partido=${encodeURIComponent(pick.partidoId)}`,
         );
       }
 

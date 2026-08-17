@@ -1,5 +1,6 @@
 import AsyncStorage from '@react-native-async-storage/async-storage';
 import { aplicaDatos } from './importado';
+import { aplicaLogos } from './imagenes';
 
 /**
  * Datos que se descargan del servidor en vez de viajar dentro de la app.
@@ -27,6 +28,8 @@ const URL = process.env.EXPO_PUBLIC_SUPABASE_URL?.replace(/\/+$/, '');
 const RUTA = `${URL}/storage/v1/object/public/datos/importado.json`;
 /** El mismo archivo comprimido: 3,8 MB en vez de 70. */
 const RUTA_GZ = `${RUTA}.gz`;
+/** Catálogo de escudos y caras. Son solo direcciones: pesa unos cientos de kB. */
+const RUTA_LOGOS = `${URL}/storage/v1/object/public/datos/logos.json`;
 
 /**
  * Baja el archivo, comprimido si se puede.
@@ -123,9 +126,31 @@ export async function descargaDatos(forzar = false): Promise<boolean> {
      * rápido de la próxima visita, no los datos de esta.
      */
     guardaSiCabe(texto);
+    // Las caras van aparte y son pequeñas. Que fallen no debe tocar los datos.
+    descargaLogos();
     return true;
   } catch {
     return false;
+  }
+}
+
+/**
+ * Trae el catálogo de escudos y caras que dejó el robot.
+ *
+ * Va suelto y no dentro del archivo de datos porque son cosas distintas: los
+ * resultados cambian cada cuatro horas y las imágenes casi nunca, y juntarlos
+ * obligaría a rebajar 4 MB para actualizar un puñado de fotos.
+ *
+ * Si falla no se avisa a nadie: sin catálogo la app enseña las iniciales del
+ * jugador en un círculo, que es exactamente lo que hacía antes.
+ */
+async function descargaLogos(): Promise<void> {
+  try {
+    const r = await fetch(RUTA_LOGOS, { cache: 'no-store' });
+    if (!r.ok) return;
+    aplicaLogos(await r.json());
+  } catch {
+    // Sin catálogo nuevo. Se sigue con el que trae la app dentro.
   }
 }
 

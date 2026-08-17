@@ -15,7 +15,24 @@ interface Archivo {
   jugadores: Record<string, string>;
 }
 
-const LOGOS = logos as Archivo;
+/*
+ * Arranca con el catálogo que viaja dentro del paquete y se sustituye en
+ * caliente por el que baja del servidor, igual que los datos.
+ *
+ * Hace falta porque el robot resuelve caras nuevas cada madrugada —hay 38.000
+ * jugadores y solo unos miles resueltos— y antes las tiraba: las generaba en su
+ * máquina, subía los resultados y el catálogo de imágenes se perdía con ella.
+ * Las caras solo crecían si alguien ejecutaba el script a mano y hacía commit.
+ */
+let LOGOS = logos as Archivo;
+
+/** Sustituye el catálogo de imágenes por uno recién descargado. */
+export function aplicaLogos(nuevo: unknown): void {
+  const a = nuevo as Archivo;
+  if (!a?.jugadores && !a?.equipos) return;
+  LOGOS = a;
+  escudosImportados = null;
+}
 
 /**
  * Clave de busqueda: el nombre completo del club, sin tocar. Antes se le
