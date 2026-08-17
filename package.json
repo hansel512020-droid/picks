@@ -49,7 +49,8 @@
     "icono": "node scripts/icono.js",
     "tipos": "tsc --noEmit",
     "importar": "node scripts/importar.js",
-    "logos": "node scripts/logos.js"
+    "logos": "node scripts/logos.js",
+    "backtest": "esbuild scripts/backtest.ts --bundle --platform=node --format=cjs --outfile=node_modules/.cache/backtest.cjs --log-level=error && node node_modules/.cache/backtest.cjs"
   },
   "private": true
 }

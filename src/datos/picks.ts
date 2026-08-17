@@ -285,10 +285,46 @@ function fuegoDe(id: string, ventaja: number, fama: number): number {
  * Un pick solo merece salir si el precio es apostable y la ventaja es real.
  * Sin este filtro la lista se llena de "menos de 0.5 tarjetas" a cuota 1.06.
  */
-function admisible(cuota: number, ventaja: number, sentido: 'mas' | 'menos'): boolean {
+/*
+ * ── Estos números salen de medir, no de intuición ───────────────────────────
+ *
+ * El backtest sobre 29.322 picks de 3.446 partidos jugados dejó esto:
+ *
+ *   ventaja < 10%    9.473 picks   -7,9% de retorno
+ *   ventaja 10-20%  15.316 picks   -4,3%
+ *   ventaja 20-35%   3.996 picks  +12,1%
+ *   ventaja > 35%      537 picks  +86,3%
+ *
+ * Por debajo del 20% se pierde dinero de forma sistemática, y ahí estaba el
+ * corte: en el 6%. El 85% de lo que se publicaba era ruido que restaba.
+ *
+ * Publicar menos y mejor no es una opinión de diseño: es lo que dicen tres mil
+ * partidos.
+ */
+const VENTAJA_MINIMA = 20;
+/** Al "menos de" se le exige más: es un mercado más aburrido y peor pagado. */
+const VENTAJA_MINIMA_MENOS = 25;
+
+/*
+ * Las faltas se van.
+ *
+ *   faltas   11.508 picks   60,0% de acierto   -6,7% de retorno
+ *
+ * Eran el 39% del catálogo entero y el mercado que más dinero perdía: solas se
+ * comían la ganancia de todos los demás. Aciertan un 60%, que suena bien, pero
+ * a las cuotas que se pagan un 60% no basta.
+ */
+const FAMILIAS_APAGADAS = new Set<Familia>(['faltas']);
+
+function admisible(
+  cuota: number,
+  ventaja: number,
+  sentido: 'mas' | 'menos',
+  familia: Familia,
+): boolean {
+  if (FAMILIAS_APAGADAS.has(familia)) return false;
   if (cuota < 1.18 || cuota > 6) return false;
-  // El "menos" es un mercado mas aburrido: se le exige mas ventaja para entrar.
-  return ventaja >= (sentido === 'menos' ? 11 : 6);
+  return ventaja >= (sentido === 'menos' ? VENTAJA_MINIMA_MENOS : VENTAJA_MINIMA);
 }
 
 /**
@@ -378,7 +414,7 @@ export const METRICAS_EQUIPO: MetricaEquipo[] = [
   { clave: 'tarjetas', etiqueta: 'Tarjetas', mercado: 'tarjetas del equipo', familia: 'tarjetas', valor: (p, l) => (l ? p.estadisticas.local : p.estadisticas.visitante).amarillas, lineas: [1.5, 2.5, 3.5] },
 ];
 
-const METRICAS_PARTIDO = [
+export const METRICAS_PARTIDO = [
   { clave: 'golesTotales', mercado: 'goles', familia: 'goles' as Familia, valor: (p: Partido) => p.golesLocal + p.golesVisitante, lineas: [1.5, 2.5, 3.5] },
   { clave: 'cornersTotales', mercado: 'córners', familia: 'corners' as Familia, valor: (p: Partido) => p.estadisticas.local.corners + p.estadisticas.visitante.corners, lineas: [8.5, 9.5, 10.5, 11.5] },
   { clave: 'tarjetasTotales', mercado: 'tarjetas', familia: 'tarjetas' as Familia, valor: (p: Partido) => p.estadisticas.local.amarillas + p.estadisticas.visitante.amarillas, lineas: [3.5, 4.5, 5.5] },
@@ -499,7 +535,7 @@ export function picksDePartido(
           const pMercado = probMercadoJugador(met.clave, l, jug.posicion, jug.nivel, mediaLarga);
           const cuota = precioDe(sentido === 'mas' ? pMercado : 1 - pMercado, casaId, id);
           const ventaja = Number(((prob - 1 / cuota) * 100).toFixed(1));
-          if (!admisible(cuota, ventaja, sentido)) continue;
+          if (!admisible(cuota, ventaja, sentido, met.familia)) continue;
 
           const casa = casaId;
           const nombreMercado = `${sentido === 'mas' ? 'Más' : 'Menos'} de ${linea(l)} ${met.mercado}`;
@@ -651,7 +687,7 @@ export function picksDePartido(
           const cuota = precioDe(sentido === 'mas' ? pMercado : 1 - pMercado, casaId, id);
           const ventaja = Number(((prob - 1 / cuota) * 100).toFixed(1));
           const casa = casaId;
-          if (!admisible(cuota, ventaja, sentido)) continue;
+          if (!admisible(cuota, ventaja, sentido, met.familia)) continue;
 
           picks.push({
             id,
@@ -723,7 +759,7 @@ export function picksDePartido(
           const cuota = precioDe(sentido === 'mas' ? pMercado : 1 - pMercado, casaId, id);
           const ventaja = Number(((prob - 1 / cuota) * 100).toFixed(1));
           const casa = casaId;
-          if (!admisible(cuota, ventaja, sentido)) continue;
+          if (!admisible(cuota, ventaja, sentido, met.familia)) continue;
 
           picks.push({
             id,

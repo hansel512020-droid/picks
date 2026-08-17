@@ -15,5 +15,5 @@
     "**/*.ts",
     "**/*.tsx"
   ]
-  ,"exclude": ["supabase/functions"]
+  ,"exclude": ["supabase/functions", "scripts"]
 }
