@@ -72,6 +72,20 @@ jobs:
             echo "::error::Falta SUPABASE_SERVICE_ROLE_KEY"; FALTA=1
           else
             echo "SUPABASE_SERVICE_ROLE_KEY presente (${#SUPABASE_SERVICE_ROLE_KEY} caracteres)"
+            # Qué clase de clave es, sin enseñarla. La pública y la secreta
+            # miden casi lo mismo y viven en la misma página, así que confundir
+            # una con otra es el error fácil: el prefijo las distingue.
+            case "$SUPABASE_SERVICE_ROLE_KEY" in
+              sb_secret_*)
+                echo "  tipo: clave secreta — correcta" ;;
+              sb_publishable_*|eyJ*anon*)
+                echo "::error::Es la clave PÚBLICA. Hace falta la secreta (sb_secret_...)"
+                FALTA=1 ;;
+              eyJ*)
+                echo "  tipo: JWT antiguo (service_role) — debería valer" ;;
+              *)
+                echo "  tipo: no reconocido. ¿Seguro que es de este proyecto?" ;;
+            esac
           fi
           if [ "$FALTA" = "1" ]; then
             echo "Settings -> Secrets and variables -> Actions -> Repository secrets"
