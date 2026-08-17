@@ -133,10 +133,10 @@ export function Angulos({
         <View
           style={{ width: 8, height: 8, borderRadius: 4, backgroundColor: lectura.color }}
         />
-        <Text style={{ ...T.etiqueta, color: lectura.color, fontWeight: '800' }}>
+        <Text style={{ ...T.mini, color: lectura.color, fontWeight: '800' }}>
           {lectura.titulo}
         </Text>
-        <Text style={{ ...T.etiqueta, color: C.texto2, flex: 1 }} numberOfLines={1}>
+        <Text style={{ ...T.mini, color: C.texto2, flex: 1 }} numberOfLines={1}>
           {lectura.texto}
         </Text>
       </View>
@@ -151,7 +151,7 @@ export function Angulos({
               habla, y había tres filas de números sueltos uno encima de otro.
               El recuento va donde tiene sentido, pegado a su porcentaje.
             */}
-            <Text style={{ ...T.etiqueta, color: C.texto2, width: 62 }}>Últimos {de}</Text>
+            <Text style={{ ...T.mini, color: C.texto2, width: 64 }}>Últimos {de}</Text>
             <View
               style={{
                 flex: 1,
@@ -168,11 +168,11 @@ export function Angulos({
               */}
               <View style={{ width: `${porcentaje}%`, height: '100%', backgroundColor: color }} />
             </View>
-            <Text style={{ ...T.etiqueta, color: C.texto3, width: 46, textAlign: 'right' }}>
+            <Text style={{ ...T.mini, color: C.texto2, width: 48, textAlign: 'right' }}>
               {aciertos} de {de}
             </Text>
             <Text
-              style={{ ...T.etiqueta, color, width: 38, textAlign: 'right', fontWeight: '800' }}
+              style={{ ...T.pequenoFuerte, color, width: 40, textAlign: 'right' }}
             >
               {porcentaje}%
             </Text>
@@ -190,7 +190,7 @@ export function Angulos({
                 más viejo al más reciente, y el color dice si el pick habría
                 entrado en cada uno.
               */}
-              <Text style={{ ...T.etiqueta, color: C.texto2 }}>
+              <Text style={{ ...T.pequeno, color: C.texto2 }}>
                 Partido a partido, del más antiguo al más reciente
               </Text>
               <View style={{ flexDirection: 'row', gap: 3 }}>
@@ -206,7 +206,7 @@ export function Angulos({
                   />
                 ))}
               </View>
-              <Text style={{ ...T.etiqueta, color: C.texto3 }}>
+              <Text style={{ ...T.mini, color: C.texto2 }}>
                 Verde: se habría cumplido · Rojo: no
               </Text>
             </View>
@@ -231,14 +231,13 @@ export function Angulos({
                     todo el bloque: si el margen contra la línea es holgado, un
                     partido flojo no tumba el pick.
                   */}
-                  <Text style={{ ...T.etiqueta, color: C.texto2 }}>
+                  <Text style={{ ...T.pequeno, color: C.texto }}>
                     Media: {media.toFixed(1)} por partido · la línea está en {linea}
                   </Text>
                   <Text
                     style={{
-                      ...T.etiqueta,
+                      ...T.pequenoFuerte,
                       color: aFavor > 0 ? C.verde : C.rojo,
-                      fontWeight: '800',
                     }}
                   >
                     {aFavor > 0
@@ -254,8 +253,8 @@ export function Angulos({
 
       {hayExtra ? (
         <Pulsable onPress={() => setAbierto((v) => !v)} hitSlop={8}>
-          <Text style={{ ...T.etiqueta, color: C.texto3 }}>
-            {abierto ? '− menos ángulos' : '+2 ángulos más'}
+          <Text style={{ ...T.pequenoFuerte, color: C.lima }}>
+            {abierto ? '▴  Ver menos' : '▾  Ver 2 ángulos más'}
           </Text>
         </Pulsable>
       ) : null}
