@@ -44,6 +44,7 @@
     "ios": "expo start --ios",
     "android": "expo start --android",
     "web": "expo start --web",
+    "construir": "expo export --platform web",
     "icono": "node scripts/icono.js",
     "tipos": "tsc --noEmit",
     "importar": "node scripts/importar.js",

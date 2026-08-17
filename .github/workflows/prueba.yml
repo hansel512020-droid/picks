@@ -1,0 +1,19 @@
+# Workflow de prueba, temporal.
+#
+# Existe solo para saber por qué "Datos" no aparece en la pestaña Actions. Es
+# lo más simple que GitHub acepta: si este sale en la lista y el otro no, el
+# problema está en el contenido de `datos.yml`. Si no sale ninguno, el problema
+# es del repositorio o de la cuenta, y hay que mirar por otro lado.
+#
+# Se borra en cuanto sepamos cuál de las dos cosas es.
+
+name: Prueba
+
+on:
+  workflow_dispatch:
+
+jobs:
+  saludo:
+    runs-on: ubuntu-latest
+    steps:
+      - run: echo "Si ves esto, Actions funciona en este repositorio."
