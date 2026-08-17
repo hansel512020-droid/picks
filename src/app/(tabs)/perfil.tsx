@@ -11,7 +11,7 @@ import { casa as buscaCasa } from '@/datos/casas';
 import { competicion } from '@/datos/competiciones';
 import { COMUNIDAD_ACTIVA } from '@/datos/comunidad';
 import { AvisoCambiaDePlan, AvisoCobroFallido } from '@/componentes/avisos';
-import { COMPETICIONES_IMPORTADAS } from '@/datos/importado';
+import { competicionesImportadas } from '@/datos/importado';
 import { cancelaSuscripcion } from '@/datos/cuenta';
 import { useDerechos } from '@/estado/derechos';
 import { useSesion } from '@/estado/sesion';
@@ -410,13 +410,13 @@ export default function Perfil() {
             titulo="Origen de los datos"
             // Sin recuento: la insignia de la derecha ya dice si son reales o
             // simulados, y repetirlo con un número solo añade ruido.
-            detalle={COMPETICIONES_IMPORTADAS.length ? undefined : 'Datos simulados'}
+            detalle={competicionesImportadas().length ? undefined : 'Datos simulados'}
             onPress={() => router.push('/metodo')}
             derecha={
               <Insignia
-                texto={COMPETICIONES_IMPORTADAS.length ? 'REALES' : 'SIMULADOS'}
-                color={COMPETICIONES_IMPORTADAS.length ? C.lima : C.texto2}
-                fondo={COMPETICIONES_IMPORTADAS.length ? C.limaTenue : C.carta2}
+                texto={competicionesImportadas().length ? 'REALES' : 'SIMULADOS'}
+                color={competicionesImportadas().length ? C.lima : C.texto2}
+                fondo={competicionesImportadas().length ? C.limaTenue : C.carta2}
               />
             }
           />

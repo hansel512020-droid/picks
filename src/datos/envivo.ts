@@ -1,4 +1,4 @@
-import { COMPETICIONES_IMPORTADAS } from './importado';
+import { competicionesImportadas } from './importado';
 
 /**
  * Datos en vivo pedidos por la propia app, no por el importador.
@@ -156,7 +156,7 @@ export async function partidosDeHoy(
   competiciones?: string[],
 ): Promise<Map<string, PartidoVivo>> {
   const mapa = new Map<string, PartidoVivo>();
-  const ids = (competiciones ?? COMPETICIONES_IMPORTADAS).filter((id) => LIGAS[id]);
+  const ids = (competiciones ?? competicionesImportadas()).filter((id) => LIGAS[id]);
 
   for (let i = 0; i < ids.length; i += 5) {
     const lote = await Promise.all(ids.slice(i, i + 5).map(deLaCompeticion));

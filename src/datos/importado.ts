@@ -86,8 +86,19 @@ export function competicionesCargadas(): number {
   return Object.keys(ARCHIVO.competiciones ?? {}).length;
 }
 
-/** Competiciones que tienen datos reales descargados. */
-export const COMPETICIONES_IMPORTADAS = Object.keys(ARCHIVO.competiciones ?? {});
+/**
+ * Competiciones que tienen datos reales descargados.
+ *
+ * Es una función y no una constante por una razón que costó cara: como
+ * constante se calculaba **una sola vez**, al cargar el módulo, cuando
+ * `ARCHIVO` todavía es la semilla vacía. `aplicaDatos` sustituía los datos pero
+ * la lista seguía vacía para siempre, así que el motor creía que no había nada
+ * importado y se inventaba equipos —"FC Norte", "Sporting Sur"— con los
+ * resultados de verdad ya cargados en memoria.
+ */
+export function competicionesImportadas(): string[] {
+  return Object.keys(ARCHIVO.competiciones ?? {});
+}
 
 export function hayDatosReales(competicionId: string): boolean {
   const c = ARCHIVO.competiciones?.[competicionId];
@@ -165,7 +176,7 @@ export function equiposImportados(): Equipo[] {
 }
 
 export function competicionVisible(competicionId: string): boolean {
-  if (!COMPETICIONES_IMPORTADAS.length) return true;
+  if (!competicionesImportadas().length) return true;
   // "Todas" no tiene archivo propio: existe mientras haya algo descargado.
   if (competicionId === 'todas') return true;
   return hayDatosReales(competicionId);

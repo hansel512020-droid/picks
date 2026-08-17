@@ -13,7 +13,7 @@ import {
 import { AppState, Platform } from 'react-native';
 import { competicion } from '@/datos/competiciones';
 import { claveDelPartido, partidosDeHoy, slugDe, type PartidoVivo } from '@/datos/envivo';
-import { COMPETICIONES_IMPORTADAS } from '@/datos/importado';
+import { competicionesImportadas } from '@/datos/importado';
 import { temporada } from '@/datos/motor';
 import { picksDeCompeticion } from '@/datos/picks';
 import { compruebaPick, progresoDelPick, resumenDelPartido } from '@/datos/resolver';
@@ -312,7 +312,7 @@ export function ProveedorVivo({ children }: { children: ReactNode }) {
        * primeros que aún no se hayan contado.
        */
       const candidatos: { pick: Pick; liga: string }[] = [];
-      for (const liga of COMPETICIONES_IMPORTADAS) {
+      for (const liga of competicionesImportadas()) {
         const mejor = picksDeCompeticion(liga, ajustes.casaId, 1)[0];
         if (!mejor || vistos.has(mejor.id)) continue;
         candidatos.push({ pick: mejor, liga });

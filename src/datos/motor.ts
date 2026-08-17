@@ -1,7 +1,7 @@
 import { Aleatorio } from '@/utiles/aleatorio';
 import { CASAS } from './casas';
 import { competicion, TODAS } from './competiciones';
-import { COMPETICIONES_IMPORTADAS, datosReales, cuandoCambienLosDatos } from './importado';
+import { competicionesImportadas, datosReales, cuandoCambienLosDatos } from './importado';
 import { plantilla } from './plantillas';
 import type {
   Alineacion,
@@ -495,7 +495,7 @@ export function temporada(competicionId: string): Temporada {
     const partidos: Partido[] = [];
     const registros: RegistroJugador[] = [];
 
-    for (const id of COMPETICIONES_IMPORTADAS) {
+    for (const id of competicionesImportadas()) {
       const r = datosReales(id);
       if (!r) continue;
       equipos.push(...r.equipos);
