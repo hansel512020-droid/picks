@@ -22,14 +22,14 @@ export interface PlanPaypal {
 
 export const PLANES_PAYPAL: PlanPaypal[] = [
   { id: 'anual', paypalId: 'P-2YM95169R7499880TNKAROCI', competicion: 'todas' },
-  { id: 'mensual', paypalId: 'P-09H3627014641790GNKAROYA', competicion: 'todas' },
-  { id: 'semanal', paypalId: 'P-77904674A0451282NNKARQOY', competicion: 'todas' },
+  { id: 'mensual', paypalId: 'P-2NL80130H1296394YNKBGEBI', competicion: 'todas' },
+  { id: 'semanal', paypalId: 'P-01S395028H7387306NKBGECA', competicion: 'todas' },
   /*
    * Planes parciales. Su `competicion` es `elegidas`: al cobrar no se concede
    * ninguna liga, sino los huecos que el usuario reparte luego en "Mis ligas".
    */
-  { id: 'dosligas', paypalId: 'P-5TC72785KW1445112NKBERSQ', competicion: 'elegidas' },
-  { id: 'tresligas', paypalId: 'P-26634278KC4286036NKBERTA', competicion: 'elegidas' },
+  { id: 'dosligas', paypalId: 'P-40F56912DE995063XNKBGDXI', competicion: 'elegidas' },
+  { id: 'tresligas', paypalId: 'P-02C942313Y099943LNKBGDYQ', competicion: 'elegidas' },
 ];
 
 export function planDePaypal(id: string): PlanPaypal | undefined {

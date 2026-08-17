@@ -149,6 +149,18 @@ export default function PantallaPartido() {
   const reloj = enDirecto?.reloj;
   const vivo = estado === 'en_curso' || estado === 'descanso';
   const jugado = estado === 'finalizado';
+
+  /*
+   * Partido retrasado: la hora de inicio pasó hace más de veinte minutos y
+   * sigue sin empezar.
+   *
+   * El margen es generoso a propósito. Los horarios de las fuentes bailan unos
+   * minutos y muchos partidos arrancan tarde por costumbre; avisar a los cinco
+   * minutos convertiría el aviso en ruido y dejaría de leerse. Veinte minutos
+   * ya no es la costumbre, es un retraso.
+   */
+  const retrasado =
+    !vivo && !jugado && Date.now() - new Date(partido.fecha).getTime() > 20 * 60_000;
   const competicionNombre = competicion(competicionId).nombre;
 
   return (
@@ -244,6 +256,31 @@ export default function PantallaPartido() {
                   {estado === 'descanso' ? 'DESCANSO' : `EN CURSO · ${reloj ?? minuto ?? 0}'`}
                 </Txt>
               </View>
+            ) : retrasado ? (
+              /*
+               * Retraso: la hora de inicio pasó hace rato y la fuente sigue sin
+               * darlo por empezado.
+               *
+               * Antes se enseñaba la hora de comienzo tal cual, así que el
+               * usuario veía "hoy 18:30" a las 19:15 y no sabía si el partido
+               * iba tarde, si la app estaba rota o si se lo había perdido.
+               *
+               * El **motivo** no se puede decir: ni ESPN ni el importador lo
+               * publican, eso solo sale en prensa. Inventarlo sería peor que
+               * callarlo, así que se dice lo único que consta.
+               */
+              <View style={{ alignItems: 'center', gap: 3 }}>
+                <Txt v="etiqueta" color={C.ambar}>
+                  RETRASADO
+                </Txt>
+                <Txt v="mini" color={C.texto3}>
+                  Debía empezar a las{' '}
+                  {new Date(partido.fecha).toLocaleTimeString('es', {
+                    hour: '2-digit',
+                    minute: '2-digit',
+                  })}
+                </Txt>
+              </View>
             ) : (
               <Txt v="etiqueta" color={C.texto3}>
                 {jugado ? 'FINALIZADO' : new Date(partido.fecha).toLocaleString('es', {
@@ -258,8 +295,19 @@ export default function PantallaPartido() {
             <Txt v="pequeno" color={C.texto2}>
               {competicionNombre.toUpperCase()}
             </Txt>
+            {/*
+              El árbitro solo si se sabe quién es.
+
+              El importador escribe "Sin designar" cuando no lo trae, que es
+              casi siempre fuera de las grandes ligas, y quedaba un "Estadio X ·
+              Sin designar" que no informa de nada: ocupa sitio para decir que
+              no hay dato. Si no consta, se enseña solo el estadio.
+            */}
             <Txt v="mini" color={C.texto3}>
-              {partido.estadio} · {partido.arbitro}
+              {partido.estadio}
+              {partido.arbitro && partido.arbitro !== 'Sin designar'
+                ? ` · ${partido.arbitro}`
+                : ''}
             </Txt>
             {/* En una eliminatoria el marcador del partido no cuenta la
                 historia: lo que decide es el global de los dos. Va destacado

@@ -31,19 +31,22 @@ const COMPLETOS: Oferta[] = [
     precio: '$99.99',
     periodo: 'al año',
     detalle: 'Sale a $8.33 al mes',
-    ahorro: 'AHORRAS UN 64%',
+    // 99,99 frente a 17,99 × 12 = 215,88. El porcentaje se recalcula cada vez
+    // que cambian los precios: anunciar un ahorro que no sale es publicidad
+    // engañosa, y aquí es fácil olvidarse.
+    ahorro: 'AHORRAS UN 54%',
   },
   {
     id: 'mensual',
     titulo: 'Todas las ligas · Mensual',
-    precio: '$22.99',
+    precio: '$17.99',
     periodo: 'al mes',
     detalle: 'Cancela cuando quieras',
   },
   {
     id: 'semanal',
     titulo: 'Todas las ligas · Semanal',
-    precio: '$7.99',
+    precio: '$5.99',
     periodo: 'a la semana',
     detalle: 'Para una jornada concreta',
   },
@@ -53,14 +56,14 @@ const PARCIALES: Oferta[] = [
   {
     id: 'dosligas',
     titulo: '2 ligas a elegir',
-    precio: '$5.99',
+    precio: '$1.99',
     periodo: 'al mes',
     detalle: 'Eliges dos competiciones',
   },
   {
     id: 'tresligas',
     titulo: '3 ligas a elegir',
-    precio: '$9.99',
+    precio: '$2.99',
     periodo: 'al mes',
     detalle: 'Eliges tres competiciones',
   },

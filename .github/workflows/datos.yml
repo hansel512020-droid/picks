@@ -92,22 +92,30 @@ jobs:
           SUPABASE_SERVICE_ROLE_KEY: ${{ secrets.SUPABASE_SERVICE_ROLE_KEY }}
         run: |
           set -euo pipefail
-          PESO=$(du -h src/datos/importado.json | cut -f1)
-          echo "Subiendo importado.json ($PESO)"
 
-          # `x-upsert` sustituye el archivo anterior en vez de fallar por existir.
-          CODIGO=$(curl -sS -o /tmp/respuesta.txt -w '%{http_code}' \
-            -X POST "$SUPABASE_URL/storage/v1/object/datos/importado.json" \
-            -H "Authorization: Bearer $SUPABASE_SERVICE_ROLE_KEY" \
-            -H "Content-Type: application/json" \
-            -H "x-upsert: true" \
-            --data-binary @src/datos/importado.json)
+          # Comprimido primero: el JSON baja de ~70 MB a ~4, un 94% menos. Es lo
+          # que se descarga la app, y en un móvil con datos esa diferencia es la
+          # que decide si la app abre o el usuario se cansa y la cierra.
+          gzip -9 -c src/datos/importado.json > importado.json.gz
 
-          echo "Respuesta: $CODIGO"
-          if [ "$CODIGO" != "200" ]; then
-            cat /tmp/respuesta.txt
-            exit 1
-          fi
+          echo "sin comprimir: $(du -h src/datos/importado.json | cut -f1)"
+          echo "comprimido:    $(du -h importado.json.gz | cut -f1)"
+
+          subir() {
+            # `x-upsert` sustituye el archivo anterior en vez de fallar por existir.
+            CODIGO=$(curl -sS -o /tmp/respuesta.txt -w '%{http_code}' \
+              -X POST "$SUPABASE_URL/storage/v1/object/datos/$2" \
+              -H "Authorization: Bearer $SUPABASE_SERVICE_ROLE_KEY" \
+              -H "Content-Type: $3" \
+              -H "x-upsert: true" \
+              --data-binary @"$1")
+            echo "  $2 -> $CODIGO"
+            if [ "$CODIGO" != "200" ]; then cat /tmp/respuesta.txt; exit 1; fi
+          }
+
+          subir importado.json.gz         importado.json.gz application/gzip
+          # Y el normal, para los clientes que no sepan descomprimir.
+          subir src/datos/importado.json  importado.json    application/json
 
       - name: Comprobar que se sirve
         env:
@@ -115,11 +123,15 @@ jobs:
         run: |
           set -euo pipefail
           # Que la subida diga 200 no basta: se comprueba que el archivo se
-          # descarga y que es un JSON con competiciones dentro. Un archivo
-          # cortado dejaría la app sin datos hasta el día siguiente.
-          curl -sS "$SUPABASE_URL/storage/v1/object/public/datos/importado.json" -o /tmp/bajado.json
+          # descarga, se descomprime y trae competiciones dentro. Uno cortado
+          # dejaría la app sin datos hasta el día siguiente.
+          #
+          # Se verifica el comprimido porque es el que usa la app.
+          curl -sS "$SUPABASE_URL/storage/v1/object/public/datos/importado.json.gz" -o /tmp/bajado.gz
           node -e "
-            const j = require('/tmp/bajado.json');
+            const zlib = require('zlib');
+            const fs = require('fs');
+            const j = JSON.parse(zlib.gunzipSync(fs.readFileSync('/tmp/bajado.gz')));
             const n = Object.keys(j.competiciones ?? {}).length;
             if (!n) { console.error('El archivo subido no trae competiciones'); process.exit(1); }
             console.log('Verificado:', n, 'competiciones en el servidor');

@@ -104,7 +104,7 @@ export interface Partido {
   jornada: number;
   ronda?: string;
   estadio: string;
-  arbitro: string;
+  arbitro?: string;
   estadisticas: EstadisticasPartido;
   cuotas: CuotasPartido;
 }

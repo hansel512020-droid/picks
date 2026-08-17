@@ -72,10 +72,24 @@ export const PLANES: Record<
   { competicion: string; periodo: string; cuantas?: number }
 > = {
   'P-2YM95169R7499880TNKAROCI': { competicion: 'todas', periodo: 'anual' },
+  'P-2NL80130H1296394YNKBGEBI': { competicion: 'todas', periodo: 'mensual' },
+  'P-01S395028H7387306NKBGECA': { competicion: 'todas', periodo: 'semanal' },
+  // Planes parciales: el usuario elige qué competiciones. `cuantas` es el tope
+  // y **manda sobre lo que pida el navegador**.
+  'P-40F56912DE995063XNKBGDXI': { competicion: 'elegidas', periodo: 'mensual', cuantas: 2 },
+  'P-02C942313Y099943LNKBGDYQ': { competicion: 'elegidas', periodo: 'mensual', cuantas: 3 },
+
+  /*
+   * Planes viejos, con los precios anteriores.
+   *
+   * Se quedan aquí porque un plan de PayPal no se puede cambiar de precio: al
+   * bajarlos hubo que crear planes nuevos. Quien se suscribió antes sigue
+   * pagando lo que contrató y su suscripción sigue apuntando al plan antiguo,
+   * así que si se borran de esta tabla, su próxima renovación llegaría como
+   * "plan desconocido" y se quedaría sin acceso habiendo pagado.
+   */
   'P-09H3627014641790GNKAROYA': { competicion: 'todas', periodo: 'mensual' },
   'P-77904674A0451282NNKARQOY': { competicion: 'todas', periodo: 'semanal' },
-  // Planes parciales: el usuario elige qué competiciones. `cuantas` es el tope
-  // y **manda sobre lo que pida el navegador**, ver `competicionesDelPlan`.
   'P-5TC72785KW1445112NKBERSQ': { competicion: 'elegidas', periodo: 'mensual', cuantas: 2 },
   'P-26634278KC4286036NKBERTA': { competicion: 'elegidas', periodo: 'mensual', cuantas: 3 },
 };

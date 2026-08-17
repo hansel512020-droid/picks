@@ -35,8 +35,14 @@ if (!ID || !SECRETO) {
 /** Los mismos nombres y precios que enseña la pantalla de Pro. */
 const PLANES = [
   { nombre: 'Todas las ligas · Anual',   precio: '99.99', unidad: 'YEAR',  cada: 1 },
-  { nombre: 'Todas las ligas · Mensual', precio: '22.99', unidad: 'MONTH', cada: 1 },
-  { nombre: 'Todas las ligas · Semanal', precio: '7.99',  unidad: 'WEEK',  cada: 1 },
+  { nombre: 'Todas las ligas · Mensual', precio: '17.99', unidad: 'MONTH', cada: 1 },
+  { nombre: 'Todas las ligas · Semanal', precio: '5.99',  unidad: 'WEEK',  cada: 1 },
+  /*
+   * Planes parciales: el usuario elige qué competiciones ver. Al cobrar no se
+   * concede ninguna liga, sino huecos que reparte después en "Mis ligas".
+   */
+  { nombre: '2 ligas a elegir', precio: '1.99', unidad: 'MONTH', cada: 1 },
+  { nombre: '3 ligas a elegir', precio: '2.99', unidad: 'MONTH', cada: 1 },
 ];
 
 // Euros, como en la app. Cambia a 'USD' si decides cobrar en dólares.

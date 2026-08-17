@@ -284,7 +284,15 @@ function partidosDeHistorial(competicionId, historial, proximos, equipos) {
       jornada: 0,
       ronda: p.temporada ? `Temporada ${p.temporada}` : undefined,
       estadio: local.estadio ?? `Estadio del ${local.nombre}`,
-      arbitro: p.arbitro ?? 'Sin designar',
+      /*
+       * Sin árbitro no se inventa un texto.
+       *
+       * Antes se escribía "Sin designar", que acababa impreso en la ficha del
+       * partido como si fuera un dato: "Estadio X · Sin designar". Fuera de las
+       * grandes ligas casi nunca viene, así que era la norma. Dejándolo vacío,
+       * la pantalla simplemente no enseña la parte del árbitro.
+       */
+      arbitro: p.arbitro || undefined,
       estadisticas: {
         local: estadisticasEquipo(p.estadisticas?.local, jugado ? p.golesLocal : 0),
         visitante: estadisticasEquipo(p.estadisticas?.visitante, jugado ? p.golesVisitante : 0),

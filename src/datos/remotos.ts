@@ -25,6 +25,37 @@ const CLAVE_FECHA = 'scout-picks/datos-fecha';
 
 const URL = process.env.EXPO_PUBLIC_SUPABASE_URL?.replace(/\/+$/, '');
 const RUTA = `${URL}/storage/v1/object/public/datos/importado.json`;
+/** El mismo archivo comprimido: 3,8 MB en vez de 70. */
+const RUTA_GZ = `${RUTA}.gz`;
+
+/**
+ * Baja el archivo, comprimido si se puede.
+ *
+ * El comprimido pesa un 94% menos —70 MB contra 3,8—, que en un móvil con
+ * datos es la diferencia entre abrir la app y no abrirla. Pero Supabase lo
+ * sirve como `application/x-gzip` **sin** la cabecera `Content-Encoding`, así
+ * que el navegador no lo descomprime solo: hay que hacerlo aquí.
+ *
+ * `DecompressionStream` existe en los navegadores modernos, pero no en todas
+ * partes. Donde no esté, se baja el archivo sin comprimir: pesa mucho más,
+ * pero funciona, y es mejor que dejar la app sin datos por ahorrar megas.
+ */
+async function bajaArchivo(): Promise<string | null> {
+  if (typeof DecompressionStream !== 'undefined') {
+    try {
+      const r = await fetch(RUTA_GZ, { cache: 'no-store' });
+      if (r.ok && r.body) {
+        const flujo = r.body.pipeThrough(new DecompressionStream('gzip'));
+        return await new Response(flujo).text();
+      }
+    } catch {
+      // Si el comprimido falla se sigue con el normal, sin ruido.
+    }
+  }
+
+  const r = await fetch(RUTA, { cache: 'no-store' });
+  return r.ok ? await r.text() : null;
+}
 
 /** Cada cuánto se vuelve a preguntar, como mucho. */
 const CADA = 6 * 60 * 60 * 1000;
@@ -64,10 +95,9 @@ export async function descargaDatos(forzar = false): Promise<boolean> {
       if (ultima && Date.now() - ultima < CADA) return false;
     }
 
-    const r = await fetch(RUTA, { cache: 'no-store' });
-    if (!r.ok) return false;
+    const texto = await bajaArchivo();
+    if (!texto) return false;
 
-    const texto = await r.text();
     // Una respuesta cortada a medias rompería el JSON y dejaría la app sin
     // datos: se comprueba que se puede leer antes de tocar nada.
     const datos = JSON.parse(texto);
