@@ -1,6 +1,6 @@
 import * as Haptics from 'expo-haptics';
 import { router } from 'expo-router';
-import { useEffect } from 'react';
+import { useEffect, useState } from 'react';
 import { Platform, Text, View } from 'react-native';
 import { casa as buscaCasa } from '@/datos/casas';
 import { competicion } from '@/datos/competiciones';
@@ -20,6 +20,146 @@ import { Cara, Enfrentamiento, Escudo, LogoCompeticion } from './imagen';
  */
 
 /** Tira verde y roja con el resultado del pick en los ultimos 10 partidos. */
+/**
+ * Los tres ángulos de un pick: 5, 10 y 20 partidos, uno debajo de otro.
+ *
+ * La tarjeta enseñaba solo la racha de 10. Con una sola ventana no se sabe si
+ * ese 70% viene de una racha buena de este mes o de algo que el jugador hace
+ * toda la temporada, y esa diferencia es justo la que decide si el pick vale.
+ * Con las tres a la vista se lee de un golpe: 5/5 y 17/20 es constancia; 5/5 y
+ * 8/20 es una racha caliente sobre un fondo flojo.
+ *
+ * El color va por tramos y no en degradado porque lo que importa es el juicio
+ * rápido —bien, regular, mal—, no distinguir un 71% de un 74%.
+ */
+export function Angulos({
+  aciertosL5,
+  aciertosL10,
+  aciertosL20,
+  racha,
+  media,
+  metrica,
+  linea,
+}: {
+  aciertosL5: number;
+  aciertosL10: number;
+  aciertosL20: number;
+  /** Los diez últimos, uno a uno. Solo al desplegar. */
+  racha?: boolean[];
+  media?: number;
+  metrica?: string;
+  linea?: number;
+}) {
+  /*
+   * Se abre a petición, no de entrada.
+   *
+   * Tres ventanas caben en una tarjeta de una lista; cinco cosas la convierten
+   * en un muro y hacen que no se lea ninguna. Quien quiera mirar de cerca un
+   * pick concreto lo despliega, y quien esté repasando veinte tarjetas no paga
+   * por ello.
+   */
+  const [abierto, setAbierto] = useState(false);
+  const hayExtra = !!racha?.length || media !== undefined;
+
+  const ventanas = [
+    { aciertos: aciertosL5, de: 5 },
+    { aciertos: aciertosL10, de: 10 },
+    { aciertos: aciertosL20, de: 20 },
+  ];
+
+  return (
+    <View style={{ gap: 7 }}>
+      {ventanas.map(({ aciertos, de }) => {
+        const porcentaje = Math.round((aciertos / de) * 100);
+        const color = porcentaje >= 70 ? C.verde : porcentaje >= 50 ? C.ambar : C.rojo;
+        return (
+          <View key={de} style={{ flexDirection: 'row', alignItems: 'center', gap: 8 }}>
+            <View
+              style={{ width: 7, height: 7, borderRadius: 4, backgroundColor: C.texto3 }}
+            />
+            <Text style={{ ...T.etiqueta, color: C.texto2, width: 40 }}>
+              {aciertos}/{de}
+            </Text>
+            <View
+              style={{
+                flex: 1,
+                height: 7,
+                borderRadius: 4,
+                backgroundColor: C.carta2,
+                overflow: 'hidden',
+              }}
+            >
+              <View
+                style={{ width: `${porcentaje}%`, height: '100%', backgroundColor: '#3C424B' }}
+              />
+            </View>
+            <Text
+              style={{ ...T.etiqueta, color, width: 42, textAlign: 'right', fontWeight: '800' }}
+            >
+              {porcentaje}%
+            </Text>
+          </View>
+        );
+      })}
+
+      {hayExtra && abierto ? (
+        <View style={{ gap: 7, paddingTop: 2 }}>
+          {racha?.length ? (
+            <View style={{ flexDirection: 'row', alignItems: 'center', gap: 8 }}>
+              <View style={{ width: 7 }} />
+              <Text style={{ ...T.etiqueta, color: C.texto2, width: 40 }}>Uno a uno</Text>
+              <View style={{ flex: 1, flexDirection: 'row', gap: 3 }}>
+                {racha.map((acierto, i) => (
+                  <View
+                    key={i}
+                    style={{
+                      flex: 1,
+                      height: 7,
+                      borderRadius: 3,
+                      backgroundColor: acierto ? C.verde : C.rojo,
+                    }}
+                  />
+                ))}
+              </View>
+              <View style={{ width: 42 }} />
+            </View>
+          ) : null}
+
+          {media !== undefined && linea !== undefined ? (
+            <View style={{ flexDirection: 'row', alignItems: 'center', gap: 8 }}>
+              <View style={{ width: 7 }} />
+              <Text style={{ ...T.etiqueta, color: C.texto2, width: 40 }}>Media</Text>
+              <Text style={{ ...T.etiqueta, color: C.texto3, flex: 1 }}>
+                {media.toFixed(1)} {metrica ?? ''} por partido · línea {linea}
+              </Text>
+              <Text
+                style={{
+                  ...T.etiqueta,
+                  color: media > linea ? C.verde : C.rojo,
+                  width: 42,
+                  textAlign: 'right',
+                  fontWeight: '800',
+                }}
+              >
+                {media > linea ? '+' : ''}
+                {(media - linea).toFixed(1)}
+              </Text>
+            </View>
+          ) : null}
+        </View>
+      ) : null}
+
+      {hayExtra ? (
+        <Pulsable onPress={() => setAbierto((v) => !v)} hitSlop={8}>
+          <Text style={{ ...T.etiqueta, color: C.texto3 }}>
+            {abierto ? '− menos ángulos' : '+2 ángulos más'}
+          </Text>
+        </Pulsable>
+      ) : null}
+    </View>
+  );
+}
+
 export function BarraL10({
   racha,
   porcentaje,
@@ -482,13 +622,18 @@ export function TarjetaPick({
         />
 
         {!sinRacha && !bloqueado ? (
-          <View style={{ gap: 6 }}>
-            <BarraL10 racha={pick.racha} porcentaje={pick.aciertosL10 * 10} />
+          <View style={{ gap: 8 }}>
+            <Angulos
+              aciertosL5={pick.aciertosL5}
+              aciertosL10={pick.aciertosL10}
+              aciertosL20={pick.aciertosL20}
+              racha={pick.racha}
+              media={pick.media}
+              metrica={pick.metrica}
+              linea={pick.linea}
+            />
             <Txt v="pequeno" color={C.texto3}>
-              <Txt v="pequenoFuerte" color={C.lima}>
-                {pick.aciertosL10 * 10}%
-              </Txt>{' '}
-              en los últimos 10 partidos · {pick.ventaja.toFixed(0)}% de ventaja
+              Últimos 5, 10 y 20 partidos · {pick.ventaja.toFixed(0)}% de ventaja según el modelo
             </Txt>
           </View>
         ) : null}
