@@ -78,15 +78,25 @@ jobs:
             exit 1
           fi
 
-          # Y que la clave sirva de verdad, no solo que exista. Una copiada a
-          # medias o de otro proyecto pasa la prueba de arriba y revienta al
-          # final. Esto lo caza ahora, en un segundo.
-          CODIGO=$(curl -sS -o /dev/null -w '%{http_code}' \
-            "$SUPABASE_URL/storage/v1/bucket/datos" \
-            -H "Authorization: Bearer $SUPABASE_SERVICE_ROLE_KEY")
-          echo "Supabase responde $CODIGO al preguntar por el almacén"
+          # Y que la clave sirva de verdad, no solo que exista. Se prueba
+          # escribiendo un archivo minúsculo, que es exactamente lo que hará el
+          # trabajo al final: preguntar por el almacén contesta cosas raras
+          # según el tipo de clave, escribir no admite interpretaciones.
+          #
+          # Van las dos cabeceras a propósito. La pasarela de Supabase enruta
+          # por `apikey` y autoriza por `Authorization`; con una sola devuelve
+          # 400 aunque la clave sea perfecta, y se busca el fallo donde no está.
+          CODIGO=$(curl -sS -o /tmp/r.txt -w '%{http_code}' \
+            -X POST "$SUPABASE_URL/storage/v1/object/datos/_comprobacion.txt" \
+            -H "apikey: $SUPABASE_SERVICE_ROLE_KEY" \
+            -H "Authorization: Bearer $SUPABASE_SERVICE_ROLE_KEY" \
+            -H "Content-Type: text/plain" \
+            -H "x-upsert: true" \
+            --data-binary "ok")
+          echo "Supabase responde $CODIGO al escribir"
           if [ "$CODIGO" != "200" ]; then
-            echo "::error::Las claves no sirven para escribir en Supabase (HTTP $CODIGO)"
+            echo "::error::La clave no puede escribir en Supabase (HTTP $CODIGO)"
+            cat /tmp/r.txt
             exit 1
           fi
           echo "Claves correctas. Adelante con la importación."
@@ -172,6 +182,7 @@ jobs:
             # `x-upsert` sustituye el archivo anterior en vez de fallar por existir.
             CODIGO=$(curl -sS -o /tmp/respuesta.txt -w '%{http_code}' \
               -X POST "$SUPABASE_URL/storage/v1/object/datos/$2" \
+              -H "apikey: $SUPABASE_SERVICE_ROLE_KEY" \
               -H "Authorization: Bearer $SUPABASE_SERVICE_ROLE_KEY" \
               -H "Content-Type: $3" \
               -H "x-upsert: true" \
