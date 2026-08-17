@@ -193,7 +193,9 @@ jobs:
           echo "comprimido:    $(du -h importado.json.gz | cut -f1)"
 
           subir() {
-            # `x-upsert` sustituye el archivo anterior en vez de fallar por existir.
+            # `x-upsert` debería sustituir el archivo anterior en vez de fallar
+            # por existir. Debería: según la clave y las reglas del almacén, a
+            # veces no basta y hay que pedir la actualización explícitamente.
             CODIGO=$(curl -sS -o /tmp/respuesta.txt -w '%{http_code}' \
               -X POST "$SUPABASE_URL/storage/v1/object/datos/$2" \
               -H "apikey: $SUPABASE_SERVICE_ROLE_KEY" \
@@ -201,8 +203,28 @@ jobs:
               -H "Content-Type: $3" \
               -H "x-upsert: true" \
               --data-binary @"$1")
-            echo "  $2 -> $CODIGO"
-            if [ "$CODIGO" != "200" ]; then cat /tmp/respuesta.txt; exit 1; fi
+            echo "  $2 -> POST $CODIGO"
+
+            if [ "$CODIGO" != "200" ]; then
+              echo "  respuesta: $(cat /tmp/respuesta.txt)"
+              # PUT es "actualiza el que ya está". Crear y actualizar son
+              # permisos distintos, y el archivo se sube todos los días: a
+              # partir del segundo, siempre existe.
+              echo "  reintento con PUT..."
+              CODIGO=$(curl -sS -o /tmp/respuesta.txt -w '%{http_code}' \
+                -X PUT "$SUPABASE_URL/storage/v1/object/datos/$2" \
+                -H "apikey: $SUPABASE_SERVICE_ROLE_KEY" \
+                -H "Authorization: Bearer $SUPABASE_SERVICE_ROLE_KEY" \
+                -H "Content-Type: $3" \
+                --data-binary @"$1")
+              echo "  $2 -> PUT $CODIGO"
+            fi
+
+            if [ "$CODIGO" != "200" ]; then
+              echo "::error::No se pudo subir $2 (HTTP $CODIGO)"
+              cat /tmp/respuesta.txt
+              exit 1
+            fi
           }
 
           subir importado.json.gz         importado.json.gz application/gzip
