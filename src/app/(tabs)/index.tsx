@@ -28,7 +28,7 @@ const ORDENES: { id: Orden; texto: string }[] = [
   { id: 'valor', texto: 'Valor' },
   { id: 'ventaja', texto: 'Ventaja' },
   { id: 'acierto', texto: '% de acierto' },
-  { id: 'cuota', texto: 'Cuota más alta' },
+  { id: 'cuota', texto: 'Precio más alto' },
   { id: 'fuego', texto: 'Más guardados' },
 ];
 

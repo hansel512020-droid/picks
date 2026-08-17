@@ -24,13 +24,13 @@ const PASOS: { icono: NombreIcono; titulo: string; texto: string }[] = [
     icono: 'moneda',
     titulo: '3. Se compara con el precio',
     texto:
-      'La cuota no sale de esa racha: sale de la media de toda la temporada corregida hacia el patrón de su puesto, que es como tarifica el mercado, más el margen de la casa que hayas elegido. La ventaja es la diferencia entre la probabilidad del modelo y la que implica la cuota.',
+      'El precio no sale de esa racha: sale de la media de toda la temporada corregida hacia el patrón de su puesto, que es como tarifica el mercado, más el margen que hayas elegido. La ventaja es la diferencia entre la probabilidad del modelo y la que implica ese precio.',
   },
   {
     icono: 'filtro',
     titulo: '4. Se filtra el ruido',
     texto:
-      'Se descartan los mercados sin recorrido (cuotas por debajo de 1.18 o por encima de 6), los "menos de 0.5" que solo dicen que alguien no hará nada, y las repeticiones: de cada métrica se queda la mejor línea y de cada jugador como mucho dos picks.',
+      'Se descartan los mercados sin recorrido (precios por debajo de 1.18 o por encima de 6), los "menos de 0.5" que solo dicen que alguien no hará nada, y las repeticiones: de cada métrica se queda la mejor línea y de cada jugador como mucho dos picks.',
   },
 ];
 

@@ -374,7 +374,7 @@ export default function PantallaPartido() {
             valor={vista}
             onCambia={setVista}
             opciones={[
-              { id: 'cuotas', texto: 'Cuotas', icono: 'moneda' },
+              { id: 'cuotas', texto: 'Precios', icono: 'moneda' },
               { id: 'insights', texto: 'Insights', icono: 'grafico' },
               { id: 'duelo', texto: 'Duelo', icono: 'duelo' },
             ]}
@@ -479,7 +479,7 @@ export default function PantallaPartido() {
                     }
                     detalle={
                       jugado
-                        ? 'Este partido ya se jugó: mira las cuotas o el duelo.'
+                        ? 'Este partido ya se jugó: mira los precios o el duelo.'
                         : picksVisibles.length
                           ? 'Con el marcador que lleva ya no queda nada que apostar aquí.'
                           : 'Prueba con otro mercado.'

@@ -408,7 +408,7 @@ export default function PantallaPick() {
                 valor={`${(pick.probabilidad * 100).toFixed(0)}%`}
               />
               <FilaDato
-                etiqueta="Probabilidad de la cuota"
+                etiqueta="Probabilidad implícita del precio"
                 valor={`${((1 / pick.cuota) * 100).toFixed(0)}%`}
               />
             </Tarjeta>

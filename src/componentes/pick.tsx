@@ -65,7 +65,7 @@ export function BarraL10({
   );
 }
 
-/** Chip cuadrado con las siglas de la casa de apuestas. */
+/** Chip cuadrado con las siglas de la fuente del precio. */
 export function SelloCasa({ casaId, tam = 18 }: { casaId: string; tam?: number }) {
   const c = buscaCasa(casaId);
   return (
@@ -125,7 +125,7 @@ export function FilaMercado({
       >
         {/* Con el candado puesto tampoco se enseña el mercado: si se ve "Más de
             1.5 entradas" el pick ya está dado y Golden Pro no aporta nada. */}
-        {bloqueado ? 'Mercado y cuota con Golden Pro' : mercado}
+        {bloqueado ? 'Mercado y precio con Golden Pro' : mercado}
       </Text>
       {ventaja !== undefined && !bloqueado ? (
         <View style={{ flexDirection: 'row', alignItems: 'center', gap: 3 }}>
@@ -468,7 +468,7 @@ export function TarjetaPick({
       <Pulsable onPress={abrir} style={{ gap: E.md }}>
         <Txt v="cuerpo" color={bloqueado ? C.texto3 : C.texto} numberOfLines={3}>
           {bloqueado
-            ? 'Análisis disponible con Golden Pro. Desbloquea el argumento, la cuota y la tendencia de los últimos 10 partidos.'
+            ? 'Análisis disponible con Golden Pro. Desbloquea el argumento, el precio y la tendencia de los últimos 10 partidos.'
             : pick.argumento}
         </Txt>
 

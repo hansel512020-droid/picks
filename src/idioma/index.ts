@@ -70,9 +70,9 @@ const ES = {
   'partidos.enCurso': 'EN CURSO',
 
   // ------------------------------------------------------------- pick
-  'pick.mercadoConPro': 'Mercado y cuota con Golden Pro',
+  'pick.mercadoConPro': 'Mercado y precio con Golden Pro',
   'pick.analisisConPro':
-    'Análisis disponible con Golden Pro. Desbloquea el argumento, la cuota y la tendencia de los últimos 10 partidos.',
+    'Análisis disponible con Golden Pro. Desbloquea el argumento, el precio y la tendencia de los últimos 10 partidos.',
   'pick.ultimos10': 'en los últimos 10 partidos',
   'pick.deVentaja': 'de ventaja',
   'pick.estimado': 'EST',
@@ -84,7 +84,7 @@ const ES = {
   'rendimiento.ganados': 'Ganados',
   'rendimiento.perdidos': 'Perdidos',
   'rendimiento.acierto': 'Acierto',
-  'rendimiento.cuota': 'Cuota',
+  'rendimiento.cuota': 'Precio',
   'rendimiento.quitar': 'Quitar',
   'rendimiento.enJuego': 'EN JUEGO',
   'rendimiento.lleva': 'Lleva {valor}',
@@ -174,7 +174,7 @@ const EN: Partial<Record<Clave, string>> = {
   'rendimiento.ganados': 'Won',
   'rendimiento.perdidos': 'Lost',
   'rendimiento.acierto': 'Hit rate',
-  'rendimiento.cuota': 'Odds',
+  'rendimiento.cuota': 'Price',
   'rendimiento.quitar': 'Remove',
   'rendimiento.enJuego': 'LIVE',
   'rendimiento.lleva': 'On {valor}',
