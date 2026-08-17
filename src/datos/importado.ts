@@ -1,4 +1,16 @@
-import crudo from './importado.json';
+/*
+ * Se arranca con una semilla vacía, no con los datos.
+ *
+ * El archivo real pesa 70 MB, cambia cada día y vive en Supabase: la app se lo
+ * descarga al abrir —comprimido, 3,8 MB— y lo guarda para la próxima vez.
+ * Meterlo dentro del paquete obligaba a recompilar y republicar la web en cada
+ * jornada, hacía que cada visitante se tragara 70 MB antes de ver nada, y
+ * encima reventaba el límite de tamaño de archivo de GitHub.
+ *
+ * La semilla existe solo para que este `import` resuelva y el proyecto compile
+ * recién clonado. Los datos de verdad los pone `aplicaDatos`.
+ */
+import crudo from './importado.semilla.json';
 import type {
   Equipo,
   Jugador,

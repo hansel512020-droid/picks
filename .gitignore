@@ -48,3 +48,8 @@ example
 
 # Registro del importador: se regenera en cada pasada.
 scripts/refrescar.log
+
+# Los datos de las competiciones viven en Supabase, no en el repositorio:
+# pesan 70 MB y cambian cada día. La app se los descarga al arrancar y el
+# robot los sube. Aqui solo queda la semilla vacia, para que compile.
+src/datos/importado.json

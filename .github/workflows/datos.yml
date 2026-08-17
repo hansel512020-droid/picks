@@ -65,9 +65,10 @@ jobs:
           COMPLETA: ${{ github.event.schedule == '0 1 * * *' || inputs.completa }}
         run: |
           set -euo pipefail
-          # Las competiciones son las que ya están en el archivo: así se añaden
-          # o se quitan editando el repositorio, sin tocar este fichero.
-          LIGAS=$(node -e "console.log(Object.keys(require('./src/datos/importado.json').competiciones).join(','))")
+          # La lista vive en un archivo pequeño del repositorio. El de datos
+          # pesa 70 MB, ya no se versiona y en un checkout limpio no existe:
+          # lo crea el propio importador unas líneas más abajo.
+          LIGAS=$(node -e "console.log(require('./src/datos/competiciones.json').join(','))")
 
           if [ "$COMPLETA" = "true" ]; then
             echo "Pasada COMPLETA (con actas) · $LIGAS"
