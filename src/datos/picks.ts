@@ -125,19 +125,38 @@ function dobleOportunidad(a: number, b: number): number {
  * Se mide sobre lo que el rival ha concedido en sus propios partidos, que es
  * un dato suyo y no una suposición a partir de su categoría.
  */
+/*
+ * El factor no cambia entre las líneas de un mismo mercado.
+ *
+ * Lo que concede el Cesena en remates es lo mismo para "más de 10.5" que para
+ * "menos de 14.5", pero se recalculaba en cada una: seis métricas por cuatro
+ * líneas por dos sentidos, cuarenta y ocho veces la misma cuenta sobre veinte
+ * partidos, y otras tantas por el otro equipo. Se guarda por rival, métrica y
+ * fecha, que es de lo único que depende.
+ */
+const FACTORES = new Map<string, number>();
+cuandoCambienLosDatos(() => FACTORES.clear());
+
 function factorDelRival(
   rival: Equipo,
-  met: { valor: (p: Partido, esLocal: boolean) => number },
+  met: { clave?: string; valor: (p: Partido, esLocal: boolean) => number },
   mediaCompeticion: number,
   /** Nada posterior a esta fecha: al medir el modelo, el futuro no existe. */
   antesDe: string,
 ): number {
   if (mediaCompeticion <= 0) return 1;
 
+  const memo = `${rival.id}|${met.clave ?? ''}|${antesDe}`;
+  const guardado = FACTORES.get(memo);
+  if (guardado !== undefined) return guardado;
+
   const suyos = partidosDelEquipoEnTodas(rival.nombre, rival.bandera)
     .filter(({ partido }) => partido.estado === 'finalizado' && partido.fecha < antesDe)
     .slice(0, 20);
-  if (suyos.length < 5) return 1;
+  if (suyos.length < 5) {
+    FACTORES.set(memo, 1);
+    return 1;
+  }
 
   // Lo que le hicieron A ÉL: el valor del otro lado del marcador.
   const concedido =
@@ -148,7 +167,9 @@ function factorDelRival(
    * daría un factor de 2 y convertiría cualquier línea en un pick seguro, que
    * es exactamente el error que estamos arreglando, solo que del otro lado.
    */
-  return Math.min(1.35, Math.max(0.65, concedido / mediaCompeticion));
+  const factor = Math.min(1.35, Math.max(0.65, concedido / mediaCompeticion));
+  FACTORES.set(memo, factor);
+  return factor;
 }
 
 /**
@@ -1090,6 +1111,17 @@ export function picksDeCompeticion(
    * tarde en vez de pasar a los partidos de mañana. El tope de la lista lo
    * pone `limite`, así que ampliar el cuenco no alarga la portada: solo evita
    * que se quede sin material.
+   */
+  /*
+   * Y se paran en cuanto hay material de sobra.
+   *
+   * Analizar un partido cuesta unos 70 ms: cuarenta son casi tres segundos con
+   * el navegador congelado, porque JavaScript no tiene hilos y mientras calcula
+   * la página no responde a nada. Con "Todas" activa eso es lo que hacía que se
+   * quedara colgada al abrir.
+   *
+   * La portada enseña `limite` tarjetas. Seguir analizando partidos cuando ya
+   * hay cinco veces esa cantidad no cambia lo que se ve: solo cuesta tiempo.
    */
   const partidos = partidosAbiertos(competicionId).slice(0, 40);
   const t = temporada(competicionId);

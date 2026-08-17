@@ -78,6 +78,7 @@ export function cuandoCambienLosDatos(rehacer: () => void): void {
 export function aplicaDatos(nuevo: unknown): void {
   ARCHIVO = nuevo as Archivo;
   CACHE.clear();
+  HISTORIALES.clear();
   for (const rehacer of alCambiar) rehacer();
 }
 
@@ -197,10 +198,28 @@ export function claveEquipo(nombre: string): string {
  * juega la Libertadores arrastre también lo que hace en su liga, y que un
  * modesto de Championship que cae en la FA Cup traiga su historial.
  */
+/*
+ * Lo que ya se buscó no se vuelve a buscar.
+ *
+ * Esta función recorre los 9.123 partidos del archivo entero. Con dos llamadas
+ * por partido no importaba; desde que el modelo mira al rival se llama unas
+ * cien veces por partido —una por cada métrica, línea y sentido— y la portada
+ * analiza cuarenta partidos. Eran treinta y seis millones de recorridos para
+ * pintar una pantalla, y el navegador se quedaba colgado.
+ *
+ * El resultado solo depende del equipo y del archivo cargado, así que se puede
+ * guardar sin más. Se tira entero cuando llegan datos nuevos.
+ */
+const HISTORIALES = new Map<string, { competicionId: string; partido: Partido; esLocal: boolean }[]>();
+
 export function partidosDelEquipoEnTodas(
   nombreEquipo: string,
   bandera?: string,
 ): { competicionId: string; partido: Partido; esLocal: boolean }[] {
+  const memo = `${claveEquipo(nombreEquipo)}|${bandera ?? ''}`;
+  const guardado = HISTORIALES.get(memo);
+  if (guardado) return guardado;
+
   const clave = claveEquipo(nombreEquipo);
   const salida: { competicionId: string; partido: Partido; esLocal: boolean }[] = [];
 
@@ -226,6 +245,7 @@ export function partidosDelEquipoEnTodas(
     }
   }
   salida.sort((a, b) => a.partido.fecha.localeCompare(b.partido.fecha));
+  HISTORIALES.set(memo, salida);
   return salida;
 }
 
