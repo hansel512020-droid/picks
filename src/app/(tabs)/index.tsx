@@ -14,13 +14,13 @@ import { TarjetaPick } from '@/componentes/pick';
 import { competicion } from '@/datos/competiciones';
 import { claveDelPartido } from '@/datos/envivo';
 import { temporada } from '@/datos/motor';
-import { FAMILIAS, picksDeCompeticion } from '@/datos/picks';
+import { FAMILIAS, picksDeCompeticionPorTrozos } from '@/datos/picks';
 import type { Familia, Pick } from '@/datos/tipos';
 import { useDerechos } from '@/estado/derechos';
 import { useTienda } from '@/estado/tienda';
 import { usePicksVigentes, useVivo } from '@/estado/vivo';
 import { C, E, R } from '@/tema';
-import { useCalculo } from '@/utiles/carga';
+import { useCalculo, useCalculoProgresivo } from '@/utiles/carga';
 
 type Orden = 'valor' | 'ventaja' | 'acierto' | 'cuota' | 'fuego';
 
@@ -156,8 +156,18 @@ export default function Inicio() {
   const { sinLeer } = useAvisos();
 
   const equipos = useCalculo(() => temporada(competicionId).equipos, [competicionId]);
-  const picks = useCalculo(
-    () => picksDeCompeticion(competicionId, ajustes.casaId, 80, libres),
+  /*
+   * Por trozos, no de una tirada.
+   *
+   * Analizar un partido cuesta unos 70 ms y aquí se miran cuarenta. De golpe
+   * son casi tres segundos con el navegador congelado —JavaScript no tiene
+   * hilos—, y con "Todas" activa la app parecía colgada al abrirla.
+   *
+   * Así aparecen las primeras tarjetas enseguida y la lista se completa sola,
+   * respondiendo a los toques mientras tanto.
+   */
+  const picks = useCalculoProgresivo(
+    () => picksDeCompeticionPorTrozos(competicionId, ajustes.casaId, 80, libres),
     [competicionId, ajustes.casaId, libres],
   );
 

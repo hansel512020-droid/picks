@@ -1089,7 +1089,55 @@ export function partidosAbiertos(competicionId: string): Partido[] {
 const MINIMO_PORTADA = 22;
 
 /** Picks destacados de toda una competicion. */
+/**
+ * La portada, calculada por trozos para no congelar la pantalla.
+ *
+ * Analizar un partido cuesta unos 70 ms, y la portada mira cuarenta: casi tres
+ * segundos en los que el navegador no responde a nada, porque JavaScript no
+ * tiene hilos. Eso es lo que hacía que la app pareciera colgada al abrirla con
+ * "Todas".
+ *
+ * Partiendo el trabajo, entre partido y partido se le devuelve el turno al
+ * navegador para que atienda toques y repinte. Cada `yield` entrega la lista
+ * como esté: aparecen unos cuantos picks enseguida y la lista se va llenando,
+ * que se siente mucho más rápido que verlos todos de golpe al final.
+ *
+ * La versión de una tanda sigue existiendo justo debajo, para el backtest y
+ * para todo lo que no dibuja nada y sí quiere el resultado entero.
+ */
+/**
+ * La portada de una tanda, para todo lo que no dibuja: el backtest y las
+ * pantallas que ya tienen los datos en memoria.
+ *
+ * Consume el generador de golpe. Misma lógica, mismo resultado.
+ */
 export function picksDeCompeticion(
+  competicionId: string,
+  casaId: string,
+  limite = 60,
+  libres?: Set<string>,
+): Pick[] {
+  const trozos = picksDeCompeticionPorTrozos(competicionId, casaId, limite, libres);
+  let paso = trozos.next();
+  while (!paso.done) paso = trozos.next();
+  return paso.value;
+}
+
+/**
+ * La portada, calculada por trozos para no congelar la pantalla.
+ *
+ * Analizar un partido cuesta unos 70 ms, y la portada mira cuarenta: casi tres
+ * segundos en los que el navegador no responde a nada, porque JavaScript no
+ * tiene hilos. Eso es lo que hacía que la app pareciera colgada al abrirla con
+ * "Todas" activa.
+ *
+ * Partiendo el trabajo, entre trozo y trozo se le devuelve el turno al
+ * navegador para que atienda toques y repinte. Cada entrega trae la lista como
+ * esté: aparecen unos cuantos picks enseguida y se va llenando, que se siente
+ * mucho más rápido que verlos todos de golpe al final aunque el reloj diga lo
+ * contrario.
+ */
+export function* picksDeCompeticionPorTrozos(
   competicionId: string,
   casaId: string,
   limite = 60,
@@ -1103,7 +1151,13 @@ export function picksDeCompeticion(
    * igual sobre lo que el usuario ya ha pagado.
    */
   libres?: Set<string>,
-): Pick[] {
+  /*
+   * Tres partidos por trozo: unos 200 ms de calculo entre respiro y respiro.
+   * Con cinco los tirones se notaban al desplazar; con uno solo, el ir y venir
+   * al navegador cuesta mas que el propio calculo.
+   */
+  porTrozo = 3,
+): Generator<Pick[], Pick[], void> {
   /*
    * Se miran los cuarenta partidos más cercanos, no los catorce de antes.
    * Según van terminando los de hoy, sus picks se retiran de la portada; con
@@ -1134,6 +1188,24 @@ export function picksDeCompeticion(
   // Los que se quedan fuera solo por el tope de repeticion. Sirven para
   // rellenar si al final la portada sale corta.
   const reserva: Pick[] = [];
+
+  /*
+   * El criterio de orden, definido antes del bucle.
+   *
+   * Hace falta aquí arriba porque cada entrega parcial sale ya ordenada: si se
+   * entregaran en el orden en que se calculan, las primeras tarjetas cambiarían
+   * de sitio al llegar las siguientes y la lista bailaría delante de quien la
+   * está leyendo.
+   */
+  const famaDe = (p: Pick) =>
+    p.sujeto === 'jugador'
+      ? (t.porJugador.get(p.sujetoId)?.nivel ?? 70)
+      : p.sujeto === 'equipo'
+        ? (t.porEquipo.get(p.sujetoId)?.fuerza ?? 70)
+        : 78;
+
+  let desdeElUltimoTrozo = 0;
+
   for (const p of partidos) {
     /*
      * Diez por partido en vez de seis, y hasta dos del mismo sujeto. Los topes
@@ -1172,6 +1244,21 @@ export function picksDeCompeticion(
       porSujetoPortada.set(pick.sujetoId, delSujeto + 1);
       porMercado.set(mercado, repetido + 1);
       todos.push(pick);
+    }
+
+    /*
+     * Cada cinco partidos se entrega lo que hay y se cede el turno.
+     *
+     * Este `yield` es todo el arreglo: aquí es donde el navegador recupera el
+     * control para atender toques y repintar. Sin él, los cuarenta partidos se
+     * calculan de una tirada y la página se queda muerta tres segundos.
+     */
+    desdeElUltimoTrozo++;
+    if (desdeElUltimoTrozo >= porTrozo) {
+      desdeElUltimoTrozo = 0;
+      yield [...todos]
+        .sort((a, b) => valor(b, famaDe(b)) - valor(a, famaDe(a)))
+        .slice(0, Math.max(limite, MINIMO_PORTADA));
     }
   }
   const fama = (p: Pick) =>
