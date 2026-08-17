@@ -1,7 +1,7 @@
 import { Stack, useRouter, useSegments } from 'expo-router';
 import { StatusBar } from 'expo-status-bar';
 import React, { useEffect, useState, type ReactNode } from 'react';
-import { Platform, View } from 'react-native';
+import { ActivityIndicator, Platform, Text, View } from 'react-native';
 import { GestureHandlerRootView } from 'react-native-gesture-handler';
 import { SafeAreaProvider } from 'react-native-safe-area-context';
 import { Simbolo } from '@/componentes/marca';
@@ -13,7 +13,7 @@ import { ProveedorSesion, useSesion } from '@/estado/sesion';
 import { Sincroniza } from '@/estado/sincroniza';
 import { ProveedorTienda, useTienda } from '@/estado/tienda';
 import { ProveedorVivo } from '@/estado/vivo';
-import { C } from '@/tema';
+import { C, E } from '@/tema';
 
 /** Pantalla de carga mientras se lee el estado guardado. */
 function Cargando() {
@@ -95,21 +95,59 @@ function MarcoMovil({ children }: { children: ReactNode }) {
  */
 function ConDatos({ children }: { children: React.ReactNode }) {
   const [version, setVersion] = useState(0);
+  /*
+   * Hasta que no haya datos de verdad no se enseña la app.
+   *
+   * Antes se pintaba enseguida con el archivo de relleno que viaja dentro y se
+   * sustituía al llegar los buenos. El resultado era medio segundo largo de
+   * partidos que no existen —"FC Norte vs Sporting Sur"— y nadie que abre una
+   * app por primera vez sabe que eso es de mentira: se lo cree, y lo que se
+   * cree es que los datos son inventados.
+   *
+   * Con la copia en IndexedDB esto solo se nota la primera visita; después
+   * arranca al momento con lo de la última vez.
+   */
+  const [listo, setListo] = useState(false);
 
   useEffect(() => {
     let vivo = true;
     (async () => {
       if (await cargaGuardados()) {
         if (!vivo) return;
+        setListo(true);
         setVersion((v) => v + 1);
       }
       const hayNuevos = await descargaDatos();
-      if (vivo && hayNuevos) setVersion((v) => v + 1);
+      if (!vivo) return;
+      /*
+       * `listo` se pone pase lo que pase, también si la descarga falla. Sin
+       * red la app abre con lo que trae dentro: peor que los datos de hoy,
+       * infinitamente mejor que dejar a alguien mirando una rueda para siempre.
+       */
+      setListo(true);
+      if (hayNuevos) setVersion((v) => v + 1);
     })();
     return () => {
       vivo = false;
     };
   }, []);
+
+  if (!listo) {
+    return (
+      <View
+        style={{
+          flex: 1,
+          backgroundColor: C.fondo,
+          alignItems: 'center',
+          justifyContent: 'center',
+          gap: E.md,
+        }}
+      >
+        <ActivityIndicator color={C.lima} />
+        <Text style={{ color: C.texto3, fontSize: 13 }}>Cargando resultados…</Text>
+      </View>
+    );
+  }
 
   return <React.Fragment key={version}>{children}</React.Fragment>;
 }

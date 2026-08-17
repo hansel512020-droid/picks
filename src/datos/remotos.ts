@@ -1,4 +1,5 @@
 import AsyncStorage from '@react-native-async-storage/async-storage';
+import { guardaGrande, leeGrande } from './almacen';
 import { aplicaDatos } from './importado';
 import { aplicaLogos } from './imagenes';
 
@@ -75,7 +76,7 @@ const CADA = 6 * 60 * 60 * 1000;
  */
 export async function cargaGuardados(): Promise<boolean> {
   try {
-    const crudo = await AsyncStorage.getItem(CLAVE);
+    const crudo = await leeGrande(CLAVE);
     if (!crudo) return false;
     aplicaDatos(JSON.parse(crudo));
     return true;
@@ -163,7 +164,8 @@ async function descargaLogos(): Promise<void> {
  */
 async function guardaSiCabe(texto: string): Promise<void> {
   try {
-    await AsyncStorage.setItem(CLAVE, texto);
+    // IndexedDB en el navegador: localStorage no admite 76 MB.
+    if (!(await guardaGrande(CLAVE, texto))) return;
     await AsyncStorage.setItem(CLAVE_FECHA, String(Date.now()));
   } catch {
     // Sin sitio. La app funciona igual, solo tarda más en arrancar la próxima
