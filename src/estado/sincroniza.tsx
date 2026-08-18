@@ -1,8 +1,11 @@
-import { useEffect, useRef } from 'react';
+import { useEffect, useRef, useState } from 'react';
 import { borraPick, picksDeLaCuenta, subePick } from '@/datos/cuenta';
 import type { PickGuardado } from '@/datos/tipos';
 import { useSesion } from './sesion';
 import { useTienda } from './tienda';
+
+/** Cada cuánto se reintenta lo que quedó sin subir la última vez. */
+const CADA_REINTENTO = 45_000;
 
 /**
  * Mantiene los picks del usuario iguales en el teléfono y en su cuenta.
@@ -99,28 +102,66 @@ export function Sincroniza() {
     })();
   }, [sesion, restaura]);
 
+  // Late de fondo para reintentar lo que se quedó sin subir. Un 503 pasajero
+  // no debe esperar a que el usuario guarde o quite otro pick para volver a
+  // intentarse: sin esto, un fallo de un segundo del servidor dejaba ese pick
+  // sin sincronizar para siempre.
+  const [pulso, setPulso] = useState(0);
+  useEffect(() => {
+    if (!sesion) return;
+    const reloj = setInterval(() => setPulso((p) => p + 1), CADA_REINTENTO);
+    return () => clearInterval(reloj);
+  }, [sesion]);
+
   // ------------------------------------------------------- cada cambio sube
   useEffect(() => {
     if (!sesion) return;
-    for (const g of guardados) {
-      // La huella incluye el desenlace: así vuelve a subir cuando se resuelve.
-      const huella = `${g.resultado}|${g.valorReal ?? ''}`;
-      if (subido.current.get(g.pickId) === huella) continue;
-      subido.current.set(g.pickId, huella);
-      subePick(sesion.token, sesion.id, aFila(g)).catch(() => {
-        // Si falla, se reintenta en el siguiente cambio.
-        subido.current.delete(g.pickId);
-      });
-    }
+    let cancelado = false;
 
-    // Lo que ya no está en el teléfono se quita también de la cuenta.
-    const vivos = new Set(guardados.map((g) => g.pickId));
-    for (const id of [...subido.current.keys()]) {
-      if (vivos.has(id)) continue;
-      subido.current.delete(id);
-      borraPick(sesion.token, sesion.id, id).catch(() => {});
-    }
-  }, [guardados, sesion]);
+    (async () => {
+      /*
+       * Uno detrás de otro, no todos a la vez.
+       *
+       * Antes se lanzaban todas las peticiones juntas, sin esperar ninguna.
+       * Con diez picks guardados eso eran diez conexiones simultáneas contra
+       * la base de datos, y el servidor respondía 503 a las diez —incluida la
+       * única que de verdad había cambiado—. Uno a uno tarda más pero llega.
+       */
+      for (const g of guardados) {
+        if (cancelado) return;
+        // La huella incluye el desenlace: así vuelve a subir cuando se resuelve.
+        const huella = `${g.resultado}|${g.valorReal ?? ''}`;
+        if (subido.current.get(g.pickId) === huella) continue;
+
+        const bien = await subePick(sesion.token, sesion.id, aFila(g));
+        /*
+         * Solo se marca como subido si de verdad se subió. `subePick` no
+         * lanza excepción cuando el servidor responde mal —devuelve
+         * `false`—, así que un 503 pasaba desapercibido: el pick se daba
+         * por sincronizado sin haber llegado nunca a la cuenta, y no se
+         * volvía a intentar jamás. Ahora un fallo se queda "pendiente" y
+         * el pulso de reintento —o el próximo cambio— lo vuelve a probar.
+         */
+        if (bien) subido.current.set(g.pickId, huella);
+      }
+      if (cancelado) return;
+
+      // Lo que ya no está en el teléfono se quita también de la cuenta.
+      const vivos = new Set(guardados.map((g) => g.pickId));
+      for (const id of [...subido.current.keys()]) {
+        if (cancelado) return;
+        if (vivos.has(id)) continue;
+        const bien = await borraPick(sesion.token, sesion.id, id);
+        if (bien) subido.current.delete(id);
+        // Si falla el borrado, se queda en `subido` y se reintenta luego:
+        // no se le pierde el rastro solo porque el servidor respondió mal.
+      }
+    })();
+
+    return () => {
+      cancelado = true;
+    };
+  }, [guardados, sesion, pulso]);
 
   return null;
 }

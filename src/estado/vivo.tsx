@@ -374,8 +374,27 @@ export function ProveedorVivo({ children }: { children: ReactNode }) {
     // Sin solaparse: si una tanda tarda más que el intervalo, se salta el tic.
     let ocupado = false;
 
+    /*
+     * Cuándo se hizo el último barrido completo.
+     *
+     * El barrido completo pide el marcador de las 36 competiciones: 31
+     * peticiones a ESPN de una tacada. Se dispara al recuperar el foco, y en
+     * el navegador eso ocurre en cada cambio de pantalla: ir a Partidos y
+     * volver a Inicio eran 62 peticiones para traer exactamente los mismos
+     * datos que ya estaban en memoria.
+     *
+     * Con esto, el barrido completo no se repite antes de un minuto pase lo
+     * que pase. Los partidos en juego siguen refrescándose cada 30 segundos
+     * por su cuenta, que es lo único que cambia de verdad minuto a minuto.
+     */
+    let ultimoCompleto = 0;
+
     const tic = async (soloVivos: boolean) => {
       if (!montado || ocupado) return;
+      if (!soloVivos) {
+        if (Date.now() - ultimoCompleto < 60_000) return;
+        ultimoCompleto = Date.now();
+      }
       ocupado = true;
       try {
         await refrescaRef.current(soloVivos);
