@@ -373,9 +373,9 @@ function admisible(cuota: number, ventaja: number, sentido: 'mas' | 'menos'): bo
  * es el de los recomendados. Si se mezclaran, ese número dejaría de aplicar a
  * nada concreto.
  */
-function recomendable(ventaja: number, sentido: 'mas' | 'menos', familia: Familia): boolean {
+function recomendable(familia: Familia, aciertosL10: number): boolean {
   if (FAMILIAS_APAGADAS.has(familia)) return false;
-  return ventaja >= (sentido === 'menos' ? VENTAJA_MINIMA_MENOS : VENTAJA_MINIMA);
+  return aciertosL10 >= 8;
 }
 
 /**
@@ -619,7 +619,7 @@ export function picksDePartido(
             cuota,
             casa,
             precioReal: false,
-            recomendado: recomendable(ventaja, sentido, met.familia),
+            recomendado: recomendable(met.familia, ev.aciertosL10),
             racha: ev.racha,
             aciertosL5: ev.aciertosL5,
             aciertosL10: ev.aciertosL10,
@@ -763,7 +763,7 @@ export function picksDePartido(
             cuota,
             casa,
             precioReal: false,
-            recomendado: recomendable(ventaja, sentido, met.familia),
+            recomendado: recomendable(met.familia, ev.aciertosL10),
             racha: ev.racha,
             aciertosL5: ev.aciertosL5,
             aciertosL10: ev.aciertosL10,
@@ -831,7 +831,7 @@ export function picksDePartido(
             cuota,
             casa,
             precioReal: false,
-            recomendado: recomendable(ventaja, sentido, met.familia),
+            recomendado: recomendable(met.familia, ev.aciertosL10),
             racha: ev.racha,
             aciertosL5: ev.aciertosL5,
             aciertosL10: ev.aciertosL10,
@@ -987,7 +987,7 @@ export function picksDePartido(
          * fiable de todas: se mide contra un precio que alguien publico, no
          * contra uno que calcula la propia app.
          */
-        recomendado: ventaja >= VENTAJA_MINIMA,
+        recomendado: gano.filter(Boolean).length >= 8,
         racha: gano,
         aciertosL5: gano.slice(0, 5).filter(Boolean).length,
         aciertosL10: gano.filter(Boolean).length,
