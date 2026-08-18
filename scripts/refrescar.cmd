@@ -22,4 +22,10 @@ cd /d "%~dp0.."
 echo. >> scripts\refrescar.log
 echo ===== %DATE% %TIME% ===== >> scripts\refrescar.log
 node --max-old-space-size=4096 scripts\importar.js --refrescar --detalles 12 >> scripts\refrescar.log 2>&1
-echo Salida: %ERRORLEVEL% >> scripts\refrescar.log
+echo Importar: %ERRORLEVEL% >> scripts\refrescar.log
+
+REM Sube el archivo recortado a Supabase Storage para que los telefonos
+REM descarguen la version nueva. Necesita SUPABASE_SERVICE_ROLE_KEY en
+REM el entorno o en .env.local.
+node scripts\publicar-datos.js >> scripts\refrescar.log 2>&1
+echo Publicar: %ERRORLEVEL% >> scripts\refrescar.log

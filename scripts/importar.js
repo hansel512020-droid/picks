@@ -107,10 +107,30 @@ function tomaElCerrojo() {
   return true;
 }
 
-/** Deja el archivo listo para escribir: sin ceros y sin objetos vacios. */
+/** Deja el archivo listo para escribir: sin ceros, sin objetos vacios y sin exceso de registros. */
 function adelgaza(acumulado) {
+  const REGISTROS_POR_JUGADOR = 25;
   for (const c of Object.values(acumulado.competiciones ?? {})) {
-    c.registros = (c.registros ?? []).map((r) => sinRelleno(r, REGISTRO_VACIO));
+    // Solo los registros de partidos que se conservan: si un partido se
+    // recorto, sus registros tampoco sirven y engordan el archivo de balde.
+    const idsPartidos = new Set((c.partidos ?? []).map((p) => p.id));
+    const registros = (c.registros ?? []).filter((r) => idsPartidos.has(r.partidoId));
+
+    // Solo los ultimos N por jugador: el modelo mira los 20 mas recientes
+    // y el detalle del jugador no necesita mas. Sin estos dos recortes el
+    // archivo crece a 60 MB y los telefonos no lo abren.
+    const porJugador = new Map();
+    for (const r of registros) {
+      const lista = porJugador.get(r.jugadorId) ?? [];
+      lista.push(r);
+      porJugador.set(r.jugadorId, lista);
+    }
+    const recortados = [];
+    for (const lista of porJugador.values()) {
+      lista.sort((a, b) => (a.fecha || '').localeCompare(b.fecha || ''));
+      recortados.push(...lista.slice(-REGISTROS_POR_JUGADOR));
+    }
+    c.registros = recortados.map((r) => sinRelleno(r, REGISTRO_VACIO));
     for (const p of c.partidos ?? []) {
       if (!p.estadisticas) continue;
       p.estadisticas.local = sinRelleno(p.estadisticas.local, ESTADISTICAS_VACIAS);
@@ -165,7 +185,7 @@ function argumentos() {
     listar: false,
     estadisticas: false,
     // Cuantos partidos jugados se guardan por competicion.
-    partidos: 200,
+    partidos: 80,
     // De cuantos se bajan estadisticas y jugadores desde ESPN.
     detalles: 90,
   };
