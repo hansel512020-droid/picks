@@ -22,7 +22,11 @@ const LIGAS: Record<string, string> = {
   suecia: 'swe.1', polonia: 'pol.1', rumania: 'rou.1', chequia: 'cze.1',
   croacia: 'cro.1', serbia: 'srb.1', ucrania: 'ukr.1',
   champions: 'uefa.champions', europaleague: 'uefa.europa',
-  conference: 'uefa.europa.conf', libertadores: 'conmebol.libertadores',
+  conference: 'uefa.europa.conf',
+  // Fases previas: competiciones distintas en ESPN, con su propio marcador.
+  championsprevia: 'uefa.champions_qual', europaprevia: 'uefa.europa_qual',
+  conferenceprevia: 'uefa.europa.conf_qual',
+  libertadores: 'conmebol.libertadores',
   sudamericana: 'conmebol.sudamericana', concachampions: 'concacaf.champions',
   copadelrey: 'esp.copa_del_rey', facup: 'eng.fa', carabao: 'eng.league_cup',
   coppa: 'ita.coppa_italia', dfbpokal: 'ger.dfb_pokal',

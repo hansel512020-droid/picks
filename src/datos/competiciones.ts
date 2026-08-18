@@ -27,13 +27,22 @@ type Fila = [
 const FILAS: Fila[] = [
   ['mundial', 'Copa Mundial de la FIFA', 'Mundial', 'FIFA', '🏆', 'seleccion', 92, 2.7],
   ['champions', 'UEFA Champions League', 'Champions', 'UEFA', '🌟', 'continental', 94, 3.0, true],
+  /*
+   * Las fases previas son competiciones aparte en ESPN, con su propio
+   * calendario, y sin ellas la app no enseñaba los partidos por los que un
+   * equipo se juega entrar. En agosto eso son casi cuarenta partidos al día
+   * que simplemente no existían.
+   */
+  ['championsprevia', 'UEFA Champions League · Fase previa', 'Champions previa', 'UEFA', '🌟', 'continental', 78, 2.9],
   ['premier', 'Premier League', 'Premier', 'Inglaterra', '🏴󠁧󠁢󠁥󠁮󠁧󠁿', 'liga', 92, 2.85, true],
   ['laliga', 'LaLiga EA Sports', 'LaLiga', 'España', '🇪🇸', 'liga', 89, 2.55, true],
   ['seriea', 'Serie A', 'Serie A', 'Italia', '🇮🇹', 'liga', 88, 2.75],
   ['bundesliga', 'Bundesliga', 'Bundesliga', 'Alemania', '🇩🇪', 'liga', 87, 3.15],
   ['ligue1', 'Ligue 1', 'Ligue 1', 'Francia', '🇫🇷', 'liga', 84, 2.8],
   ['europaleague', 'UEFA Europa League', 'Europa League', 'UEFA', '🥈', 'continental', 82, 2.9],
+  ['europaprevia', 'UEFA Europa League · Fase previa', 'Europa previa', 'UEFA', '🥈', 'continental', 70, 2.85],
   ['conference', 'UEFA Conference League', 'Conference', 'UEFA', '🥉', 'continental', 74, 3.0],
+  ['conferenceprevia', 'UEFA Conference League · Fase previa', 'Conference previa', 'UEFA', '🥉', 'continental', 64, 2.95],
   ['ligamx', 'Liga MX', 'Liga MX', 'México', '🇲🇽', 'liga', 76, 2.75, true],
   ['libertadores', 'CONMEBOL Libertadores', 'Libertadores', 'CONMEBOL', '🏅', 'continental', 80, 2.5],
   ['sudamericana', 'CONMEBOL Sudamericana', 'Sudamericana', 'CONMEBOL', '🎖️', 'continental', 73, 2.6],

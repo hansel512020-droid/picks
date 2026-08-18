@@ -53,6 +53,12 @@ const LIGAS = {
   champions: 'uefa.champions',
   europaleague: 'uefa.europa',
   conference: 'uefa.europa.conf',
+  // Fases previas: en ESPN son competiciones aparte, con su propio calendario.
+  // Sin ellas no se importan los partidos por los que un equipo se juega
+  // entrar, que en agosto son casi cuarenta al dia.
+  championsprevia: 'uefa.champions_qual',
+  europaprevia: 'uefa.europa_qual',
+  conferenceprevia: 'uefa.europa.conf_qual',
   libertadores: 'conmebol.libertadores',
   sudamericana: 'conmebol.sudamericana',
   concachampions: 'concacaf.champions',
