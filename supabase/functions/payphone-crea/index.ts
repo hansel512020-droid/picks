@@ -125,13 +125,22 @@ Deno.serve(async (peticion) => {
         // A dónde vuelve el usuario después de pagar. Lo manda la app porque
         // el dominio puede cambiar, pero se comprueba que sea nuestro.
         responseUrl: vuelveA,
+        // Payphone exige una URL de cancelación. Sin ella rechaza el pago con
+        // un 400 antes de crearlo. Se vuelve a la misma pantalla de Pro: si el
+        // usuario cancela, se encuentra donde estaba y puede reintentar.
+        cancellationUrl: vuelveA,
       }),
     });
 
     if (!r.ok) {
       const detalle = await r.text();
       console.log('Payphone no creó el pago:', r.status, detalle);
-      return responde({ error: 'No se pudo crear el pago' }, 502);
+      // Temporal, mientras se afina la integración: se devuelve el motivo real
+      // que da Payphone para poder verlo desde la app sin mirar los registros.
+      return responde(
+        { error: `PayPhone rechazó el pago (${r.status}): ${detalle.slice(0, 300)}` },
+        502,
+      );
     }
 
     const datos = await r.json();

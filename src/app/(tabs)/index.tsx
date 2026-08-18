@@ -146,7 +146,9 @@ export default function Inicio() {
 
   const [grupo, setGrupo] = useState<string | undefined>(undefined);
   const [familias, setFamilias] = useState<Familia[]>([]);
-  const [orden, setOrden] = useState<Orden>('valor');
+  // Por defecto, los de más probabilidad de ganar primero: es lo que la
+  // portada tiene que poner delante. El usuario puede cambiar el orden.
+  const [orden, setOrden] = useState<Orden>('acierto');
   const [menuOrden, setMenuOrden] = useState(false);
   const [todasFamilias, setTodasFamilias] = useState(false);
 

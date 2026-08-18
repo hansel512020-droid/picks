@@ -8,6 +8,7 @@ import {
   useState,
   type ReactNode,
 } from 'react';
+import { useDerechos } from './derechos';
 
 /**
  * Los avisos, guardados dentro de la app.
@@ -95,11 +96,31 @@ export function ProveedorAvisos({ children }: { children: ReactNode }) {
 
   const borra = useCallback(() => setLista([]), []);
 
-  const sinLeer = useMemo(() => lista.filter((a) => !a.leido).length, [lista]);
+  /*
+   * Lo que se enseña, sin los avisos de ligas premium que el usuario no ha
+   * pagado.
+   *
+   * Un aviso de "nuevo pick" lleva el pick entero en el cuerpo, así que
+   * enseñarlo sería regalar por la campana justo lo que el muro de pago tapa.
+   * El barrido ya no genera esos avisos, pero los que se guardaron antes del
+   * arreglo siguen en el teléfono: aquí se ocultan al mostrar. Se filtra al
+   * mostrar y no al guardar a propósito, para que si el usuario compra la liga
+   * después, sus avisos reaparezcan en vez de haberse perdido.
+   */
+  const { tieneAcceso } = useDerechos();
+  const visibles = useMemo(
+    () =>
+      lista.filter((a) => {
+        const comp = a.ruta?.match(/[?&]comp=([^&]+)/)?.[1];
+        return !comp || tieneAcceso(decodeURIComponent(comp));
+      }),
+    [lista, tieneAcceso],
+  );
+  const sinLeer = useMemo(() => visibles.filter((a) => !a.leido).length, [visibles]);
 
   const valor = useMemo<Avisos>(
-    () => ({ lista, sinLeer, anota, marcaLeidos, borra }),
-    [lista, sinLeer, anota, marcaLeidos, borra],
+    () => ({ lista: visibles, sinLeer, anota, marcaLeidos, borra }),
+    [visibles, sinLeer, anota, marcaLeidos, borra],
   );
 
   return <Contexto.Provider value={valor}>{children}</Contexto.Provider>;
