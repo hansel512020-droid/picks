@@ -19,6 +19,7 @@ import { picksDeCompeticion } from '@/datos/picks';
 import { compruebaPick, progresoDelPick, resumenDelPartido } from '@/datos/resolver';
 import type { Pick, ResultadoPick } from '@/datos/tipos';
 import { useAvisos } from './avisos';
+import { useDerechos } from './derechos';
 import { useTienda } from './tienda';
 
 /**
@@ -108,6 +109,10 @@ export function ProveedorVivo({ children }: { children: ReactNode }) {
   const { guardados, ajustes } = useTienda();
   // Los avisos se quedan dentro de la app, no solo en el sistema.
   const { anota } = useAvisos();
+  // Qué tiene desbloqueado: decide de qué ligas se puede avisar. Sin esto, el
+  // aviso de "nuevo pick" enseñaba el pick de una liga premium a quien no la
+  // había pagado, que es regalar por la campana lo que el muro cobra.
+  const { tieneAcceso } = useDerechos();
   const [porPartido, setPorPartido] = useState<Map<string, PartidoVivo>>(new Map());
   const [porEspn, setPorEspn] = useState<Map<string, PartidoVivo>>(new Map());
   const [resueltos, setResueltos] = useState<Map<string, ResueltoVivo>>(new Map());
@@ -118,6 +123,10 @@ export function ProveedorVivo({ children }: { children: ReactNode }) {
   // Para no avisar dos veces del mismo pick.
   const avisados = useRef<Set<string>>(new Set());
   const permiso = useRef(false);
+  // La última versión de `tieneAcceso`, para leerla dentro del barrido sin
+  // rehacer el reloj cada vez que cambian los derechos.
+  const tieneAccesoRef = useRef(tieneAcceso);
+  tieneAccesoRef.current = tieneAcceso;
 
   useEffect(() => {
     if (Platform.OS === 'web') return;
@@ -316,6 +325,14 @@ export function ProveedorVivo({ children }: { children: ReactNode }) {
        */
       const candidatos: { pick: Pick; liga: string }[] = [];
       for (const liga of competicionesImportadas()) {
+        /*
+         * Solo se avisa de ligas a las que el usuario tiene acceso: las cuatro
+         * gratuitas y las que haya comprado. De una liga premium sin pagar no
+         * se avisa, porque el cuerpo del aviso lleva el pick entero (título,
+         * mercado y cuota) y eso es enseñar por la campana justo lo que el muro
+         * de pago tapa en la pantalla.
+         */
+        if (!tieneAccesoRef.current(liga)) continue;
         const mejor = picksDeCompeticion(liga, ajustes.casaId, 1)[0];
         if (!mejor || vistos.has(mejor.id)) continue;
         candidatos.push({ pick: mejor, liga });

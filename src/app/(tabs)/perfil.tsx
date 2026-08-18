@@ -2,7 +2,7 @@ import { router } from 'expo-router';
 import { useMemo, useState } from 'react';
 import { Linking, ScrollView, Switch, Text, View } from 'react-native';
 import { useSafeAreaInsets } from 'react-native-safe-area-context';
-import { Insignia, Pulsable, Separador, Tarjeta, Txt } from '@/componentes/base';
+import { Descargo, Insignia, Pulsable, Separador, Tarjeta, Txt } from '@/componentes/base';
 import { Icono, type NombreIcono } from '@/componentes/iconos';
 import { LogoCompeticion } from '@/componentes/imagen';
 import { Simbolo } from '@/componentes/marca';
@@ -489,10 +489,7 @@ export default function Perfil() {
         </Tarjeta>
       </View>
 
-      <Txt v="mini" color={C.texto3} style={{ paddingHorizontal: E.xl, textAlign: 'center' }}>
-        Golden Picks es una app de investigación estadística. No es una casa de apuestas, no acepta
-        depósitos y no genera ingresos de casas ni de afiliados. Solo para mayores de 18 años.
-      </Txt>
+      <Descargo style={{ paddingHorizontal: E.xl }} />
     </ScrollView>
   );
 }

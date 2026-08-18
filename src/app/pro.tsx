@@ -2,12 +2,11 @@ import { router } from 'expo-router';
 import { useState } from 'react';
 import { ScrollView, View } from 'react-native';
 import { useSafeAreaInsets } from 'react-native-safe-area-context';
-import { Boton, Insignia, Pulsable, Tarjeta, Txt } from '@/componentes/base';
+import { Boton, Descargo, Insignia, Pulsable, Tarjeta, Txt } from '@/componentes/base';
 import { Icono } from '@/componentes/iconos';
 import { Simbolo } from '@/componentes/marca';
-import { BotonPaypal } from '@/componentes/paypal';
+import { BotonPayphone } from '@/componentes/payphone';
 import { COMPETICIONES, competicionesVisibles } from '@/datos/competiciones';
-import { planDePaypal } from '@/datos/planes';
 import { useDerechos } from '@/estado/derechos';
 import { useSesion } from '@/estado/sesion';
 import { useTienda, type Plan } from '@/estado/tienda';
@@ -153,8 +152,11 @@ export default function Pro() {
   const { refresca: refrescaDerechos } = useDerechos();
   const insets = useSafeAreaInsets();
   const [elegido, setElegido] = useState<Plan>('anual');
-  // El plan de PayPal que corresponde a la oferta elegida, si existe.
-  const paypal = planDePaypal(elegido);
+  // La oferta elegida, para sacar su precio y enseñarlo en el botón.
+  const ofertaElegida = [...COMPLETOS, ...PARCIALES].find((o) => o.id === elegido);
+  // Los planes parciales no desbloquean nada al pagar: dan huecos que hay que
+  // repartir luego en "Mis ligas".
+  const parcial = elegido === 'dosligas' || elegido === 'tresligas';
 
   return (
     <View style={{ flex: 1, backgroundColor: C.fondo }}>
@@ -245,67 +247,60 @@ export default function Pro() {
 
         <View style={{ paddingHorizontal: E.lg, gap: E.sm }}>
           {/*
-            El botón de PayPal solo aparece si el plan elegido tiene un plan
-            creado en PayPal y el usuario tiene cuenta. Sin cuenta no hay a
-            quién dar el acceso: el pago llegaría sin dueño.
+            Sin cuenta no hay a quién dar el acceso: el pago llegaría sin dueño,
+            así que primero se manda a entrar. Si ya tiene este mismo plan
+            activo, no se le deja pagarlo otra vez.
           */}
-          {paypal && sesion ? (
-            <BotonPaypal
-              planId={paypal.paypalId}
-              usuarioId={sesion.id}
+          {!sesion ? (
+            <Boton
+              ancho
+              texto="Entra con tu cuenta para suscribirte"
+              onPress={() => router.push('/entrar')}
+            />
+          ) : plan === elegido ? (
+            <Boton ancho texto="Plan activo" deshabilitado />
+          ) : (
+            <BotonPayphone
+              plan={elegido}
               token={sesion.token}
-              competicion={paypal.competicion}
-              periodo={paypal.id}
+              etiqueta={`Pagar ${ofertaElegida?.precio ?? ''}`.trim()}
               onComprado={async (confirmado) => {
                 /*
-                 * El servidor ya ha comprobado la compra con PayPal y ha
-                 * escrito el derecho, así que se vuelven a leer antes de salir:
-                 * si no, la pantalla anterior tarda hasta tres minutos en
-                 * enterarse y el usuario ve los candados todavía cerrados justo
-                 * después de pagar.
+                 * El servidor ya comprobó el cobro con Payphone y escribió el
+                 * derecho, así que se vuelven a leer antes de salir: si no, la
+                 * pantalla anterior tarda hasta tres minutos en enterarse y el
+                 * usuario ve los candados todavía cerrados recién pagado.
                  *
-                 * Si no se pudo confirmar, se sale igual: el botón ya le ha
-                 * dicho que se activará solo, y el webhook lo recogerá.
+                 * Si no se pudo confirmar, se queda en la pantalla: el botón ya
+                 * le ha avisado de que se activará solo en unos minutos.
                  */
-                if (confirmado) await refrescaDerechos();
+                if (!confirmado) return;
+                await refrescaDerechos();
 
-                /*
-                 * Los planes parciales no desbloquean nada al pagar: dan huecos
-                 * que hay que repartir. Se lleva al usuario directo a elegir sus
-                 * ligas, o se quedaría mirando una app igual de bloqueada que
-                 * antes, con la sensación de haber pagado por nada.
-                 */
-                if (confirmado && paypal.competicion === 'elegidas') {
+                // Los parciales no desbloquean nada al pagar: se lleva al
+                // usuario a repartir sus huecos, o se queda mirando una app
+                // igual de bloqueada con la sensación de haber pagado por nada.
+                if (parcial) {
                   router.replace('/mis-ligas');
                   return;
                 }
 
-                //  falla si se abrió Pro escribiendo la dirección: no hay
-                // pantalla anterior. Se comprueba antes y, si no la hay, se va a
+                // Puede fallar si se abrió Pro escribiendo la dirección: no hay
+                // pantalla anterior. Se comprueba y, si no la hay, se va a
                 // Inicio, que es donde se ven los candados abrirse.
                 if (router.canGoBack()) router.back();
                 else router.replace('/');
               }}
             />
-          ) : (
-            <Boton
-              ancho
-              texto={
-                !sesion
-                  ? 'Entra con tu cuenta para suscribirte'
-                  : plan === elegido
-                    ? 'Plan activo'
-                    : 'Este plan aún no está disponible'
-              }
-              deshabilitado={!!sesion}
-              onPress={() => router.push('/entrar')}
-            />
           )}
 
           <Txt v="mini" color={C.texto3} style={{ textAlign: 'center' }}>
-            El cobro lo gestiona PayPal. Puedes cancelar cuando quieras desde tu cuenta de
-            PayPal y mantienes el acceso hasta que termine el periodo pagado.
+            El cobro lo gestiona Payphone. Es un pago único por el periodo que elijas: no se
+            renueva solo, así que no hay nada que cancelar. Cuando termina, el acceso se cierra
+            sin volver a cobrarte.
           </Txt>
+
+          <Descargo />
         </View>
       </ScrollView>
     </View>

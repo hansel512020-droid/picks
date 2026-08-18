@@ -1188,6 +1188,14 @@ export function* picksDeCompeticionPorTrozos(
   // Los que se quedan fuera solo por el tope de repeticion. Sirven para
   // rellenar si al final la portada sale corta.
   const reserva: Pick[] = [];
+  /*
+   * Los NO recomendados, guardados aparte por si aun con la reserva la portada
+   * no llega al minimo. Una liga puede no tener veinte picks con 8/10 de racha,
+   * y abrir la app y encontrarse cinco tarjetas da sensacion de vacio. Antes de
+   * dejar huecos se completa con lo mejor de lo que hay —siempre detras de los
+   * recomendados, que son los que lideran—.
+   */
+  const reservaAmplia: Pick[] = [];
 
   /*
    * El criterio de orden, definido antes del bucle.
@@ -1214,17 +1222,20 @@ export function* picksDeCompeticionPorTrozos(
      * calidad, que es el que de verdad debe decidir que sale.
      */
     /*
-     * A la portada solo van los recomendados.
+     * A la portada van primero los recomendados.
      *
      * La ficha de un partido enseña también los que no llegan al corte, para
-     * que quien busca ese partido concreto encuentre análisis. Pero la portada
-     * es lo que la app pone delante sin que nadie lo pida, y ahí solo debe
-     * haber lo que el backtest respalda. Mezclarlos haría que el 25,8% de
-     * retorno medido no aplicara a nada que el usuario pueda distinguir.
+     * que quien busca ese partido concreto encuentre análisis. La portada, que
+     * es lo que la app pone delante sin que nadie lo pida, lidera con lo que el
+     * backtest respalda: los recomendados van arriba y son los que se ven
+     * primero. Solo si una liga no tiene suficientes para no dejar la portada
+     * vacía se completa por detrás con lo mejor del resto (ver el relleno más
+     * abajo), nunca colándolo por delante de un recomendado.
      */
-    const recomendados = picksDePartido(competicionId, p.id, casaId, libres)
-      .filter((x) => x.recomendado)
-      .slice(0, 10);
+    const delPartido = picksDePartido(competicionId, p.id, casaId, libres);
+    const recomendados = delPartido.filter((x) => x.recomendado).slice(0, 10);
+    // Los no recomendados de este partido, por si hay que rellenar al final.
+    for (const x of delPartido) if (!x.recomendado) reservaAmplia.push(x);
     for (const pick of recomendados) {
       const delSujeto = porSujetoPortada.get(pick.sujetoId) ?? 0;
       if (delSujeto >= 2) continue;
@@ -1295,6 +1306,26 @@ export function* picksDeCompeticionPorTrozos(
   if (todos.length < MINIMO_PORTADA) {
     reserva.sort((a, b) => valor(b, fama(b)) - valor(a, fama(a)));
     for (const p of reserva) {
+      if (todos.length >= MINIMO_PORTADA) break;
+      const n = porSujetoPortada.get(p.sujetoId) ?? 0;
+      if (n >= 2) continue;
+      porSujetoPortada.set(p.sujetoId, n + 1);
+      todos.push(p);
+    }
+  }
+
+  /*
+   * Y si aun con la reserva no se llega al minimo —una liga con pocos picks de
+   * racha alta—, se completa con los mejores NO recomendados: primero los de
+   * mas aciertos, luego los de mas valor. Van detras de los recomendados, que
+   * ya estan ordenados arriba, asi que lo bueno sigue liderando y la portada
+   * deja de quedarse en cinco tarjetas.
+   */
+  if (todos.length < MINIMO_PORTADA) {
+    reservaAmplia.sort(
+      (a, b) => b.aciertosL10 - a.aciertosL10 || valor(b, fama(b)) - valor(a, fama(a)),
+    );
+    for (const p of reservaAmplia) {
       if (todos.length >= MINIMO_PORTADA) break;
       const n = porSujetoPortada.get(p.sujetoId) ?? 0;
       if (n >= 2) continue;

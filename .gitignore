@@ -53,3 +53,8 @@ scripts/refrescar.log
 # pesan 70 MB y cambian cada día. La app se los descarga al arrancar y el
 # robot los sube. Aqui solo queda la semilla vacia, para que compile.
 src/datos/importado.json
+# La versión comprimida que se sube a Supabase Storage: artefacto, no fuente.
+src/datos/importado.json.gz
+
+# Temporales de la CLI de Supabase.
+supabase/.temp/

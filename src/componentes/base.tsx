@@ -238,6 +238,25 @@ export function Separador({ style }: { style?: StyleProp<ViewStyle> }) {
   return <View style={[{ height: 1, backgroundColor: C.bordeSuave }, style]} />;
 }
 
+/**
+ * Descargo legal, para el pie de las pantallas donde se ve.
+ *
+ * Deja claro qué es la app y qué no: analiza estadística, no es una casa de
+ * apuestas, no cobra apuestas ni promete ganancias. Va en un solo sitio para
+ * que el texto no se separe entre copias; se coloca donde tiene que leerse
+ * —el perfil y la pantalla de pago—.
+ */
+export function Descargo({ style }: { style?: StyleProp<ViewStyle> }) {
+  return (
+    <Txt v="mini" color={C.texto3} style={[{ textAlign: 'center' }, style]}>
+      GoldenPicks es una plataforma puramente informativa y de análisis de datos estadísticos
+      deportivos. No somos una casa de apuestas, ni procesamos apuestas ni garantizamos retornos
+      financieros. El contenido es exclusivo para fines de análisis e investigación. Solo para
+      mayores de 18 años.
+    </Txt>
+  );
+}
+
 /** Estado vacio con icono, titulo y explicacion. */
 export function Vacio({
   icono = 'buscar',
