@@ -33,6 +33,10 @@ const LIGAS: Record<string, string> = {
   coupefrance: 'fra.coupe_de_france', mundial: 'fifa.world', euro: 'uefa.euro',
   copaamerica: 'conmebol.america', nationsleague: 'uefa.nations',
   ligamx: 'mex.1', brasileirao: 'bra.1', argentina: 'arg.1', mls: 'usa.1',
+  // Segundas divisiones. Traen partidos entre semana, cuando las primeras
+  // descansan, y en agosto son de lo poco que hay en juego.
+  bundesliga2: 'ger.2', ligue2: 'fra.2', expansionmx: 'mex.2',
+  brasileiraob: 'bra.2', argentinab: 'arg.2',
   colombia: 'col.1', chile: 'chi.1', peru: 'per.1', bolivia: 'bol.1',
   ecuador: 'ecu.1', uruguay: 'uru.1', paraguay: 'par.1', venezuela: 'ven.1',
   japon: 'jpn.1', corea: 'kor.1', australia: 'aus.1', china: 'chn.1',

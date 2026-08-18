@@ -52,6 +52,11 @@ const LIGAS = {
   // Continentales y copas: aqui es donde ESPN se vuelve imprescindible.
   champions: 'uefa.champions',
   europaleague: 'uefa.europa',
+  bundesliga2: 'ger.2',
+  ligue2: 'fra.2',
+  expansionmx: 'mex.2',
+  brasileiraob: 'bra.2',
+  argentinab: 'arg.2',
   conference: 'uefa.europa.conf',
   // Fases previas: en ESPN son competiciones aparte, con su propio calendario.
   // Sin ellas no se importan los partidos por los que un equipo se juega
