@@ -36,6 +36,7 @@ const LIGAS: Record<string, string> = {
   // Segundas divisiones. Traen partidos entre semana, cuando las primeras
   // descansan, y en agosto son de lo poco que hay en juego.
   bundesliga2: 'ger.2', ligue2: 'fra.2', expansionmx: 'mex.2',
+  laliga2: 'esp.2', serieb: 'ita.2',
   brasileiraob: 'bra.2', argentinab: 'arg.2',
   colombia: 'col.1', chile: 'chi.1', peru: 'per.1', bolivia: 'bol.1',
   ecuador: 'ecu.1', uruguay: 'uru.1', paraguay: 'par.1', venezuela: 'ven.1',

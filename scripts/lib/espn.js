@@ -52,6 +52,8 @@ const LIGAS = {
   // Continentales y copas: aqui es donde ESPN se vuelve imprescindible.
   champions: 'uefa.champions',
   europaleague: 'uefa.europa',
+  laliga2: 'esp.2',
+  serieb: 'ita.2',
   bundesliga2: 'ger.2',
   ligue2: 'fra.2',
   expansionmx: 'mex.2',
