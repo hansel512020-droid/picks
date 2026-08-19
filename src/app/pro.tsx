@@ -154,9 +154,6 @@ export default function Pro() {
   const [elegido, setElegido] = useState<Plan>('anual');
   // La oferta elegida, para sacar su precio y enseñarlo en el botón.
   const ofertaElegida = [...COMPLETOS, ...PARCIALES].find((o) => o.id === elegido);
-  // Los planes parciales no desbloquean nada al pagar: dan huecos que hay que
-  // repartir luego en "Mis ligas".
-  const parcial = elegido === 'dosligas' || elegido === 'tresligas';
 
   return (
     <View style={{ flex: 1, backgroundColor: C.fondo }}>
@@ -266,30 +263,20 @@ export default function Pro() {
               etiqueta={`Pagar ${ofertaElegida?.precio ?? ''}`.trim()}
               onComprado={async (confirmado) => {
                 /*
-                 * El servidor ya comprobó el cobro con Payphone y escribió el
-                 * derecho, así que se vuelven a leer antes de salir: si no, la
-                 * pantalla anterior tarda hasta tres minutos en enterarse y el
-                 * usuario ve los candados todavía cerrados recién pagado.
-                 *
                  * Si no se pudo confirmar, se queda en la pantalla: el botón ya
                  * le ha avisado de que se activará solo en unos minutos.
                  */
                 if (!confirmado) return;
+                /*
+                 * El servidor ya comprobó el cobro con Payphone y escribió el
+                 * derecho; se vuelven a leer para que los candados se abran al
+                 * instante en vez de esperar al refresco periódico.
+                 */
                 await refrescaDerechos();
-
-                // Los parciales no desbloquean nada al pagar: se lleva al
-                // usuario a repartir sus huecos, o se queda mirando una app
-                // igual de bloqueada con la sensación de haber pagado por nada.
-                if (parcial) {
-                  router.replace('/mis-ligas');
-                  return;
-                }
-
-                // Puede fallar si se abrió Pro escribiendo la dirección: no hay
-                // pantalla anterior. Se comprueba y, si no la hay, se va a
-                // Inicio, que es donde se ven los candados abrirse.
-                if (router.canGoBack()) router.back();
-                else router.replace('/');
+                // Al terminar el pago, directo al Inicio, que es donde se ven
+                // los picks ya desbloqueados. Se usa replace para que "atrás"
+                // no vuelva a la pantalla de pago.
+                router.replace('/');
               }}
             />
           )}
