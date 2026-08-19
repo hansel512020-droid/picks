@@ -154,6 +154,9 @@ export default function Pro() {
   const [elegido, setElegido] = useState<Plan>('anual');
   // La oferta elegida, para sacar su precio y enseñarlo en el botón.
   const ofertaElegida = [...COMPLETOS, ...PARCIALES].find((o) => o.id === elegido);
+  // Los planes parciales no desbloquean nada al pagar: dan huecos que hay que
+  // repartir en "Mis ligas" antes de que sirvan.
+  const parcial = elegido === 'dosligas' || elegido === 'tresligas';
 
   return (
     <View style={{ flex: 1, backgroundColor: C.fondo }}>
@@ -273,10 +276,13 @@ export default function Pro() {
                  * instante en vez de esperar al refresco periódico.
                  */
                 await refrescaDerechos();
-                // Al terminar el pago, directo al Inicio, que es donde se ven
-                // los picks ya desbloqueados. Se usa replace para que "atrás"
-                // no vuelva a la pantalla de pago.
-                router.replace('/');
+                /*
+                 * Los parciales van primero a elegir sus ligas; esa pantalla,
+                 * al guardar, manda al Inicio. Los completos ya no tienen nada
+                 * que elegir: directos al Inicio. Con replace para que "atrás"
+                 * no vuelva a la pantalla de pago.
+                 */
+                router.replace(parcial ? '/mis-ligas' : '/');
               }}
             />
           )}

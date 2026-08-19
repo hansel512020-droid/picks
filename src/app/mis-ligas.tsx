@@ -94,8 +94,9 @@ export default function MisLigas() {
     // Se releen los derechos antes de salir, o el usuario vuelve a una pantalla
     // que todavía enseña los candados de las ligas que acaba de elegir.
     await refresca();
-    if (router.canGoBack()) router.back();
-    else router.replace('/');
+    // Al terminar de elegir, directo al Inicio, que es donde se ven las ligas
+    // recién desbloqueadas. Replace para no dejar esta pantalla en el historial.
+    router.replace('/');
   };
 
   if (!huecos) {
