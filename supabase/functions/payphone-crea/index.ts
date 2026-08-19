@@ -80,7 +80,9 @@ Deno.serve(async (peticion) => {
     if (!elegido) return responde({ error: 'Plan desconocido' }, 400);
 
     const cabeceras = cabecerasPayphone();
-    const storeId = Deno.env.get('PAYPHONE_STORE_ID');
+    // .trim() por lo mismo que el token: un salto de línea pegado al copiarlo
+    // haría que la tienda "no exista" para Payphone.
+    const storeId = Deno.env.get('PAYPHONE_STORE_ID')?.trim();
     if (!cabeceras || !storeId) {
       console.log('Faltan PAYPHONE_TOKEN o PAYPHONE_STORE_ID');
       return responde({ error: 'Pagos no configurados' }, 503);
@@ -120,7 +122,10 @@ Deno.serve(async (peticion) => {
         tip: 0,
         currency: 'USD',
         clientTransactionId: referencia,
-        reference: elegido.nombre,
+        // Solo ASCII: el "·" del nombre ("Golden Pro · Semanal") y cualquier
+        // acento podrían atragantar al servidor de Payphone. El concepto se lee
+        // igual sin ellos.
+        reference: elegido.nombre.replace(/[^\x20-\x7E]/g, '-'),
         storeId,
         // A dónde vuelve el usuario después de pagar. Lo manda la app porque
         // el dominio puede cambiar, pero se comprueba que sea nuestro.
@@ -135,12 +140,7 @@ Deno.serve(async (peticion) => {
     if (!r.ok) {
       const detalle = await r.text();
       console.log('Payphone no creó el pago:', r.status, detalle);
-      // Temporal, mientras se afina la integración: se devuelve el motivo real
-      // que da Payphone para poder verlo desde la app sin mirar los registros.
-      return responde(
-        { error: `PayPhone rechazó el pago (${r.status}): ${detalle.slice(0, 300)}` },
-        502,
-      );
+      return responde({ error: 'No se pudo crear el pago' }, 502);
     }
 
     const datos = await r.json();

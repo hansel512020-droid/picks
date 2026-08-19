@@ -60,7 +60,16 @@ export function referenciaNueva(): string {
 
 /** Cabeceras para hablar con Payphone. El token nunca sale del servidor. */
 export function cabecerasPayphone(): Record<string, string> | null {
-  const token = Deno.env.get('PAYPHONE_TOKEN');
+  /*
+   * Se limpia el token de espacios y saltos de línea.
+   *
+   * El token es un JWT larguísimo y al copiarlo del panel es fácil arrastrar un
+   * salto de línea al final. Con esa basura pegada, el `Bearer` queda mal
+   * formado y Payphone revienta con un 500 "Runtime Error" —su middleware
+   * intenta parsear el JWT y lanza— en vez de un error claro. Un `.trim()`
+   * ahorra ese quebradero.
+   */
+  const token = Deno.env.get('PAYPHONE_TOKEN')?.trim();
   if (!token) {
     console.log('Falta PAYPHONE_TOKEN en los secretos');
     return null;
