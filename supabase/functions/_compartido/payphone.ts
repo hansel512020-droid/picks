@@ -77,6 +77,17 @@ export function cabecerasPayphone(): Record<string, string> | null {
   return {
     Authorization: `Bearer ${token}`,
     'Content-Type': 'application/json',
+    /*
+     * Sin esto, el pago fallaba SIEMPRE con un 500 "Runtime Error".
+     *
+     * `fetch` (tanto en Deno como en Node) añade por su cuenta la cabecera
+     * `Accept-Language: *`, y el servidor viejo de Payphone (.NET) revienta al
+     * parsear ese `*` como si fuera una cultura —lanza una excepción y
+     * responde un 500 en HTML en vez de un error claro—. `curl`, que no manda
+     * esa cabecera, funcionaba a la primera: por eso costó tanto verlo. Basta
+     * con darle un idioma de verdad y deja de caerse.
+     */
+    'Accept-Language': 'es-EC',
   };
 }
 
