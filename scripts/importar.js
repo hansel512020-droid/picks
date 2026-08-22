@@ -166,7 +166,7 @@ const IMPORTANTES = [
   // Segundas divisiones. Estaban dadas de alta en la app y en el catalogo de
   // ESPN, pero no aqui: como esta lista es la que decide que se descarga, no
   // llegaban a bajarse nunca y en la app salian vacias.
-  'laliga2', 'serieb',
+  'laliga2', 'serieb', 'brasileiraob',
   // Continentales.
   'champions', 'europaleague', 'conference', 'libertadores', 'sudamericana',
   'concachampions',

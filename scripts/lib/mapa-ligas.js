@@ -33,6 +33,21 @@ const MAPA = {
    */
   laliga2: { fd: 'SP2', af: 141 },
   serieb: { fd: 'I2', af: 136 },
+  /*
+   * Estas cuatro NO se descargan: no estan en la lista de importantes. La
+   * fuente queda apuntada por si algun dia se quieren, que es lo que cuesta
+   * averiguar.
+   */
+  bundesliga2: { fd: 'D2', af: 79 },
+  ligue2: { fd: 'F2', af: 62 },
+  /*
+   * Brasileirao Serie B solo tiene ESPN: Football-Data no publica segundas
+   * divisiones de America. Trae calendario, resultados y estadisticas, pero
+   * sus precios los estima el modelo.
+   */
+  brasileiraob: { af: 72 },
+  argentinab: { af: 129 },
+  expansionmx: { af: 263 },
 
   // Estas viven en el formato "nuevo" de Football-Data: un CSV por liga con
   // todas las temporadas dentro y menos columnas de estadisticas.
