@@ -38,7 +38,14 @@ function ordena(picks: Pick[], orden: Orden): Pick[] {
     case 'ventaja':
       return copia.sort((a, b) => b.ventaja - a.ventaja);
     case 'acierto':
-      return copia.sort((a, b) => b.aciertosL10 - a.aciertosL10 || b.ventaja - a.ventaja);
+      // Los recomendados delante y, dentro de ellos, los de más racha: es el
+      // orden con el que se abre la portada.
+      return copia.sort(
+        (a, b) =>
+          Number(b.recomendado) - Number(a.recomendado) ||
+          b.aciertosL10 - a.aciertosL10 ||
+          b.ventaja - a.ventaja,
+      );
     case 'cuota':
       return copia.sort((a, b) => b.cuota - a.cuota);
     case 'fuego':
@@ -168,8 +175,13 @@ export default function Inicio() {
    * Así aparecen las primeras tarjetas enseguida y la lista se completa sola,
    * respondiendo a los toques mientras tanto.
    */
+  /*
+   * Sin tope corto: la portada enseña todos los picks de todos los partidos,
+   * con los de más aciertos arriba. El número es un techo de seguridad para que
+   * la lista no crezca sin límite, no un recorte de lo que se ve.
+   */
   const picks = useCalculoProgresivo(
-    () => picksDeCompeticionPorTrozos(competicionId, ajustes.casaId, 80, libres),
+    () => picksDeCompeticionPorTrozos(competicionId, ajustes.casaId, 2000, libres),
     [competicionId, ajustes.casaId, libres],
   );
 

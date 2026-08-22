@@ -1177,33 +1177,30 @@ export function* picksDeCompeticionPorTrozos(
    * La portada enseña `limite` tarjetas. Seguir analizando partidos cuando ya
    * hay cinco veces esa cantidad no cambia lo que se ve: solo cuesta tiempo.
    */
-  const partidos = partidosAbiertos(competicionId).slice(0, 40);
+  /*
+   * Todos los partidos abiertos, sin recortar.
+   *
+   * Antes se miraban solo los cuarenta más cercanos. Se quita el tope: la
+   * portada tiene que enseñar todo lo que hay, y quien decide qué se ve primero
+   * es el orden —los de más aciertos arriba—, no un corte arbitrario que dejaba
+   * fuera partidos enteros.
+   */
+  const partidos = partidosAbiertos(competicionId);
   const t = temporada(competicionId);
   const todos: Pick[] = [];
-  // Un jugador aparece una sola vez en la portada, con su partido mas cercano,
-  // y ningun mercado se repite mas de tres veces: si no, la lista entera acaba
-  // siendo "menos de 13.5 remates del equipo" diez veces seguidas.
-  const porSujetoPortada = new Map<string, number>();
-  const porMercado = new Map<string, number>();
-  // Los que se quedan fuera solo por el tope de repeticion. Sirven para
-  // rellenar si al final la portada sale corta.
-  const reserva: Pick[] = [];
-  /*
-   * Los NO recomendados, guardados aparte por si aun con la reserva la portada
-   * no llega al minimo. Una liga puede no tener veinte picks con 8/10 de racha,
-   * y abrir la app y encontrarse cinco tarjetas da sensacion de vacio. Antes de
-   * dejar huecos se completa con lo mejor de lo que hay —siempre detras de los
-   * recomendados, que son los que lideran—.
-   */
-  const reservaAmplia: Pick[] = [];
 
   /*
-   * El criterio de orden, definido antes del bucle.
+   * Cómo se ordena la portada. **Este es el criterio que manda.**
    *
-   * Hace falta aquí arriba porque cada entrega parcial sale ya ordenada: si se
-   * entregaran en el orden en que se calculan, las primeras tarjetas cambiarían
-   * de sitio al llegar las siguientes y la lista bailaría delante de quien la
-   * está leyendo.
+   * Primero los recomendados —los que el backtest respalda—, después por racha
+   * de aciertos, y solo entonces por valor. Así lo que casi siempre acierta
+   * queda arriba, que es lo que uno viene a mirar, y lo demás sigue disponible
+   * más abajo en vez de desaparecer.
+   *
+   * Va definido antes del bucle porque cada entrega parcial sale ya ordenada:
+   * si se entregaran en el orden en que se calculan, las primeras tarjetas
+   * cambiarían de sitio al llegar las siguientes y la lista bailaría delante de
+   * quien la está leyendo.
    */
   const famaDe = (p: Pick) =>
     p.sujeto === 'jugador'
@@ -1212,127 +1209,53 @@ export function* picksDeCompeticionPorTrozos(
         ? (t.porEquipo.get(p.sujetoId)?.fuerza ?? 70)
         : 78;
 
+  const mejorPrimero = (a: Pick, b: Pick) =>
+    Number(b.recomendado) - Number(a.recomendado) ||
+    b.aciertosL10 - a.aciertosL10 ||
+    valor(b, famaDe(b)) - valor(a, famaDe(a));
+
   let desdeElUltimoTrozo = 0;
 
   for (const p of partidos) {
     /*
-     * Diez por partido en vez de seis, y hasta dos del mismo sujeto. Los topes
-     * estaban para que la portada no fuese monotona, pero se habian quedado
-     * tan bajos que estrangulaban la lista antes de que actuara el filtro de
-     * calidad, que es el que de verdad debe decidir que sale.
-     */
-    /*
-     * A la portada van primero los recomendados.
+     * Entran TODOS los picks del partido, recomendados o no.
      *
-     * La ficha de un partido enseña también los que no llegan al corte, para
-     * que quien busca ese partido concreto encuentre análisis. La portada, que
-     * es lo que la app pone delante sin que nadie lo pida, lidera con lo que el
-     * backtest respalda: los recomendados van arriba y son los que se ven
-     * primero. Solo si una liga no tiene suficientes para no dejar la portada
-     * vacía se completa por detrás con lo mejor del resto (ver el relleno más
-     * abajo), nunca colándolo por delante de un recomendado.
+     * Antes solo pasaban los recomendados y el resto se quedaba en una reserva
+     * para rellenar: con eso, una liga sin veinte picks de racha alta enseñaba
+     * cinco tarjetas y el análisis del resto de partidos no se veía por ningún
+     * lado. Ahora está todo y el orden decide qué se lee primero.
+     *
+     * `picksDePartido` ya limita a dos por sujeto dentro de cada partido, así
+     * que esto no llena la lista con diez líneas del mismo jugador.
      */
-    const delPartido = picksDePartido(competicionId, p.id, casaId, libres);
-    const recomendados = delPartido.filter((x) => x.recomendado).slice(0, 10);
-    // Los no recomendados de este partido, por si hay que rellenar al final.
-    for (const x of delPartido) if (!x.recomendado) reservaAmplia.push(x);
-    for (const pick of recomendados) {
-      const delSujeto = porSujetoPortada.get(pick.sujetoId) ?? 0;
-      if (delSujeto >= 2) continue;
-      const mercado = `${pick.metrica}|${pick.sentido}`;
-      /*
-       * Tope por mercado, para que la portada no sea diez veces el mismo
-       * "menos de 2.5 goles". Estaba en tres para toda la lista y se quedaba
-       * cortísima: con treinta competiciones a la vez, tres tarjetas de goles
-       * en total dejan fuera casi todo lo bueno. Seis deja variedad sin que se
-       * repita en pantalla.
-       */
-      const repetido = porMercado.get(mercado) ?? 0;
-      if (repetido >= 12) {
-        reserva.push(pick);
-        continue;
-      }
-      porSujetoPortada.set(pick.sujetoId, delSujeto + 1);
-      porMercado.set(mercado, repetido + 1);
+    for (const pick of picksDePartido(competicionId, p.id, casaId, libres)) {
       todos.push(pick);
     }
 
     /*
-     * Cada cinco partidos se entrega lo que hay y se cede el turno.
+     * Cada pocos partidos se entrega lo que hay y se cede el turno.
      *
      * Este `yield` es todo el arreglo: aquí es donde el navegador recupera el
-     * control para atender toques y repintar. Sin él, los cuarenta partidos se
-     * calculan de una tirada y la página se queda muerta tres segundos.
+     * control para atender toques y repintar. Sin él, los partidos se calculan
+     * de una tirada y la página se queda muerta varios segundos.
      */
     desdeElUltimoTrozo++;
     if (desdeElUltimoTrozo >= porTrozo) {
       desdeElUltimoTrozo = 0;
-      yield [...todos]
-        .sort((a, b) => valor(b, famaDe(b)) - valor(a, famaDe(a)))
-        .slice(0, Math.max(limite, MINIMO_PORTADA));
+      yield [...todos].sort(mejorPrimero).slice(0, Math.max(limite, MINIMO_PORTADA));
     }
   }
-  const fama = (p: Pick) =>
-    p.sujeto === 'jugador'
-      ? (t.porJugador.get(p.sujetoId)?.nivel ?? 70)
-      : p.sujeto === 'equipo'
-        ? (t.porEquipo.get(p.sujetoId)?.fuerza ?? 70)
-        : 78;
   /*
-   * Lo de hoy manda. Con cuarenta partidos en el cuenco, ordenar solo por
-   * valor puede colar por delante un partido de dentro de tres dias y dejar
-   * abajo el que empieza en una hora. Quien abre la app quiere apostar hoy.
+   * El orden final es el mismo que el de las entregas parciales: recomendados
+   * delante, después por racha de aciertos y por valor.
    *
-   * El calculo va dentro del comparador a proposito: sacado a una funcion
-   * aparte, el compilador de React lo reordenaba y quedaba sin definir al
-   * ejecutarse.
+   * Ya no se prioriza "lo de hoy". Con el cuenco recortado a cuarenta partidos
+   * tenía sentido —evitaba que un partido de dentro de tres días tapara el de
+   * dentro de una hora—, pero ahora entran todos los partidos y anteponer la
+   * fecha empujaba hacia abajo picks de 10/10 solo por jugarse mañana. Manda el
+   * acierto; la fecha se lee en cada tarjeta.
    */
-  const inicioDeHoy = new Date();
-  inicioDeHoy.setHours(0, 0, 0, 0);
-  const finDeHoy = inicioDeHoy.getTime() + 86400000;
-  const deHoy = (p: Pick) => {
-    const cuando = new Date(t.porPartido.get(p.partidoId)?.fecha ?? 0).getTime();
-    return cuando >= inicioDeHoy.getTime() && cuando < finDeHoy ? 1 : 0;
-  };
-
-  todos.sort((a, b) => deHoy(b) - deHoy(a) || valor(b, fama(b)) - valor(a, fama(a)));
-
-  /*
-   * La portada nunca debe quedarse en cuatro tarjetas. Los topes de variedad
-   * son una preferencia, no una regla: si por culpa de ellos no se llega al
-   * minimo, se rellena con lo mejor de lo que descartaron, que sigue siendo
-   * analisis bueno y solo repite mercado.
-   */
-  if (todos.length < MINIMO_PORTADA) {
-    reserva.sort((a, b) => valor(b, fama(b)) - valor(a, fama(a)));
-    for (const p of reserva) {
-      if (todos.length >= MINIMO_PORTADA) break;
-      const n = porSujetoPortada.get(p.sujetoId) ?? 0;
-      if (n >= 2) continue;
-      porSujetoPortada.set(p.sujetoId, n + 1);
-      todos.push(p);
-    }
-  }
-
-  /*
-   * Y si aun con la reserva no se llega al minimo —una liga con pocos picks de
-   * racha alta—, se completa con los mejores NO recomendados: primero los de
-   * mas aciertos, luego los de mas valor. Van detras de los recomendados, que
-   * ya estan ordenados arriba, asi que lo bueno sigue liderando y la portada
-   * deja de quedarse en cinco tarjetas.
-   */
-  if (todos.length < MINIMO_PORTADA) {
-    reservaAmplia.sort(
-      (a, b) => b.aciertosL10 - a.aciertosL10 || valor(b, fama(b)) - valor(a, fama(a)),
-    );
-    for (const p of reservaAmplia) {
-      if (todos.length >= MINIMO_PORTADA) break;
-      const n = porSujetoPortada.get(p.sujetoId) ?? 0;
-      if (n >= 2) continue;
-      porSujetoPortada.set(p.sujetoId, n + 1);
-      todos.push(p);
-    }
-  }
+  todos.sort(mejorPrimero);
 
   return todos.slice(0, Math.max(limite, MINIMO_PORTADA));
 }
