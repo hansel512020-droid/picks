@@ -1,3 +1,4 @@
+import { seJuegaAhora } from '@/datos/envivo';
 import * as Haptics from 'expo-haptics';
 import { router } from 'expo-router';
 import { useEffect, useState } from 'react';
@@ -576,7 +577,7 @@ export function TarjetaPick({
 
   // Si el partido se está jugando ahora, la tarjeta lo dice.
   const enVivo = usePartidoDelPick(pick);
-  const jugando = enVivo?.estado === 'en_curso' || enVivo?.estado === 'descanso';
+  const jugando = seJuegaAhora(enVivo?.estado);
 
   // Con servidor detrás el número es real; sin él, el que estima el modelo.
   useEffect(() => {

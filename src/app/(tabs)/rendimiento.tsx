@@ -1,3 +1,4 @@
+import { seJuegaAhora } from '@/datos/envivo';
 import { router } from 'expo-router';
 import { useMemo, useState } from 'react';
 import { FlatList, Text, View } from 'react-native';
@@ -82,7 +83,7 @@ function FilaGuardado({ g, onQuitar }: { g: PickGuardado; onQuitar: () => void }
   const { progreso } = useVivo();
   const marcha = progreso.get(g.pickId);
   const enVivo = usePartidoDelPick(g);
-  const jugando = enVivo?.estado === 'en_curso' || enVivo?.estado === 'descanso';
+  const jugando = seJuegaAhora(enVivo?.estado);
 
   /*
    * Los nombres se resuelven al dibujar, no se leen de lo guardado. Un pick

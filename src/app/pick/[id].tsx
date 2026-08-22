@@ -1,3 +1,4 @@
+import { seJuegaAhora } from '@/datos/envivo';
 import { router, useLocalSearchParams } from 'expo-router';
 import { useEffect, useMemo } from 'react';
 import { ActivityIndicator, ScrollView, Text, View } from 'react-native';
@@ -53,7 +54,7 @@ function ElPartido({
 
   const { partido, local, visitante } = datos;
   const estado = enDirecto?.estado ?? partido.estado;
-  const jugando = estado === 'en_curso' || estado === 'descanso';
+  const jugando = seJuegaAhora(estado);
   const jugado = estado === 'finalizado';
   const gl = enDirecto?.golesLocal ?? partido.golesLocal;
   const gv = enDirecto?.golesVisitante ?? partido.golesVisitante;

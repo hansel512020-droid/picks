@@ -180,6 +180,22 @@ export async function partidosDeHoy(
 export async function enJuegoAhora(): Promise<PartidoVivo[]> {
   const todos = await partidosDeHoy();
   return [...todos.values()].filter(
-    (p) => p.estado === 'en_curso' || p.estado === 'descanso',
+    (p) => seJuegaAhora(p.estado),
   );
+}
+
+/**
+ * Si el partido se está jugando ahora mismo, **tanda de penales incluida**.
+ *
+ * El estado `penales` existía desde el principio y no lo miraba nadie: cada
+ * pantalla comprobaba a mano `en_curso || descanso`, así que un partido en la
+ * tanda no contaba ni como jugándose ni como terminado. La ficha lo daba por
+ * "RETRASADO —debía empezar a las 11:00—" con el partido en el minuto 120, y
+ * desaparecía de la tira de "En vivo" justo en la parte más emocionante.
+ *
+ * Está aquí, junto al estado, para que la próxima pantalla que pregunte no
+ * tenga que acordarse de los tres casos.
+ */
+export function seJuegaAhora(estado?: string): boolean {
+  return estado === 'en_curso' || estado === 'descanso' || estado === 'penales';
 }

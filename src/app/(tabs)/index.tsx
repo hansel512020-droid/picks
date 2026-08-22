@@ -12,7 +12,7 @@ import { Logo } from '@/componentes/marca';
 import { TiraChips } from '@/componentes/navegacion';
 import { TarjetaPick } from '@/componentes/pick';
 import { competicion } from '@/datos/competiciones';
-import { claveDelPartido } from '@/datos/envivo';
+import { claveDelPartido , seJuegaAhora } from '@/datos/envivo';
 import { temporada } from '@/datos/motor';
 import { FAMILIAS, picksDeCompeticionPorTrozos } from '@/datos/picks';
 import type { Familia, Pick } from '@/datos/tipos';
@@ -81,7 +81,7 @@ function EnVivo({ competicionId }: { competicionId: string }) {
 
   const datos = useMemo(() => {
     const enJuego = [...porPartido.values()].filter(
-      (p) => p.estado === 'en_curso' || p.estado === 'descanso',
+      (p) => seJuegaAhora(p.estado),
     );
     if (!enJuego.length) return [];
 
@@ -145,7 +145,11 @@ function EnVivo({ competicionId }: { competicionId: string }) {
             <View style={{ flexDirection: 'row', alignItems: 'center', gap: 6 }}>
               <View style={{ width: 6, height: 6, borderRadius: 3, backgroundColor: C.rojo }} />
               <Txt v="etiqueta" color={C.rojo}>
-                {vivo.estado === 'descanso' ? 'DESCANSO' : `${vivo.reloj ?? vivo.minuto ?? 0}'`}
+                {vivo.estado === 'descanso'
+                  ? 'DESCANSO'
+                  : vivo.estado === 'penales'
+                    ? 'PENALTIS'
+                    : `${vivo.reloj ?? vivo.minuto ?? 0}'`}
               </Txt>
               <View style={{ flex: 1 }} />
               <Txt v="mini" color={C.texto3} numberOfLines={1}>

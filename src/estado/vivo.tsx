@@ -12,7 +12,7 @@ import {
 } from 'react';
 import { AppState, Platform } from 'react-native';
 import { competicion } from '@/datos/competiciones';
-import { claveDelPartido, partidosDeHoy, slugDe, type PartidoVivo } from '@/datos/envivo';
+import { claveDelPartido, partidosDeHoy, slugDe, type PartidoVivo , seJuegaAhora } from '@/datos/envivo';
 import { competicionesImportadas } from '@/datos/importado';
 import { temporada } from '@/datos/motor';
 import { picksDeCompeticion } from '@/datos/picks';
@@ -183,7 +183,7 @@ export function ProveedorVivo({ children }: { children: ReactNode }) {
     enJuego.current = [
       ...new Set(
         [...mapa.values()]
-          .filter((p) => p.estado === 'en_curso' || p.estado === 'descanso')
+          .filter((p) => seJuegaAhora(p.estado))
           .map((p) => p.competicionId),
       ),
     ];

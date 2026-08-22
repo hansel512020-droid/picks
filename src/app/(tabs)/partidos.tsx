@@ -8,7 +8,7 @@ import { Icono } from '@/componentes/iconos';
 import { Escudo } from '@/componentes/imagen';
 import { TiraChips } from '@/componentes/navegacion';
 import { competicion } from '@/datos/competiciones';
-import { claveDelPartido } from '@/datos/envivo';
+import { claveDelPartido , seJuegaAhora } from '@/datos/envivo';
 import { temporada } from '@/datos/motor';
 import type { Equipo, Partido } from '@/datos/tipos';
 import { useTienda } from '@/estado/tienda';
@@ -70,7 +70,7 @@ export function FilaPartido({
   // El reloj entero de ESPN incluye el descuento ("90+3"); el número solo no.
   const reloj = enDirecto?.reloj ?? (partido.minuto ? String(partido.minuto) : undefined);
 
-  const vivo = estado === 'en_curso' || estado === 'descanso';
+  const vivo = seJuegaAhora(estado);
   const jugado = estado === 'finalizado';
 
   return (
@@ -166,7 +166,7 @@ export default function Partidos() {
     const filtrados = datos.filter(({ partido, local, visitante }) => {
       // El estado de ESPN de ahora mismo pesa más que el del archivo.
       const estado = (partido.idEspn ? porEspn.get(partido.idEspn) : undefined)?.estado ?? partido.estado;
-      const enJuego = estado === 'en_curso' || estado === 'descanso';
+      const enJuego = seJuegaAhora(estado);
       const porDelante = enJuego || new Date(partido.fecha).getTime() >= corte;
 
       switch (filtro) {

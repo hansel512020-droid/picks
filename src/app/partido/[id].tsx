@@ -1,3 +1,4 @@
+import { seJuegaAhora } from '@/datos/envivo';
 import { LinearGradient } from 'expo-linear-gradient';
 import { router, useLocalSearchParams } from 'expo-router';
 import { Fragment, useEffect, useMemo, useState } from 'react';
@@ -190,7 +191,7 @@ export default function PantallaPartido() {
    * parecía que el partido se había parado justo donde más se mira.
    */
   const reloj = enDirecto?.reloj;
-  const vivo = estado === 'en_curso' || estado === 'descanso';
+  const vivo = seJuegaAhora(estado);
   const jugado = estado === 'finalizado';
 
   /*
@@ -296,7 +297,11 @@ export default function PantallaPartido() {
               <View style={{ flexDirection: 'row', alignItems: 'center', gap: 6 }}>
                 <View style={{ width: 6, height: 6, borderRadius: 3, backgroundColor: C.rojo }} />
                 <Txt v="etiqueta" color={C.rojo}>
-                  {estado === 'descanso' ? 'DESCANSO' : `EN CURSO · ${reloj ?? minuto ?? 0}'`}
+                  {estado === 'descanso'
+                    ? 'DESCANSO'
+                    : estado === 'penales'
+                      ? 'TANDA DE PENALTIS'
+                      : `EN CURSO · ${reloj ?? minuto ?? 0}'`}
                 </Txt>
               </View>
             ) : retrasado ? (

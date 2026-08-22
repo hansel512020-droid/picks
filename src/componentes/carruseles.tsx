@@ -1,7 +1,7 @@
 import { router } from 'expo-router';
 import { Text, View } from 'react-native';
 import { competicion, competicionesVisibles } from '@/datos/competiciones';
-import { claveDelPartido } from '@/datos/envivo';
+import { claveDelPartido , seJuegaAhora } from '@/datos/envivo';
 import { proximosDeTodas, type ProximoPartido } from '@/datos/importado';
 import type { Competicion, Equipo } from '@/datos/tipos';
 import { useVivo } from '@/estado/vivo';
@@ -164,6 +164,7 @@ export function CarruselProximos() {
 
   const cuando = (p: (typeof partidos)[number]) => {
     if (p.estado === 'descanso') return 'DESCANSO';
+    if (p.estado === 'penales') return 'PENALTIS';
     if (p.estado === 'en_curso') return `${p.reloj ?? p.minuto ?? ''}'`;
     const d = new Date(p.fecha);
     const hoy = new Date();
@@ -178,7 +179,7 @@ export function CarruselProximos() {
   return (
     <TiraChips>
       {partidos.map((p) => {
-        const vivo = p.estado === 'en_curso' || p.estado === 'descanso';
+        const vivo = seJuegaAhora(p.estado);
         return (
           <Pulsable
             key={`${p.competicionId}-${p.partidoId}`}
