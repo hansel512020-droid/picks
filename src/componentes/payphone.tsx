@@ -43,10 +43,32 @@ const PENDIENTE = 'golden-picks/pago-payphone';
 
 function apunta(ref: string) {
   try {
-    localStorage.setItem(PENDIENTE, ref);
+    // Con la hora: el aviso de "pago en proceso" la necesita para caducar.
+    localStorage.setItem(PENDIENTE, JSON.stringify({ ref, cuando: Date.now() }));
   } catch {
     // Si el navegador no deja guardar, se sigue: el parámetro de la vuelta manda.
   }
+}
+
+/** Cuánto tiempo se sigue enseñando el aviso de "pago en proceso". */
+const VENTANA_EN_PROCESO = 30 * 60_000;
+
+/**
+ * Si este navegador tiene un pago reciente sin resolver.
+ *
+ * Lo usa el aviso de Inicio. Caduca a propósito: quien entra a Payphone y se
+ * sale sin pagar deja exactamente el mismo rastro que quien paga —desde aquí no
+ * hay forma de distinguirlos—, y sin caducidad se quedaría con un "tu pago se
+ * está procesando" colgado para siempre.
+ */
+export function pagoEnProceso(): boolean {
+  const p = lee();
+  return !!p && Date.now() - p.cuando < VENTANA_EN_PROCESO;
+}
+
+/** Borra el rastro del pago pendiente. */
+export function olvidaPago() {
+  olvida();
 }
 
 function olvida() {
@@ -57,13 +79,28 @@ function olvida() {
   }
 }
 
-/** La referencia del pago que este navegador dejó a medias, si la hay. */
-function pendiente(): string | null {
+/**
+ * Lo apuntado del pago a medias: la referencia y cuándo empezó.
+ *
+ * Entiende también el formato viejo —solo la referencia, en texto plano—, por
+ * si alguien vuelve con uno guardado de antes del cambio. Sin fecha se le da la
+ * de ahora, que es lo prudente: como mucho, el aviso dura media hora de más.
+ */
+function lee(): { ref: string; cuando: number } | null {
   try {
-    return localStorage.getItem(PENDIENTE);
+    const crudo = localStorage.getItem(PENDIENTE);
+    if (!crudo) return null;
+    if (!crudo.startsWith('{')) return { ref: crudo, cuando: Date.now() };
+    const d = JSON.parse(crudo);
+    return d?.ref ? { ref: String(d.ref), cuando: Number(d.cuando) || Date.now() } : null;
   } catch {
     return null;
   }
+}
+
+/** La referencia del pago que este navegador dejó a medias, si la hay. */
+function pendiente(): string | null {
+  return lee()?.ref ?? null;
 }
 
 const espera = (ms: number) => new Promise((sigue) => setTimeout(sigue, ms));

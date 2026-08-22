@@ -170,7 +170,18 @@ export default function Pro() {
       >
         <View style={{ paddingHorizontal: E.lg, flexDirection: 'row', justifyContent: 'flex-end' }}>
           <Pulsable
-            onPress={() => router.back()}
+            /*
+             * La equis tiene que salir de aquí SIEMPRE.
+             *
+             * Antes era un `router.back()` a secas, y al volver de Payphone
+             * esto es una carga nueva: no hay pantalla anterior a la que
+             * volver, así que el botón no hacía nada y el usuario se quedaba
+             * encerrado en Pro sin forma de salir. Si no hay atrás, a Inicio.
+             */
+            onPress={() => {
+              if (router.canGoBack()) router.back();
+              else router.replace('/');
+            }}
             hitSlop={10}
             style={{
               width: 32,
@@ -269,7 +280,23 @@ export default function Pro() {
                  * Si no se pudo confirmar, se queda en la pantalla: el botón ya
                  * le ha avisado de que se activará solo en unos minutos.
                  */
-                if (!confirmado) return;
+                /*
+                 * Se sale de esta pantalla PASE LO QUE PASE.
+                 *
+                 * Antes, si el pago no se podía confirmar, se volvía aquí y se
+                 * dejaba al usuario en Pro con un mensaje. Pero al volver de
+                 * Payphone no hay pantalla anterior, así que se quedaba
+                 * encerrado mirando la lista de planes que acababa de pagar.
+                 *
+                 * Ahora se va a Inicio en los dos casos. Si el cobro quedó sin
+                 * confirmar, el aviso de "pago en proceso" se lo cuenta allí, y
+                 * el respaldo del servidor concede el acceso en cuanto Payphone
+                 * confirme.
+                 */
+                if (!confirmado) {
+                  router.replace('/');
+                  return;
+                }
                 /*
                  * El servidor ya comprobó el cobro con Payphone y escribió el
                  * derecho; se vuelven a leer para que los candados se abran al

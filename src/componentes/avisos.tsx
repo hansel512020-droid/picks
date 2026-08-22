@@ -1,8 +1,9 @@
 import { router } from 'expo-router';
-import { useState } from 'react';
-import { View } from 'react-native';
+import { useEffect, useState } from 'react';
+import { Platform, View } from 'react-native';
 import { Pulsable, Txt } from './base';
 import { Icono } from './iconos';
+import { olvidaPago, pagoEnProceso } from './payphone';
 import { competicionesVisibles } from '@/datos/competiciones';
 import { useDerechos } from '@/estado/derechos';
 import { C, E, R } from '@/tema';
@@ -101,6 +102,84 @@ export function AvisoCambiaDePlan({ flotante }: { flotante?: boolean }) {
       }}
     >
       {tarjeta}
+    </View>
+  );
+}
+
+/**
+ * "Estamos procesando tu pago".
+ *
+ * Sale en Inicio cuando este navegador ha pasado por Payphone hace poco y
+ * todavía no consta el acceso. Es el mensaje que ve quien vuelve de pagar:
+ * antes se quedaba encerrado en la pantalla de Pro con un texto que no llevaba
+ * a ningún sitio.
+ *
+ * Dice lo mismo tanto si se pagó como si no, y es a propósito: desde el
+ * navegador no hay forma de saberlo —quien cancela vuelve igual que quien
+ * paga—, y quien decide es el servidor cuando le pregunta a Payphone. Prometer
+ * un cobro que no existe sería peor que esperar de más, así que el texto habla
+ * de "si el pago se completó".
+ *
+ * Desaparece solo: en cuanto el respaldo concede el acceso (`pro`), cuando
+ * pasa la media hora de la ventana, o si el usuario lo cierra.
+ */
+export function AvisoPagoEnProceso() {
+  const { pro } = useDerechos();
+  const [cerrado, setCerrado] = useState(false);
+  // Se relee al montar y al recuperar el foco, que es justo cuando se vuelve
+  // de Payphone o del respaldo.
+  const [hay, setHay] = useState(() => pagoEnProceso());
+
+  useEffect(() => {
+    if (Platform.OS !== 'web' || typeof window === 'undefined') return;
+    const mira = () => setHay(pagoEnProceso());
+    window.addEventListener('focus', mira);
+    // Y cada poco, para que caduque solo sin tener que tocar nada.
+    const reloj = setInterval(mira, 20_000);
+    return () => {
+      window.removeEventListener('focus', mira);
+      clearInterval(reloj);
+    };
+  }, []);
+
+  // Con el acceso ya concedido no hay nada que procesar: se borra el rastro.
+  useEffect(() => {
+    if (pro && hay) {
+      olvidaPago();
+      setHay(false);
+    }
+  }, [pro, hay]);
+
+  if (!hay || pro || cerrado) return null;
+
+  return (
+    <View style={{ paddingHorizontal: E.lg, paddingBottom: E.sm }}>
+      <View
+        style={{
+          flexDirection: 'row',
+          alignItems: 'center',
+          gap: E.sm,
+          borderRadius: R.lg,
+          padding: E.md,
+          backgroundColor: C.limaTenue,
+          borderWidth: 1,
+          borderColor: C.lima,
+        }}
+      >
+        <Icono nombre="recarga" tam={16} color={C.lima} />
+        <View style={{ flex: 1, gap: 3 }}>
+          <Txt v="pequenoFuerte" color={C.lima}>
+            Estamos procesando tu pago
+          </Txt>
+          <Txt v="mini" color={C.texto2}>
+            Si el pago se completó, tu Golden Pro se activará solo en unos minutos. No hace falta
+            que pagues otra vez.
+          </Txt>
+        </View>
+        <Pulsable onPress={() => setCerrado(true)} hitSlop={12}>
+          <Icono nombre="cruz" tam={14} color={C.texto3} />
+        </Pulsable>
+      </View>
     </View>
   );
 }

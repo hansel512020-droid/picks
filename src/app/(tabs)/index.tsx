@@ -2,7 +2,7 @@ import { router } from 'expo-router';
 import { useMemo, useState } from 'react';
 import { ActivityIndicator, FlatList, Text, View } from 'react-native';
 import { useSafeAreaInsets } from 'react-native-safe-area-context';
-import { AvisoCobroFallido } from '@/componentes/avisos';
+import { AvisoCobroFallido, AvisoPagoEnProceso } from '@/componentes/avisos';
 import { useAvisos } from '@/estado/avisos';
 import { Chip, Insignia, Pulsable, Seccion, Tarjeta, Txt, Vacio } from '@/componentes/base';
 import { CarruselCompeticion, CarruselProximos } from '@/componentes/carruseles';
@@ -73,6 +73,16 @@ function EnVivo({ competicionId }: { competicionId: string }) {
     if (!enJuego.length) return [];
 
     const salida = [];
+    /*
+     * Un partido importado no puede salir dos veces en la tira.
+     *
+     * El partido se busca por la pareja de equipos, y en una liga esos mismos
+     * dos se enfrentan en la ida y en la vuelta: dos encuentros en directo
+     * distintos pueden acabar apuntando a la misma ficha. Cuando pasaba, la
+     * lista repetía la tarjeta y React se quejaba de dos hijos con la misma
+     * clave —y con claves repetidas puede descartar elementos sin avisar—.
+     */
+    const yaPuestos = new Set<string>();
     for (const v of enJuego) {
       const t = temporada(v.competicionId);
       // Se busca el partido importado para poder abrir su ficha.
@@ -83,6 +93,8 @@ function EnVivo({ competicionId }: { competicionId: string }) {
         return l && vi && claveDelPartido(l.nombre, vi.nombre) === clave;
       });
       if (!partido) continue;
+      if (yaPuestos.has(partido.id)) continue;
+      yaPuestos.add(partido.id);
       salida.push({
         partido,
         vivo: v,
@@ -309,6 +321,12 @@ export default function Inicio() {
                 </Pulsable>
               </View>
             </View>
+
+            {/*
+              Justo debajo de la cabecera: quien vuelve de pagar aterriza aquí
+              y esto es lo primero que tiene que leer, antes que los picks.
+            */}
+            <AvisoPagoEnProceso />
 
             {/* ------------------------------------------------- carrusel */}
             {/* Arriba, lo que se juega a continuación en todas las
