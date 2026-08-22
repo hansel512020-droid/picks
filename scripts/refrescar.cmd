@@ -36,3 +36,10 @@ REM descarguen la version nueva. Necesita SUPABASE_SERVICE_ROLE_KEY en
 REM el entorno o en .env.local.
 node scripts\publicar-datos.js >> scripts\refrescar.log 2>&1
 echo Publicar: %ERRORLEVEL% >> scripts\refrescar.log
+
+REM Copia de seguridad de lo que no se puede regenerar: quien pago, hasta
+REM cuando tiene acceso y que guardo. El plan gratuito de Supabase no hace
+REM copias, asi que si una fila se pierde no hay a donde volver.
+REM Va al final a proposito: si falla, los datos ya estan publicados.
+node scripts\respaldo.js >> scripts\refrescar.log 2>&1
+echo Respaldo: %ERRORLEVEL% >> scripts\refrescar.log

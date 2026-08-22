@@ -58,3 +58,7 @@ src/datos/importado.json.gz
 
 # Temporales de la CLI de Supabase.
 supabase/.temp/
+
+# Copias de seguridad: llevan datos de personas —quién pagó, qué compró— y el
+# repositorio es público. Nunca deben subirse.
+respaldos/
