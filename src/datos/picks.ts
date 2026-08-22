@@ -1424,27 +1424,75 @@ export function* picksDeCompeticionPorTrozos(
    * el cupo baja al final de la lista, así que sigue estando todo, pero lo
    * primero que se ve es variado.
    */
-  const reparte = (lista: Pick[], tope: number): Pick[] => {
-    const cabeza: Pick[] = [];
-    const cola: Pick[] = [];
-    const porSujeto = new Map<string, number>();
-    const porMetrica = new Map<string, number>();
-    // Un cuarto de la portada como mucho para un mismo mercado, y dos picks
-    // por equipo o jugador.
-    const topeMetrica = Math.max(6, Math.round(tope * 0.25));
+  const reparte = (lista: Pick[]): Pick[] => {
+    /*
+     * Se reparte por VENTANA, no por cupo total.
+     *
+     * El primer intento ponía un tope por mercado sobre el total de la lista, y
+     * como ese total es enorme el tope salía en quinientos: no limitaba nada y
+     * la portada seguía abriendo con hándicap tras hándicap. Lo que molesta no
+     * es cuántos hay en total, es verlos seguidos.
+     *
+     * Así que se mira solo lo último colocado: como mucho dos del mismo mercado
+     * y uno del mismo equipo o jugador en cada seis. El siguiente que no cumpla
+     * espera su turno unos puestos, no se descarta —la lista sigue completa—.
+     */
+    const VENTANA = 6;
+    /*
+     * Solo se reparte la parte de arriba.
+     *
+     * La variedad importa en lo que se ve; del pick trescientos en adelante
+     * nadie está mirando si dos comparten mercado. Repartir la lista entera
+     * —y se recalcula en cada entrega parcial— multiplicaba por cuatro el
+     * tiempo de montar la portada.
+     */
+    const CABEZA = 300;
+    const cabeza = lista.slice(0, CABEZA);
+    const resto = lista.slice(CABEZA);
 
-    for (const p of lista) {
-      const s = porSujeto.get(p.sujetoId) ?? 0;
-      const m = porMetrica.get(p.metrica) ?? 0;
-      if (s >= 2 || m >= topeMetrica) {
-        cola.push(p);
-        continue;
+    const usado = new Array(cabeza.length).fill(false);
+    const salida: Pick[] = [];
+    // Cuántos hay del mismo mercado y del mismo sujeto en la ventana. Se
+    // llevan al vuelo en vez de recontar la ventana en cada vuelta.
+    const porMetrica = new Map<string, number>();
+    const porSujeto = new Map<string, number>();
+    const suma = (m: Map<string, number>, k: string, n: number) =>
+      m.set(k, Math.max(0, (m.get(k) ?? 0) + n));
+
+    let inicio = 0;
+    for (let n = 0; n < cabeza.length; n++) {
+      while (inicio < cabeza.length && usado[inicio]) inicio++;
+      let elegido = -1;
+      // Se miran unos pocos candidatos, no la lista entera: la lista ya viene
+      // ordenada, así que con cuarenta hay de sobra para encontrar variedad
+      // sin enterrar un buen pick.
+      for (let i = inicio, mirados = 0; i < cabeza.length && mirados < 40; i++) {
+        if (usado[i]) continue;
+        mirados++;
+        const p = cabeza[i];
+        if ((porMetrica.get(p.metrica) ?? 0) < 2 && (porSujeto.get(p.sujetoId) ?? 0) < 1) {
+          elegido = i;
+          break;
+        }
       }
-      porSujeto.set(p.sujetoId, s + 1);
-      porMetrica.set(p.metrica, m + 1);
-      cabeza.push(p);
+      // Si entre esos no hay nada distinto, manda el orden: más vale repetir
+      // mercado que enterrar el mejor pick.
+      if (elegido === -1) elegido = inicio;
+
+      const p = cabeza[elegido];
+      usado[elegido] = true;
+      salida.push(p);
+      suma(porMetrica, p.metrica, 1);
+      suma(porSujeto, p.sujetoId, 1);
+
+      // Lo que sale de la ventana deja de contar.
+      const viejo = salida[salida.length - 1 - VENTANA];
+      if (viejo) {
+        suma(porMetrica, viejo.metrica, -1);
+        suma(porSujeto, viejo.sujetoId, -1);
+      }
     }
-    return [...cabeza, ...cola];
+    return [...salida, ...resto];
   };
 
   let desdeElUltimoTrozo = 0;
@@ -1476,7 +1524,7 @@ export function* picksDeCompeticionPorTrozos(
     if (desdeElUltimoTrozo >= porTrozo) {
       desdeElUltimoTrozo = 0;
       const tope = Math.max(limite, MINIMO_PORTADA);
-      yield reparte([...todos].sort(mejorPrimero), tope).slice(0, tope);
+      yield reparte([...todos].sort(mejorPrimero)).slice(0, tope);
     }
   }
   /*
@@ -1492,7 +1540,7 @@ export function* picksDeCompeticionPorTrozos(
   todos.sort(mejorPrimero);
 
   const tope = Math.max(limite, MINIMO_PORTADA);
-  return reparte(todos, tope).slice(0, tope);
+  return reparte(todos).slice(0, tope);
 }
 
 /** Los picks que mas ha guardado la comunidad. */
