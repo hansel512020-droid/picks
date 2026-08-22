@@ -39,31 +39,58 @@ function ordena(
   /** Guardados reales de un pick, o indefinido si no hay contador detrás. */
   cuenta: (p: Pick) => number | undefined,
 ): Pick[] {
+  /*
+   * Lo de hoy manda, siempre, ordene como ordene el usuario.
+   *
+   * Cada modo ordenaba solo por lo suyo —acierto, cuota, ventaja— y se llevaba
+   * por delante el orden por fecha con el que se monta la portada: aparecian
+   * arriba picks de partidos de dentro de dos semanas, impecables de racha pero
+   * inutiles hoy. Ahora la cercania va primero en todos los modos y lo elegido
+   * decide dentro de cada dia.
+   *
+   * Por dias enteros y no por hora exacta: si no, el criterio del usuario no
+   * pintaria nada —cada pick tiene una hora distinta y siempre ganaria el que
+   * juega antes—.
+   */
+  const inicioDeHoy = new Date();
+  inicioDeHoy.setHours(0, 0, 0, 0);
+  const dia = (p: Pick) => {
+    if (!p.cuando) return 9999;
+    const d = Math.floor(
+      (new Date(p.cuando).getTime() - inicioDeHoy.getTime()) / 86400000,
+    );
+    // Lo que ya empezo cuenta como hoy: sigue siendo lo mas cercano.
+    return Math.max(0, d);
+  };
+
+  const porDia = (a: Pick, b: Pick) => dia(a) - dia(b);
   const copia = [...picks];
+
   switch (orden) {
     case 'ventaja':
-      return copia.sort((a, b) => b.ventaja - a.ventaja);
+      return copia.sort((a, b) => porDia(a, b) || b.ventaja - a.ventaja);
     case 'acierto':
-      // Los recomendados delante y, dentro de ellos, los de más racha: es el
-      // orden con el que se abre la portada.
+      // Los recomendados delante y, dentro de ellos, los de mas racha.
       return copia.sort(
         (a, b) =>
+          porDia(a, b) ||
           Number(b.recomendado) - Number(a.recomendado) ||
           b.aciertosL10 - a.aciertosL10 ||
           b.ventaja - a.ventaja,
       );
     case 'cuota':
-      return copia.sort((a, b) => b.cuota - a.cuota);
+      return copia.sort((a, b) => porDia(a, b) || b.cuota - a.cuota);
     case 'fuego':
       /*
-       * Por los guardados de VERDAD, no por el número que inventa el
-       * generador. Con el contador real activo, un pick que nadie ha guardado
-       * vale cero; ordenar por el número fabricado ponía arriba picks que no
-       * había elegido nadie y dejaba abajo los que sí. Si no hay contador
-       * real, `cuenta` devuelve indefinido y se cae al número de siempre.
+       * Por los guardados de VERDAD, no por el numero que inventa el
+       * generador. Si no hay contador real, `cuenta` devuelve indefinido y se
+       * cae al numero de siempre.
        */
-      return copia.sort((a, b) => (cuenta(b) ?? b.fuego) - (cuenta(a) ?? a.fuego));
+      return copia.sort(
+        (a, b) => porDia(a, b) || (cuenta(b) ?? b.fuego) - (cuenta(a) ?? a.fuego),
+      );
     default:
+      // El generador ya entrega por cercania y calidad: no se toca.
       return copia;
   }
 }

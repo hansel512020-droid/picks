@@ -1202,6 +1202,10 @@ export function picksDePartido(
     p.pro = !competicion(suya).gratis && !comprada;
   });
 
+  // La fecha del partido viaja con el pick: las pantallas ordenan por ella y
+  // asi no tienen que buscar el partido de cada tarjeta en cada reordenacion.
+  for (const p of limpios) p.cuando = partido.fecha;
+
   CACHE.set(clave, limpios);
   return limpios;
 }
@@ -1495,52 +1499,83 @@ export function* picksDeCompeticionPorTrozos(
     return [...salida, ...resto];
   };
 
-  let desdeElUltimoTrozo = 0;
+  /*
+   * Lo que ya se ha entregado NO se vuelve a mover.
+   *
+   * Antes cada entrega parcial reordenaba la lista entera, asi que mientras
+   * alguien leia —o se desplazaba— las tarjetas cambiaban de sitio bajo el
+   * dedo: la pantalla "saltaba" sola cada vez que entraba un trozo nuevo.
+   *
+   * Ahora lo entregado se queda quieto y lo nuevo se añade por detras. Como los
+   * partidos se recorren del mas cercano al mas lejano, lo que entra despues es
+   * justo lo que va mas abajo: el orden por fecha se mantiene sin tener que
+   * rehacerlo.
+   */
+  const entregados: Pick[] = [];
+  const yaEntregado = new Set<string>();
 
-  for (const p of partidos) {
-    /*
-     * Entran TODOS los picks del partido, recomendados o no.
-     *
-     * Antes solo pasaban los recomendados y el resto se quedaba en una reserva
-     * para rellenar: con eso, una liga sin veinte picks de racha alta enseñaba
-     * cinco tarjetas y el análisis del resto de partidos no se veía por ningún
-     * lado. Ahora está todo y el orden decide qué se lee primero.
-     *
-     * `picksDePartido` ya limita a dos por sujeto dentro de cada partido, así
-     * que esto no llena la lista con diez líneas del mismo jugador.
-     */
-    for (const pick of picksDePartido(competicionId, p.id, casaId, libres)) {
-      todos.push(pick);
+  /** Añade lo nuevo, ordenado y repartido entre si, detras de lo que ya habia. */
+  const acumula = () => {
+    const nuevos = todos.filter((x) => !yaEntregado.has(x.id));
+    if (!nuevos.length) return;
+    for (const x of reparte(nuevos.sort(mejorPrimero))) {
+      yaEntregado.add(x.id);
+      entregados.push(x);
     }
+  };
+
+  /*
+   * Lo de hoy y mañana, entero y de una vez, antes de enseñar nada.
+   *
+   * Es lo que el usuario ve al abrir, asi que tiene que salir ya ordenado y
+   * completo: si se entregara a trozos, las primeras tarjetas —las mas
+   * miradas— serian las que mas bailarian. Son pocos partidos, asi que
+   * calcularlos juntos no se nota.
+   */
+  const deAhora = partidos.filter((x) => {
+    const cuando = new Date(x.fecha).getTime();
+    return cuando - inicioDeHoy.getTime() < 2 * 86400000;
+  });
+  const masTarde = partidos.filter((x) => !deAhora.includes(x));
+
+  for (const p of deAhora) {
+    for (const pick of picksDePartido(competicionId, p.id, casaId, libres)) todos.push(pick);
+  }
+  acumula();
+  const tope = Math.max(limite, MINIMO_PORTADA);
+  if (entregados.length) yield entregados.slice(0, tope);
+
+  let desdeElUltimoTrozo = 0;
+  for (const p of masTarde) {
+    /*
+     * Entran TODOS los picks del partido, recomendados o no. `picksDePartido`
+     * ya limita a dos por sujeto dentro de cada partido, asi que esto no llena
+     * la lista con diez lineas del mismo jugador.
+     */
+    for (const pick of picksDePartido(competicionId, p.id, casaId, libres)) todos.push(pick);
 
     /*
-     * Cada pocos partidos se entrega lo que hay y se cede el turno.
-     *
-     * Este `yield` es todo el arreglo: aquí es donde el navegador recupera el
-     * control para atender toques y repintar. Sin él, los partidos se calculan
-     * de una tirada y la página se queda muerta varios segundos.
+     * Cada pocos partidos se entrega lo que hay y se cede el turno: aqui es
+     * donde el navegador recupera el control para atender toques y repintar.
      */
     desdeElUltimoTrozo++;
     if (desdeElUltimoTrozo >= porTrozo) {
       desdeElUltimoTrozo = 0;
-      const tope = Math.max(limite, MINIMO_PORTADA);
-      yield reparte([...todos].sort(mejorPrimero)).slice(0, tope);
+      acumula();
+      yield entregados.slice(0, tope);
     }
   }
   /*
-   * El orden final es el mismo que el de las entregas parciales: recomendados
-   * delante, después por racha de aciertos y por valor.
+   * Y al terminar se entrega lo mismo que se venia entregando, con lo ultimo
+   * añadido detras.
    *
-   * Ya no se prioriza "lo de hoy". Con el cuenco recortado a cuarenta partidos
-   * tenía sentido —evitaba que un partido de dentro de tres días tapara el de
-   * dentro de una hora—, pero ahora entran todos los partidos y anteponer la
-   * fecha empujaba hacia abajo picks de 10/10 solo por jugarse mañana. Manda el
-   * acierto; la fecha se lee en cada tarjeta.
+   * Aqui habia un `todos.sort(...)` que reordenaba la lista entera: justo al
+   * final del calculo, cuando el usuario ya llevaba un rato leyendo, todo
+   * cambiaba de sitio de golpe. Era el salto mas desconcertante de los tres,
+   * porque llegaba sin que nada lo anunciara.
    */
-  todos.sort(mejorPrimero);
-
-  const tope = Math.max(limite, MINIMO_PORTADA);
-  return reparte(todos).slice(0, tope);
+  acumula();
+  return entregados.slice(0, tope);
 }
 
 /** Los picks que mas ha guardado la comunidad. */

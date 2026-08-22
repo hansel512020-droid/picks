@@ -214,6 +214,16 @@ export type SujetoPick = 'jugador' | 'equipo' | 'partido';
 export interface Pick {
   id: string;
   partidoId: string;
+  /**
+   * Cuando se juega el partido, en ISO.
+   *
+   * Va en el pick aunque ya este en el partido: las pantallas ordenan listas de
+   * picks y, sin esto, para saber la fecha de cada uno habria que ir a buscar
+   * su partido en la temporada —una por tarjeta, en cada reordenacion—. Sin
+   * este dato, Inicio reordenaba por acierto y perdia el orden por fecha: un
+   * pick de dentro de dos semanas acababa arriba del todo.
+   */
+  cuando?: string;
   competicionId: string;
   sujeto: SujetoPick;
   /** Id del jugador o del equipo al que se refiere. */
