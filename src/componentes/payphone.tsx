@@ -57,6 +57,15 @@ function olvida() {
   }
 }
 
+/** La referencia del pago que este navegador dejó a medias, si la hay. */
+function pendiente(): string | null {
+  try {
+    return localStorage.getItem(PENDIENTE);
+  } catch {
+    return null;
+  }
+}
+
 const espera = (ms: number) => new Promise((sigue) => setTimeout(sigue, ms));
 
 /** Quita los parámetros del pago de la barra de direcciones, sin recargar. */
@@ -153,8 +162,27 @@ export function BotonPayphone({
     const id = params.get('id') ?? params.get('Id');
     const referencia = params.get('clientTransactionId') ?? params.get('clientTxId');
     if (!id || !referencia) return;
+
+    /*
+     * Se limpia la dirección en cuanto se leen los datos.
+     *
+     * Antes solo se limpiaba al confirmar bien, así que un pago cancelado —o
+     * cualquier vuelta a medias— dejaba los parámetros pegados y CADA vez que
+     * se entraba a /pro se reintentaba y reaparecía el aviso de "el pago se
+     * hizo". Se limpia ya: los datos ya están leídos y no hacen falta más.
+     */
+    limpiaUrl();
     if (yaVisto.current === referencia) return;
     yaVisto.current = referencia;
+
+    /*
+     * Solo se procesa la vuelta si este mismo navegador inició el pago (guardó
+     * la referencia al crear el enlace). Si no coincide, son parámetros viejos
+     * o de otro dispositivo: no se confirma nada ni se enseña ningún aviso
+     * —que es lo que hacía saltar "el pago se hizo" a quien solo entró y salió—.
+     * Los pagos que este navegador no vio los recoge el respaldo del servidor.
+     */
+    if (pendiente() !== referencia) return;
 
     let vivo = true;
     (async () => {
@@ -176,30 +204,24 @@ export function BotonPayphone({
 
       if (estado === 200) {
         olvida();
-        limpiaUrl();
         onCompradoRef.current(true);
         return;
       }
 
       if (noVaAConceder(estado)) {
-        // El pago no salió o no era de esta cuenta. Se limpia para no reintentar
-        // en bucle y se avisa sin alarmar: con Payphone, si no se cobró, no se
-        // cobró.
+        // El pago no salió o no era de esta cuenta.
         olvida();
-        limpiaUrl();
         setError('El pago no se pudo completar. Si se te cobró, se te devolverá; puedes intentarlo de nuevo.');
         onCompradoRef.current(false);
         return;
       }
 
       /*
-       * 202 tras los reintentos, 500 o fallo de red: puede ser cosa nuestra y
-       * el usuario sí pagó. NO se limpia la dirección, para que al recargar se
-       * reintente con los mismos datos, y se avisa de que se activará solo.
+       * 202 tras los reintentos, 500 o fallo de red: no se pudo verificar
+       * ahora. Se deja el rastro (`pendiente`) para que el respaldo del
+       * servidor lo confirme, y se avisa sin afirmar un pago que no consta.
        */
-      setError(
-        'El pago se hizo, pero aún no se ha podido confirmar. Se activará en unos minutos; si no, recarga esta página.',
-      );
+      setError('Tu pago se está verificando. Si se cobró, el acceso se activará solo en unos minutos.');
       onCompradoRef.current(false);
     })();
 

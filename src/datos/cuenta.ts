@@ -517,3 +517,51 @@ export async function eligeCompeticiones(
     return { ok: false, error: 'No se pudo conectar. Inténtalo de nuevo.' };
   }
 }
+
+/** La misma clave que usa el botón de Payphone para el pago a medias. */
+const PENDIENTE_PAYPHONE = 'golden-picks/pago-payphone';
+
+/**
+ * Rescata pagos de Payphone que quedaron sin confirmar.
+ *
+ * Es la red de seguridad: si al volver de Payphone la app no llegó a confirmar
+ * —se cerró la pestaña, la sesión no se restauró—, el pago queda cobrado y sin
+ * conceder. Esto le pide al servidor que revise las compras pendientes y las
+ * confirme preguntándole a Payphone por la referencia, sin necesitar el `id` de
+ * la vuelta (que es justo lo que se pierde).
+ *
+ * Solo se molesta si este navegador dejó un pago señalado, para no llamar por
+ * cada usuario en cada refresco. Devuelve cuántos accesos se concedieron.
+ */
+export async function rescataPagosPayphone(token: string): Promise<number> {
+  if (typeof window === 'undefined' || !URL || !token) return 0;
+
+  let hayPendiente = false;
+  try {
+    hayPendiente = !!localStorage.getItem(PENDIENTE_PAYPHONE);
+  } catch {
+    return 0;
+  }
+  if (!hayPendiente) return 0;
+
+  try {
+    const r = await fetch(`${URL}/functions/v1/payphone-rescata`, {
+      method: 'POST',
+      headers: { Authorization: `Bearer ${token}`, 'Content-Type': 'application/json' },
+    });
+    if (!r.ok) return 0;
+    const cuerpo = await r.json().catch(() => ({}));
+    const concedidos = Number(cuerpo?.concedidos ?? 0);
+    // Concedido: este navegador ya no tiene nada que rescatar.
+    if (concedidos > 0) {
+      try {
+        localStorage.removeItem(PENDIENTE_PAYPHONE);
+      } catch {
+        /* nada que hacer */
+      }
+    }
+    return concedidos;
+  } catch {
+    return 0;
+  }
+}

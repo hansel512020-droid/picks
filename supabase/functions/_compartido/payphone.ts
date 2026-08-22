@@ -124,3 +124,39 @@ export async function confirmaEnPayphone(
     referencia: String(datos?.clientTransactionId ?? clientTxId),
   };
 }
+
+/**
+ * Consulta el estado de un pago por NUESTRA referencia (clientTransactionId),
+ * sin necesitar el `id` que Payphone añade a la dirección de vuelta.
+ *
+ * Es la pieza del respaldo: si el navegador no llegó a confirmar —lo cerraron,
+ * la sesión no se restauró—, aquí se recupera el estado y el `id` de la
+ * transacción preguntándole a Payphone por la referencia que sí guardamos en la
+ * tabla de compras. Así el acceso puede llegar aunque la vuelta falle.
+ *
+ * Devuelve el `statusCode` de Payphone (1 pendiente, 2 rechazado, 3 aprobado),
+ * el importe y el `id` de la transacción; `null` si no se pudo consultar.
+ */
+export async function consultaPorReferencia(
+  referencia: string,
+): Promise<{ statusCode: number; centavos: number; transactionId: string } | null> {
+  const cabeceras = cabecerasPayphone();
+  if (!cabeceras) return null;
+
+  const r = await fetch(`${PAYPHONE}/Sale/client/${encodeURIComponent(referencia)}`, {
+    headers: cabeceras,
+  });
+  if (!r.ok) {
+    // Un 404 es lo normal para una referencia que el usuario abandonó sin pagar:
+    // no hay transacción que consultar y no es un fallo que haya que gritar.
+    if (r.status !== 404) console.log('Payphone: consulta por referencia falló:', r.status, await r.text());
+    return null;
+  }
+
+  const d = await r.json();
+  return {
+    statusCode: Number(d?.statusCode ?? 0),
+    centavos: Number(d?.amount ?? 0),
+    transactionId: String(d?.transactionId ?? d?.id ?? ''),
+  };
+}

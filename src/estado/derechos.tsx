@@ -8,7 +8,12 @@ import {
   type ReactNode,
 } from 'react';
 import { competicionOpcional } from '@/datos/competiciones';
-import { derechosDelUsuario, ligasDesbloqueadas, type Derecho } from '@/datos/cuenta';
+import {
+  derechosDelUsuario,
+  ligasDesbloqueadas,
+  rescataPagosPayphone,
+  type Derecho,
+} from '@/datos/cuenta';
 import { useSesion } from './sesion';
 
 /**
@@ -98,6 +103,33 @@ export function ProveedorDerechos({ children }: { children: ReactNode }) {
     const reloj = setInterval(refresca, CADA);
     return () => clearInterval(reloj);
   }, [refresca]);
+
+  /*
+   * Respaldo de Payphone.
+   *
+   * Si este navegador dejó un pago sin confirmar —se cerró la pestaña al volver,
+   * la sesión no se restauró—, se intenta rescatar al abrir la app y cada vez
+   * que la ventana recupera el foco, que es justo cuando el usuario vuelve tras
+   * pagar. La comprobación de verdad la hace el servidor; aquí solo se dispara y,
+   * si concede algo, se refrescan los derechos para que los candados se abran
+   * solos. `rescataPagosPayphone` no hace nada si no hay pago señalado, así que
+   * no cuesta para quien no compró.
+   */
+  useEffect(() => {
+    if (!sesion) return;
+    let vivo = true;
+    const rescata = async () => {
+      const concedidos = await rescataPagosPayphone(sesion.token);
+      if (vivo && concedidos > 0) refresca();
+    };
+    rescata();
+    if (typeof window === 'undefined') return () => { vivo = false; };
+    window.addEventListener('focus', rescata);
+    return () => {
+      vivo = false;
+      window.removeEventListener('focus', rescata);
+    };
+  }, [sesion, refresca]);
 
   // Mientras la consulta siga fallando se insiste cada pocos segundos. El
   // contador sube en cada intento fallido, y eso es lo que vuelve a disparar
