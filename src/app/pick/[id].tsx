@@ -179,7 +179,7 @@ export default function PantallaPick() {
     partido?: string;
   }>();
   const { ajustes, estaGuardado, guardar, quitar } = useTienda();
-  const { libres } = useDerechos();
+  const { libres, tieneAcceso } = useDerechos();
   const comunidad = useComunidad();
   const insets = useSafeAreaInsets();
   const competicionId = comp ?? ajustes.competicionId;
@@ -208,6 +208,16 @@ export default function PantallaPick() {
   );
 
   const pick = useMemo(() => picks?.find((p) => p.id === pickId), [picks, pickId]);
+
+  /*
+
+   * Si esta competicion se le vende a este usuario. Mismo criterio que la
+
+   * tarjeta: el pick viene marcado como `pro` y no consta comprado.
+
+   */
+
+  const bloqueado = !!pick?.pro && !tieneAcceso(pick.competicionId);
 
   const contexto = useCalculo(() => {
     if (!pick) return undefined;
@@ -338,19 +348,56 @@ export default function PantallaPick() {
               <Fuego n={comunidad.cuenta(pick.id) ?? pick.fuego} />
             </View>
 
-            <Txt v="cuerpo" color={C.texto2}>
-              {pick.argumento}
-            </Txt>
+            {bloqueado ? (
+              /*
+               * El muro de pago tambien aqui.
+               *
+               * Esta pantalla no comprobaba nada: la tarjeta tapaba el analisis
+               * de una liga de pago, pero abriendo la direccion del pick se veia
+               * entero —argumento, cuota y racha— con una cuenta gratis. Y las
+               * direcciones no son secretas: los avisos de la campana enlazan a
+               * ellas. Todo lo que se vende estaba a un clic.
+               */
+              <Pulsable onPress={() => router.push('/pro')}>
+                <View
+                  style={{
+                    gap: E.sm,
+                    padding: E.md,
+                    borderRadius: R.lg,
+                    borderWidth: 1,
+                    borderColor: C.limaBorde,
+                    backgroundColor: C.limaTenue,
+                  }}
+                >
+                  <View style={{ flexDirection: 'row', alignItems: 'center', gap: 8 }}>
+                    <Icono nombre="candado" tam={15} color={C.lima} />
+                    <Txt v="pequenoFuerte" color={C.lima}>
+                      Análisis con Golden Pro
+                    </Txt>
+                  </View>
+                  <Txt v="pequeno" color={C.texto2}>
+                    Desbloquea el argumento, el precio y la tendencia de los últimos 10 partidos de
+                    {' '}{competicion(pick.competicionId).nombre}.
+                  </Txt>
+                </View>
+              </Pulsable>
+            ) : (
+              <Txt v="cuerpo" color={C.texto2}>
+                {pick.argumento}
+              </Txt>
+            )}
 
-            <FilaMercado
-              mercado={pick.mercado}
-              cuota={pick.cuota}
-              casaId={pick.casa}
-              ventaja={pick.ventaja}
-              precioReal={pick.precioReal}
-            />
+            {bloqueado ? null : (
+              <FilaMercado
+                mercado={pick.mercado}
+                cuota={pick.cuota}
+                casaId={pick.casa}
+                ventaja={pick.ventaja}
+                precioReal={pick.precioReal}
+              />
+            )}
 
-            <View style={{ flexDirection: 'row', gap: E.sm }}>
+            <View style={{ flexDirection: 'row', gap: E.sm, display: bloqueado ? 'none' : 'flex' }}>
               {[
                 { v: `${pick.aciertosL10}/10`, e: 'Últimos 10' },
                 { v: `${pick.aciertosL5}/5`, e: 'Últimos 5' },
@@ -457,7 +504,8 @@ export default function PantallaPick() {
         ) : null}
 
         {/* ------------------------------------------------------- racha L10 */}
-        <View style={{ paddingHorizontal: E.lg, gap: E.sm }}>
+        {/* La tendencia es de lo que mas se vende: con candado, no se enseña. */}
+        <View style={{ paddingHorizontal: E.lg, gap: E.sm, display: bloqueado ? 'none' : 'flex' }}>
           <Txt v="subtitulo">Racha</Txt>
           <Tarjeta style={{ padding: E.md, gap: E.sm }}>
             <BarraL10 racha={pick.racha} porcentaje={pick.aciertosL10 * 10} />
