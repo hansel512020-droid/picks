@@ -16,6 +16,7 @@ import { claveDelPartido } from '@/datos/envivo';
 import { temporada } from '@/datos/motor';
 import { FAMILIAS, picksDeCompeticionPorTrozos } from '@/datos/picks';
 import type { Familia, Pick } from '@/datos/tipos';
+import { useComunidad } from '@/estado/comunidad';
 import { useDerechos } from '@/estado/derechos';
 import { useTienda } from '@/estado/tienda';
 import { usePicksVigentes, useVivo } from '@/estado/vivo';
@@ -32,7 +33,12 @@ const ORDENES: { id: Orden; texto: string }[] = [
   { id: 'fuego', texto: 'Más guardados' },
 ];
 
-function ordena(picks: Pick[], orden: Orden): Pick[] {
+function ordena(
+  picks: Pick[],
+  orden: Orden,
+  /** Guardados reales de un pick, o indefinido si no hay contador detrás. */
+  cuenta: (p: Pick) => number | undefined,
+): Pick[] {
   const copia = [...picks];
   switch (orden) {
     case 'ventaja':
@@ -49,7 +55,14 @@ function ordena(picks: Pick[], orden: Orden): Pick[] {
     case 'cuota':
       return copia.sort((a, b) => b.cuota - a.cuota);
     case 'fuego':
-      return copia.sort((a, b) => b.fuego - a.fuego);
+      /*
+       * Por los guardados de VERDAD, no por el número que inventa el
+       * generador. Con el contador real activo, un pick que nadie ha guardado
+       * vale cero; ordenar por el número fabricado ponía arriba picks que no
+       * había elegido nadie y dejaba abajo los que sí. Si no hay contador
+       * real, `cuenta` devuelve indefinido y se cae al número de siempre.
+       */
+      return copia.sort((a, b) => (cuenta(b) ?? b.fuego) - (cuenta(a) ?? a.fuego));
     default:
       return copia;
   }
@@ -173,6 +186,9 @@ export default function Inicio() {
 
   // Lo que el usuario tiene comprado: decide qué picks van con candado.
   const { libres } = useDerechos();
+  // Los guardados de verdad, para poder ordenar por "Más guardados" sin
+  // recurrir al número que inventa el generador.
+  const comunidad = useComunidad();
   // Para el globo rojo de la campana.
   const { sinLeer } = useAvisos();
 
@@ -216,8 +232,8 @@ export default function Inicio() {
     let lista = picks;
     if (familias.length) lista = lista.filter((p) => familias.includes(p.familia));
     if (grupo && partidosDelFiltro) lista = lista.filter((p) => partidosDelFiltro.has(p.partidoId));
-    return ordena(lista, orden);
-  }, [picks, familias, grupo, orden, partidosDelFiltro]);
+    return ordena(lista, orden, (p) => comunidad.cuenta(p.id));
+  }, [picks, familias, grupo, orden, partidosDelFiltro, comunidad]);
 
   // Un partido que acaba de terminar deja de dar picks al momento.
   const enCartel = usePicksVigentes(visibles);

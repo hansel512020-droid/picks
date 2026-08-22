@@ -1,4 +1,4 @@
-import { useMemo, useState } from 'react';
+import { useCallback, useMemo, useState } from 'react';
 import { ActivityIndicator, FlatList, View } from 'react-native';
 import { useSafeAreaInsets } from 'react-native-safe-area-context';
 import { Chip, Fuego, Tarjeta, Txt, Vacio } from '@/componentes/base';
@@ -7,7 +7,8 @@ import { TiraChips } from '@/componentes/navegacion';
 import { TarjetaPick } from '@/componentes/pick';
 import { competicion } from '@/datos/competiciones';
 import { picksComunidad } from '@/datos/picks';
-import type { Familia } from '@/datos/tipos';
+import type { Familia, Pick } from '@/datos/tipos';
+import { useComunidad } from '@/estado/comunidad';
 import { useTienda } from '@/estado/tienda';
 import { C, E } from '@/tema';
 import { useCalculo } from '@/utiles/carga';
@@ -37,14 +38,34 @@ export default function Comunidad() {
     [competicionId, ajustes.casaId],
   );
 
+  /*
+   * Los guardados de verdad, no los que inventa el generador.
+   *
+   * Esta pantalla se llama "Comunidad" y decía cuánta gente había guardado
+   * cada pick sumando un número que sale de una fórmula con azar dentro. Con el
+   * contador real detrás, aquí se enseña lo que hay: si nadie ha guardado nada
+   * todavía, cero. Un cero honesto vale más que un número inventado.
+   *
+   * `cuenta` devuelve indefinido cuando no hay servidor detrás, y solo entonces
+   * se cae al número del generador.
+   */
+  const comunidad = useComunidad();
+  const guardadosDe = useCallback(
+    (p: Pick) => comunidad.cuenta(p.id) ?? p.fuego,
+    [comunidad],
+  );
+
   const visibles = useMemo(
-    () => (picks ?? []).filter((p) => filtro === 'todos' || p.familia === filtro),
-    [picks, filtro],
+    () =>
+      (picks ?? [])
+        .filter((p) => filtro === 'todos' || p.familia === filtro)
+        .sort((a, b) => guardadosDe(b) - guardadosDe(a)),
+    [picks, filtro, guardadosDe],
   );
 
   const totalGuardados = useMemo(
-    () => (picks ?? []).reduce((a, p) => a + p.fuego, 0),
-    [picks],
+    () => (picks ?? []).reduce((a, p) => a + guardadosDe(p), 0),
+    [picks, guardadosDe],
   );
 
   const comp = competicion(competicionId);
