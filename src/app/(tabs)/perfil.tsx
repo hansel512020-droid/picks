@@ -450,6 +450,15 @@ export default function Perfil() {
             }}
           />
           <Separador />
+          {/* Obligatorio tenerlo a la vista: se cobran suscripciones y se
+              guardan cuentas. Va aqui, donde la gente busca lo de la app. */}
+          <Fila
+            icono="info"
+            titulo="Términos y privacidad"
+            detalle="Qué vendemos, qué datos guardamos"
+            onPress={() => router.push('/legal')}
+          />
+          <Separador />
           <Fila icono="mundo" titulo="Versión" detalle="Golden Picks 1.0.0" />
           {/*
             Antes esto llamaba a `activaPlan('ninguno')`, que solo borraba un

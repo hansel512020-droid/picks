@@ -320,6 +320,12 @@ export default function Pro() {
             sin volver a cobrarte.
           </Txt>
 
+          <Pulsable onPress={() => router.push('/legal')}>
+            <Txt v="mini" color={C.texto2} style={{ textAlign: 'center' }}>
+              Al comprar aceptas los términos y la política de privacidad
+            </Txt>
+          </Pulsable>
+
           <Descargo />
         </View>
       </ScrollView>
