@@ -105,17 +105,32 @@ export default function PantallaPartido() {
   const [extras, setExtras] = useState<Extras>({ tanda: null, agregado: null });
   const idEspnPartido = datos?.partido.idEspn;
   const acabado = (enDirecto?.estado ?? datos?.partido.estado) === 'finalizado';
+  // En plena tanda: es cuando de verdad se quiere ver quién lanza.
+  const enPenales = (enDirecto?.estado ?? datos?.partido.estado) === 'penales';
 
+  /*
+   * También DURANTE la tanda, no solo al acabar.
+   *
+   * Esto solo se pedía con el partido terminado, que es justo cuando ya no
+   * interesa: mientras se lanzan los penaltis —el único momento en que alguien
+   * mira quién tira— la pantalla no traía nada. Y se repregunta cada poco,
+   * porque cada lanzamiento cambia el cuadro y una tanda dura varios minutos.
+   */
   useEffect(() => {
-    if (!idEspnPartido || !acabado) return;
+    if (!idEspnPartido || (!acabado && !enPenales)) return;
     let vivo = true;
-    extrasDelPartido(competicionId, idEspnPartido).then((e) => {
-      if (vivo) setExtras(e);
-    });
+    const pide = () => {
+      extrasDelPartido(competicionId, idEspnPartido).then((e) => {
+        if (vivo) setExtras(e);
+      });
+    };
+    pide();
+    const reloj = enPenales ? setInterval(pide, 20_000) : null;
     return () => {
       vivo = false;
+      if (reloj) clearInterval(reloj);
     };
-  }, [competicionId, idEspnPartido, acabado]);
+  }, [competicionId, idEspnPartido, acabado, enPenales]);
   const penales = extras.tanda;
   const agregado = extras.agregado;
 
