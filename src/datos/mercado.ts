@@ -116,8 +116,16 @@ export function probMercadoEquipo(
 /** Convierte probabilidad en precio con el margen de la casa. */
 export function precioDe(prob: number, casaId: string, semilla: string): number {
   const c = buscaCasa(casaId);
-  const rnd = new Aleatorio(`${semilla}-${c.id}`);
-  const conMargen = Math.min(0.96, Math.max(0.02, prob * c.margen * rnd.rango(0.97, 1.03)));
+  /*
+   * Sin ruido aleatorio.
+   *
+   * Aquí se le sumaba un ±3% al azar al precio estimado, para que no pareciera
+   * salido de una fórmula. Pero ese ruido entra en la ventaja que decide qué
+   * picks se publican y en qué orden, así que era azar disfrazado de dato. El
+   * precio es una estimación del modelo —y la app lo marca como "EST"—, pero al
+   * menos es la misma estimación siempre y sale entera de las estadísticas.
+   */
+  const conMargen = Math.min(0.96, Math.max(0.02, prob * c.margen));
   return Number((1 / conMargen).toFixed(2));
 }
 

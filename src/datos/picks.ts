@@ -1042,10 +1042,6 @@ export function picksDePartido(
       const prob = op.prob / suma;
       if (prob < 0.34) continue;
       const id = `${partidoId}-1x2-${op.nombre}`;
-      const rnd = new Aleatorio(id);
-      const ajustada = Math.min(0.9, prob * rnd.rango(1.0, 1.12));
-      const ventaja = Number(((ajustada - implicita(op.cuota)) * 100).toFixed(1));
-      if (ventaja < 1) continue;
       /*
        * El historial del equipo del que habla el pick, y de lo que dice.
        *
@@ -1074,6 +1070,33 @@ export function picksDePartido(
           if (op.tipo === 'sin-empate') return !empate;
           return ganoEl;
         });
+
+      /*
+       * La probabilidad sale de datos reales, no de un número al azar.
+       *
+       * Aquí había un `prob * rnd.rango(1.0, 1.12)`: se inflaba la probabilidad
+       * del mercado hasta un 12% con un número aleatorio, y de esa diferencia
+       * inventada nacía la "ventaja" que decidía si el pick se publicaba y qué
+       * tan arriba salía. Es decir, había picks recomendados por puro azar.
+       *
+       * Ahora se cruzan dos cosas que sí son datos: lo que el mercado dice —el
+       * precio publicado, sin su margen— y lo que ha hecho el equipo de verdad
+       * en sus últimos partidos. A partes iguales: el historial solo tiene diez
+       * partidos y por sí solo se dispara, y el precio solo no aporta ninguna
+       * ventaja porque es justo contra lo que se compara.
+       */
+      const muestra = gano.length;
+      // Sin una muestra mínima no se afirma nada, como en el resto de mercados.
+      if (muestra < 6) continue;
+      const aciertos = gano.filter(Boolean).length;
+      const tasa = aciertos / muestra;
+      // Se encoge hacia el 50% cuanto menor es la muestra: seis partidos no
+      // dicen lo mismo que veinte.
+      const peso = Math.min(1, muestra / 10);
+      const historica = 0.5 + (tasa - 0.5) * (0.55 + 0.45 * peso);
+      const ajustada = Math.min(0.9, Math.max(0.1, prob * 0.5 + historica * 0.5));
+      const ventaja = Number(((ajustada - implicita(op.cuota)) * 100).toFixed(1));
+      if (ventaja < 1) continue;
 
       picks.push({
         id,
@@ -1373,9 +1396,22 @@ export function* picksDeCompeticionPorTrozos(
     return 5; // más allá: existe, pero al final
   };
 
+  /*
+   * Arriba, lo que más probabilidad tiene de ganar.
+   *
+   * Antes decidía `valor()`, que multiplica la ventaja sobre el precio por la
+   * fama del jugador o del equipo: un pick de un crack con poca probabilidad se
+   * ponía por delante de uno casi seguro de un equipo desconocido. La fama no
+   * hace que un pick entre.
+   *
+   * Ahora manda la probabilidad —que sale de la racha real y se encoge cuando
+   * la muestra es corta—, y solo con dos picks igual de probables desempata el
+   * resto. La cercanía sigue por delante de todo: un 90% de dentro de un mes no
+   * le sirve a nadie hoy.
+   */
   const mejorPrimero = (a: Pick, b: Pick) =>
     cercania(a) - cercania(b) ||
-    Number(b.recomendado) - Number(a.recomendado) ||
+    b.probabilidad - a.probabilidad ||
     b.aciertosL10 - a.aciertosL10 ||
     valor(b, famaDe(b)) - valor(a, famaDe(a));
 
