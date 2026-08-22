@@ -22,6 +22,18 @@ const MAPA = {
   grecia: { fd: 'G1', af: 197 },
   escocia: { fd: 'SC0', af: 179 },
 
+  /*
+   * Segundas divisiones. Estaban dadas de alta en la app y en el catalogo de
+   * ESPN, pero faltaban aqui —que es de donde el importador saca las fuentes—,
+   * asi que fallaban con "no se puede importar" y en la app salian vacias.
+   *
+   * Las dos estan en Football-Data con el formato por temporadas, igual que su
+   * primera division: SP2 es LaLiga Hypermotion e I2 la Serie B italiana. Eso
+   * les da historial y cuotas de casas reales, no solo el calendario de ESPN.
+   */
+  laliga2: { fd: 'SP2', af: 141 },
+  serieb: { fd: 'I2', af: 136 },
+
   // Estas viven en el formato "nuevo" de Football-Data: un CSV por liga con
   // todas las temporadas dentro y menos columnas de estadisticas.
   argentina: { fd: 'ARG', fdNueva: true, af: 128 },

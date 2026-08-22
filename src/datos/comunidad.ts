@@ -155,13 +155,24 @@ export async function borraGuardado(pickId: string, usuarioId?: string): Promise
    * había, y por móvil si no. Filtrando siempre por dispositivo, quien guardó
    * con su cuenta desde otro aparato no podía deshacerlo.
    */
+  const dispositivo = await idDispositivo();
   const filtro = usuarioId
     ? `usuario_id=eq.${encodeURIComponent(usuarioId)}`
-    : `dispositivo=eq.${encodeURIComponent(await idDispositivo())}`;
+    : `dispositivo=eq.${encodeURIComponent(dispositivo)}`;
 
   const r = await pide<unknown>(
     `guardados?pick_id=eq.${encodeURIComponent(pickId)}&${filtro}`,
-    { method: 'DELETE', headers: cabeceras({ Prefer: 'return=minimal' }) },
+    {
+      method: 'DELETE',
+      /*
+       * El identificador del móvil va también en una cabecera, no solo en el
+       * filtro. El filtro lo pone la app y por tanto no protege de nada: quien
+       * use la clave pública puede mandar un `delete` sin él y vaciar la tabla
+       * entera. La regla del servidor comprueba esta cabecera contra la fila,
+       * así que solo se borra lo propio.
+       */
+      headers: cabeceras({ Prefer: 'return=minimal', 'x-dispositivo': dispositivo }),
+    },
     null,
   );
   return r !== null;

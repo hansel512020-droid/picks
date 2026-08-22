@@ -21,6 +21,14 @@ create table if not exists public.guardados (
   primary key (pick_id, dispositivo)
 );
 
+-- Quién lo guardó, si tenía cuenta. Va aparte del dispositivo: el mismo pick
+-- guardado desde el móvil y desde el portátil son dos filas, pero quien tiene
+-- sesión puede deshacerlo desde cualquiera de los dos.
+--
+-- Se añade con ALTER porque la tabla ya existe en producción y el `create table
+-- if not exists` de arriba no la tocaría.
+alter table public.guardados add column if not exists usuario_id uuid;
+
 -- Buscar por competición y ordenar por fecha es lo único que se hace.
 create index if not exists guardados_competicion_idx on public.guardados (competicion);
 create index if not exists guardados_creado_idx      on public.guardados (creado desc);
@@ -46,13 +54,25 @@ create policy guardados_insertar
   to anon, authenticated
   with check (true);
 
--- …y deshacerlo. No se puede borrar lo de otro móvil porque la app siempre
--- filtra por su propio identificador y no conoce los ajenos.
+-- …y deshacerlo, pero SOLO lo suyo.
+--
+-- Esto era `using (true)`, confiando en que la app filtra por su propio
+-- identificador de dispositivo. Pero una política no protege de lo que la app
+-- haga, sino de lo que pueda hacer cualquiera con la clave pública —que viaja
+-- en el navegador—: un `delete` sin filtro vaciaba la tabla entera y con ella
+-- los contadores de toda la comunidad.
+--
+-- Ahora el servidor exige que la fila sea de quien la borra: del mismo
+-- dispositivo, o del mismo usuario si hay sesión. El identificador de
+-- dispositivo viaja en la cabecera `x-dispositivo`, que la app ya manda.
 drop policy if exists guardados_borrar on public.guardados;
 create policy guardados_borrar
   on public.guardados for delete
   to anon, authenticated
-  using (true);
+  using (
+    dispositivo = current_setting('request.headers', true)::json ->> 'x-dispositivo'
+    or (auth.uid() is not null and usuario_id = auth.uid())
+  );
 
 -- Las filas en crudo no se leen desde la app; el recuento sí.
 drop policy if exists guardados_leer on public.guardados;

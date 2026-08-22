@@ -163,6 +163,10 @@ const IMPORTANTES = [
   'premier', 'laliga', 'seriea', 'bundesliga', 'ligue1', 'championship',
   'eredivisie', 'portugal', 'turquia', 'belgica', 'escocia', 'grecia',
   'ligamx', 'brasileirao', 'argentina', 'mls', 'japon',
+  // Segundas divisiones. Estaban dadas de alta en la app y en el catalogo de
+  // ESPN, pero no aqui: como esta lista es la que decide que se descarga, no
+  // llegaban a bajarse nunca y en la app salian vacias.
+  'laliga2', 'serieb',
   // Continentales.
   'champions', 'europaleague', 'conference', 'libertadores', 'sudamericana',
   'concachampions',
@@ -700,7 +704,23 @@ async function main() {
   console.log('Reinicia la app para verlas con datos reales.\n');
 }
 
-main().catch((e) => {
-  console.error(`\nError: ${e.message}\n`);
-  process.exit(1);
-});
+main()
+  .then(() => {
+    /*
+     * Se cierra a mano en vez de dejar que Node termine solo.
+     *
+     * Con los datos ya escritos, Node reventaba al salir con un
+     * "Assertion failed: !(handle->flags & UV_HANDLE_CLOSING)": un fallo suyo
+     * en Windows al desmontar los manejadores de red que dejan abiertos las
+     * descargas. No corrompia nada —el archivo ya estaba en disco— pero
+     * ensuciaba el registro y, sobre todo, dejaba el codigo de salida al azar:
+     * el .cmd del refresco no podia distinguir una pasada buena de una rota.
+     *
+     * Se espera a que salga el texto pendiente y se sale con un cero explicito.
+     */
+    process.stdout.write('', () => process.exit(0));
+  })
+  .catch((e) => {
+    console.error(`\nError: ${e.message}\n`);
+    process.exit(1);
+  });
