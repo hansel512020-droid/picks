@@ -21,7 +21,14 @@ cd /d "%~dp0.."
 
 echo. >> scripts\refrescar.log
 echo ===== %DATE% %TIME% ===== >> scripts\refrescar.log
-node --max-old-space-size=4096 scripts\importar.js --refrescar --detalles 12 >> scripts\refrescar.log 2>&1
+REM 90 partidos con detalle por competicion, no 12.
+REM
+REM Los registros de jugador solo salen de los partidos cuyo detalle se baja de
+REM ESPN. Con 12 por liga, repartidos entre veintitantos equipos, cada jugador
+REM aparecia menos de una vez: ninguno llegaba a los 6 partidos que pide el
+REM modelo y la app no ensenaba NI UN pick de jugador. Con 90 son unos ocho por
+REM equipo y los titulares pasan el corte.
+node --max-old-space-size=4096 scripts\importar.js --refrescar --detalles 90 >> scripts\refrescar.log 2>&1
 echo Importar: %ERRORLEVEL% >> scripts\refrescar.log
 
 REM Sube el archivo recortado a Supabase Storage para que los telefonos
