@@ -1,7 +1,7 @@
 import { Aleatorio } from '@/utiles/aleatorio';
 import { competicion } from './competiciones';
 import { cuandoCambienLosDatos, equiposImportados, partidosDelEquipoEnTodas } from './importado';
-import { precioDe, probMercadoEquipo, probMercadoJugador } from './mercado';
+import { normalSobre, precioDe, probMercadoEquipo, probMercadoJugador } from './mercado';
 import { temporada } from './motor';
 import type { Equipo, Familia, Partido, Pick, RegistroJugador } from './tipos';
 
@@ -472,6 +472,15 @@ export const METRICAS_PARTIDO = [
   { clave: 'rematesTotales', mercado: 'remates', familia: 'tiros' as Familia, valor: (p: Partido) => p.estadisticas.local.remates + p.estadisticas.visitante.remates, lineas: [21.5, 24.5, 26.5] },
 ];
 
+/**
+ * Las líneas de hándicap que se ofrecen.
+ *
+ * Solo de media línea: con línea entera (+1, -2) el empate a hándicap devuelve
+ * la apuesta, y eso no se puede contar como acierto ni como fallo sin mentir en
+ * la racha. Con la media no hay empate posible: o se cubre o no.
+ */
+const HANDICAPS = [-1.5, -0.5, 0.5, 1.5];
+
 // ------------------------------------------------------------------- fabrica
 
 /** Todas las familias, en el orden en el que salen los chips. */
@@ -779,6 +788,116 @@ export function picksDePartido(
           });
         }
       }
+    }
+  }
+
+  // ------------------------------------------------------ picks de hándicap
+  /*
+   * Hándicap asiático de línea entera y media (+1.5, +0.5, -0.5, -1.5).
+   *
+   * Un hándicap suma goles al marcador del equipo antes de mirar quién gana:
+   * con +0.5 le vale ganar o empatar; con -1.5 tiene que ganar por dos. Es el
+   * mercado natural cuando el 1X2 paga poco por el favorito y demasiado poco
+   * por el débil, y no hacía falta ningún dato nuevo: sale de la diferencia de
+   * goles de los partidos que el equipo ya lleva jugados.
+   *
+   * Se evalúa como cualquier otra línea: el hándicap `h` se cubre cuando la
+   * diferencia de goles es mayor que `-h`, así que se reutiliza el mismo
+   * `evalua` con la línea cambiada de signo.
+   */
+  for (const equipo of [local, visitante]) {
+    const suyos = historialDe(equipo);
+    if (suyos.length < 6) continue;
+
+    const rival = equipo.id === local.id ? visitante : local;
+    const enCasa = equipo.id === local.id;
+    // Diferencia de goles de cada partido, desde el punto de vista del equipo.
+    const margenes = suyos.map(({ p, esLocal }) =>
+      esLocal ? p.golesLocal - p.golesVisitante : p.golesVisitante - p.golesLocal,
+    );
+
+    /*
+     * Lo que el mercado espera que gane o pierda hoy: la diferencia de fuerza
+     * entre los dos, más la ventaja de jugar en casa. Es lo que tarifica el
+     * hándicap; la ventaja sale de comparar eso con lo que dice el historial.
+     */
+    const fuerzaPropia = fuerzaDe(equipo.id) ?? equipo.fuerza ?? 70;
+    const fuerzaRival = fuerzaDe(rival.id) ?? rival.fuerza ?? 70;
+    const margenEsperado = (fuerzaPropia - fuerzaRival) / 11 + (enCasa ? 0.32 : -0.32);
+
+    for (const h of HANDICAPS) {
+      const ev = evalua(margenes, -h, 'mas');
+      if (ev.aciertosL10 < 7) continue;
+
+      /*
+       * El identificador sigue el formato de todos los demás
+       * —partido-sujeto-metrica-linea-sentido—, que es de donde el resolutor
+       * saca con qué comparar. La línea es la que se cubre: la diferencia de
+       * goles tiene que ser mayor que `-h`.
+       *
+       * El signo menos va como "m" a propósito: el resolutor parte el
+       * identificador por guiones, y un "-1.5" ahí dentro lo partiría en dos y
+       * dejaría el pick sin poder liquidarse nunca.
+       */
+      const lineaCubrir = -h;
+      const id = `${partidoId}-${equipo.id}-handicap-${lineaCubrir < 0 ? `m${Math.abs(lineaCubrir)}` : lineaCubrir}-mas`;
+      const prob = probabilidad(ev.aciertosL10, ev.aciertosL20, ev.muestraL20);
+      /*
+       * Probabilidad de cubrirlo según el mercado: la diferencia de goles se
+       * reparte como una normal alrededor de lo esperado. `normalSobre` da la
+       * probabilidad de quedar POR ENCIMA de la línea, que es justo cubrir el
+       * hándicap.
+       */
+      const pMercado = normalSobre(margenEsperado, 1.6, -h);
+      const cuota = precioDe(pMercado, casaId, id);
+      const ventaja = Number(((prob - 1 / cuota) * 100).toFixed(1));
+      if (!admisible(cuota, ventaja, 'mas')) continue;
+
+      const signo = h > 0 ? `+${linea(h)}` : linea(h);
+      const explica =
+        h > 0
+          ? `le valen ${h === 0.5 ? 'la victoria y el empate' : `la victoria, el empate y perder por ${Math.floor(h)}`}`
+          : `tiene que ganar por ${Math.ceil(-h)} o más`;
+
+      picks.push({
+        id,
+        partidoId,
+        competicionId: compReal,
+        sujeto: 'equipo',
+        sujetoId: equipo.id,
+        titulo: equipo.nombre,
+        contexto,
+        argumento:
+          `Con hándicap ${signo} a ${equipo.nombre} ${explica}. ` +
+          `Lo habría cubierto en ${ev.aciertosL10} de sus últimos 10 partidos ` +
+          `(diferencia media de ${coma(ev.media)} goles).`,
+        familia: 'resultado',
+        mercado: `Hándicap ${signo}`,
+        metrica: 'handicap',
+        // La línea que se compara, no el hándicap: el rótulo ya dice "+0.5".
+        linea: lineaCubrir,
+        // El sentido real es "cubrir": se marca como `mas` porque así se
+        // compara con la línea, pero NO es un "más de" de los que el directo
+        // puede dar por cumplidos a media parte —un hándicap no se cierra hasta
+        // el pitido final—, y por eso la métrica no está entre las que mira.
+        sentido: 'mas',
+        cuota,
+        casa: casaId,
+        precioReal: false,
+        recomendado: recomendable('resultado', ev.aciertosL10),
+        racha: ev.racha,
+        aciertosL5: ev.aciertosL5,
+        aciertosL10: ev.aciertosL10,
+        aciertosL20: ev.aciertosL20,
+        muestraL20: ev.muestraL20,
+        media: ev.media,
+        probabilidad: prob,
+        ventaja,
+        fuego: fuegoDe(id, ventaja, equipo.fuerza),
+        imagen: equipo.bandera,
+        esBandera: true,
+        nombres: [equipo.nombre],
+      });
     }
   }
 

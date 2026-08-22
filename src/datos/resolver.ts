@@ -25,9 +25,15 @@ const num = (v: unknown) => {
 export function troceaPick(pickId: string, partidoId: string) {
   const resto = pickId.startsWith(`${partidoId}-`) ? pickId.slice(partidoId.length + 1) : pickId;
   const trozos = resto.split('-');
+  /*
+   * La línea puede venir en negativo —los hándicaps lo usan— y ahí no cabe un
+   * signo menos: el identificador se parte por guiones y "-1.5" lo rompería en
+   * dos. Se escribe como "m1.5" al fabricarlo y se deshace aquí.
+   */
+  const crudaLinea = trozos[trozos.length - 2] ?? '';
   return {
     sentido: trozos[trozos.length - 1] as 'mas' | 'menos',
-    linea: Number(trozos[trozos.length - 2]),
+    linea: crudaLinea.startsWith('m') ? -Number(crudaLinea.slice(1)) : Number(crudaLinea),
     metrica: trozos[trozos.length - 3],
     sujetoId: trozos.slice(0, -3).join('-'),
   };
@@ -156,6 +162,16 @@ function valorDe(
     if (esLocal === esVisitante) return undefined;
 
     if (metrica === 'goles') return esLocal ? resumen.golesLocal : resumen.golesVisitante;
+    /*
+     * Hándicap: lo que cuenta es la diferencia de goles vista desde el equipo
+     * del pick. Cubrirlo es que esa diferencia supere la línea, y de compararla
+     * ya se encarga quien llama.
+     */
+    if (metrica === 'handicap') {
+      return esLocal
+        ? resumen.golesLocal - resumen.golesVisitante
+        : resumen.golesVisitante - resumen.golesLocal;
+    }
     // Se busca por el nombre que usa ESPN, que es con el que está indexado.
     return resumen.porEquipo.get(esLocal ? local : visitante)?.[metrica];
   }
@@ -196,6 +212,12 @@ export function compruebaPick(
     if (enCurso.sentido !== 'mas' || Number.isNaN(enCurso.linea)) {
       return { resultado: 'pendiente' };
     }
+    /*
+     * El hándicap tampoco se cierra en marcha, aunque sea un "más de": una
+     * ventaja de dos goles en el minuto 60 se puede deshacer, y darlo por
+     * ganado ahí sería anunciar un acierto que luego se cae.
+     */
+    if (enCurso.metrica === 'handicap') return { resultado: 'pendiente' };
     const valorAhora = valorDe(guardado, resumen, enCurso.metrica);
     if (valorAhora !== undefined && valorAhora > enCurso.linea) {
       return { resultado: 'ganado', valorReal: valorAhora };

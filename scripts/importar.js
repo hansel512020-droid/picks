@@ -184,8 +184,16 @@ function argumentos() {
     refrescar: false,
     listar: false,
     estadisticas: false,
-    // Cuantos partidos jugados se guardan por competicion.
-    partidos: 80,
+    /*
+     * Cuantos partidos jugados se guardan por competicion.
+     *
+     * Con 80 cada equipo se quedaba con cinco o seis partidos de historial
+     * —justo por debajo del minimo para afirmar nada—, y la mitad de los
+     * partidos de la portada salian sin un solo pick. Los partidos pesan poco
+     * comparados con los registros de jugador, asi que subirlos da historial de
+     * sobra sin disparar el tamaño del archivo.
+     */
+    partidos: 240,
     // De cuantos se bajan estadisticas y jugadores desde ESPN.
     detalles: 90,
   };
