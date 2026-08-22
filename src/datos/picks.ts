@@ -1207,6 +1207,18 @@ export function partidosAbiertos(competicionId: string): Partido[] {
  */
 const MINIMO_PORTADA = 22;
 
+/**
+ * Cuántos días por delante mira la portada.
+ *
+ * Ocho cubren la jornada de esta semana y la del fin de semana siguiente, que
+ * es lo que alguien puede apostar de verdad hoy. Más allá, la racha de un
+ * equipo dentro de un mes no la sabe nadie.
+ */
+const DIAS_DE_PORTADA = 8;
+
+/** Partidos que se analizan como mínimo, aunque la ventana salga vacía. */
+const MINIMO_PARTIDOS = 30;
+
 /** Picks destacados de toda una competicion. */
 /**
  * La portada, calculada por trozos para no congelar la pantalla.
@@ -1297,14 +1309,25 @@ export function* picksDeCompeticionPorTrozos(
    * hay cinco veces esa cantidad no cambia lo que se ve: solo cuesta tiempo.
    */
   /*
-   * Todos los partidos abiertos, sin recortar.
+   * Los partidos de los próximos días, no los de toda la temporada.
    *
-   * Antes se miraban solo los cuarenta más cercanos. Se quita el tope: la
-   * portada tiene que enseñar todo lo que hay, y quien decide qué se ve primero
-   * es el orden —los de más aciertos arriba—, no un corte arbitrario que dejaba
-   * fuera partidos enteros.
+   * La portada llegó a abrir con picks de partidos de octubre: impecables de
+   * racha, pero no sirven para nada hoy. Y analizar el calendario entero —más
+   * de doscientos partidos en algunas ligas— es trabajo tirado, que en un móvil
+   * se nota.
+   *
+   * Se mira una ventana de días. Que dentro de ella haya partidos sin ningún
+   * pick da igual: es preferible eso a llenar la lista con encuentros que nadie
+   * puede apostar todavía.
+   *
+   * El mínimo es la red de seguridad: en un parón de selecciones o entre
+   * jornadas la ventana puede quedarse vacía, y entonces se cogen los más
+   * cercanos aunque caigan más lejos.
    */
-  const partidos = partidosAbiertos(competicionId);
+  const abiertos = partidosAbiertos(competicionId);
+  const hasta = Date.now() + DIAS_DE_PORTADA * 86400000;
+  const proximos = abiertos.filter((p) => new Date(p.fecha).getTime() <= hasta);
+  const partidos = proximos.length >= MINIMO_PARTIDOS ? proximos : abiertos.slice(0, MINIMO_PARTIDOS);
   const t = temporada(competicionId);
   const todos: Pick[] = [];
 
@@ -1328,10 +1351,65 @@ export function* picksDeCompeticionPorTrozos(
         ? (t.porEquipo.get(p.sujetoId)?.fuerza ?? 70)
         : 78;
 
+  /*
+   * Lo que se juega antes, primero.
+   *
+   * Sin esto, un pick de 10/10 de un partido de dentro de dos meses se ponía
+   * por delante del de esta tarde: la portada abría con partidos de octubre,
+   * que no sirven para nada hoy. Se agrupa por cercanía y dentro de cada grupo
+   * manda la calidad, en vez de ordenar por fecha exacta —que hundiría un
+   * 10/10 de mañana por debajo de un 7/10 de hoy—.
+   */
+  const inicioDeHoy = new Date();
+  inicioDeHoy.setHours(0, 0, 0, 0);
+  const cercania = (p: Pick) => {
+    const cuando = new Date(t.porPartido.get(p.partidoId)?.fecha ?? 0).getTime();
+    const dias = (cuando - inicioDeHoy.getTime()) / 86400000;
+    if (dias < 1) return 0; // hoy
+    if (dias < 2) return 1; // mañana
+    if (dias < 4) return 2;
+    if (dias < 8) return 3; // esta semana
+    if (dias < 15) return 4;
+    return 5; // más allá: existe, pero al final
+  };
+
   const mejorPrimero = (a: Pick, b: Pick) =>
+    cercania(a) - cercania(b) ||
     Number(b.recomendado) - Number(a.recomendado) ||
     b.aciertosL10 - a.aciertosL10 ||
     valor(b, famaDe(b)) - valor(a, famaDe(a));
+
+  /*
+   * Reparte para que la portada no sea diez veces lo mismo.
+   *
+   * Con el orden puro por calidad, el hándicap se comía la parte de arriba
+   * —hay uno por equipo y por línea, y muchos salen 10/10— y aparecían dos
+   * picks seguidos del mismo equipo. Aquí no se descarta nada: lo que excede
+   * el cupo baja al final de la lista, así que sigue estando todo, pero lo
+   * primero que se ve es variado.
+   */
+  const reparte = (lista: Pick[], tope: number): Pick[] => {
+    const cabeza: Pick[] = [];
+    const cola: Pick[] = [];
+    const porSujeto = new Map<string, number>();
+    const porMetrica = new Map<string, number>();
+    // Un cuarto de la portada como mucho para un mismo mercado, y dos picks
+    // por equipo o jugador.
+    const topeMetrica = Math.max(6, Math.round(tope * 0.25));
+
+    for (const p of lista) {
+      const s = porSujeto.get(p.sujetoId) ?? 0;
+      const m = porMetrica.get(p.metrica) ?? 0;
+      if (s >= 2 || m >= topeMetrica) {
+        cola.push(p);
+        continue;
+      }
+      porSujeto.set(p.sujetoId, s + 1);
+      porMetrica.set(p.metrica, m + 1);
+      cabeza.push(p);
+    }
+    return [...cabeza, ...cola];
+  };
 
   let desdeElUltimoTrozo = 0;
 
@@ -1361,7 +1439,8 @@ export function* picksDeCompeticionPorTrozos(
     desdeElUltimoTrozo++;
     if (desdeElUltimoTrozo >= porTrozo) {
       desdeElUltimoTrozo = 0;
-      yield [...todos].sort(mejorPrimero).slice(0, Math.max(limite, MINIMO_PORTADA));
+      const tope = Math.max(limite, MINIMO_PORTADA);
+      yield reparte([...todos].sort(mejorPrimero), tope).slice(0, tope);
     }
   }
   /*
@@ -1376,7 +1455,8 @@ export function* picksDeCompeticionPorTrozos(
    */
   todos.sort(mejorPrimero);
 
-  return todos.slice(0, Math.max(limite, MINIMO_PORTADA));
+  const tope = Math.max(limite, MINIMO_PORTADA);
+  return reparte(todos, tope).slice(0, tope);
 }
 
 /** Los picks que mas ha guardado la comunidad. */

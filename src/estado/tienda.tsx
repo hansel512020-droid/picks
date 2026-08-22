@@ -124,9 +124,51 @@ function resuelve(guardado: PickGuardado): { resultado: ResultadoPick; valorReal
   if (!resto) return { resultado: 'pendiente' };
   const trozos = resto.split('-');
   const sentido = trozos[trozos.length - 1] as 'mas' | 'menos';
-  const linea = Number(trozos[trozos.length - 2]);
+  /*
+   * La línea puede ser negativa —los hándicaps lo son— y ahí no cabe un signo
+   * menos: el identificador se parte por guiones y "-1.5" lo rompería en dos.
+   * Se escribe como "m1.5" al fabricarlo y se deshace aquí.
+   */
+  const crudaLinea = trozos[trozos.length - 2] ?? '';
+  const linea = crudaLinea.startsWith('m') ? -Number(crudaLinea.slice(1)) : Number(crudaLinea);
   const metrica = trozos[trozos.length - 3];
   const sujetoId = trozos.slice(0, -3).join('-');
+
+  /*
+   * Si de este partido se bajó el detalle o no.
+   *
+   * Solo se pide el detalle de los partidos más recientes de cada competición,
+   * así que la mayoría de los ya jugados vienen con las estadísticas a cero y
+   * sin registros de jugador. Y un cero no es un dato: es un hueco.
+   *
+   * Sin esta comprobación se cerraban picks con esos ceros como si fueran
+   * reales —un "más de 8.5 córners" salía perdido y un "menos de 2.5" ganado,
+   * los dos mintiendo—, y el porcentaje de acierto del perfil se calculaba
+   * sobre resultados inventados. Lo que no se puede demostrar se queda
+   * pendiente: el detalle puede llegar en la siguiente descarga.
+   */
+  const est = partido.estadisticas;
+  const hayEstadisticas =
+    est.local.remates + est.visitante.remates +
+    est.local.corners + est.visitante.corners +
+    est.local.amarillas + est.visitante.amarillas > 0;
+  const hayRegistros = (t.registrosPorPartido.get(guardado.partidoId) ?? []).length > 0;
+
+  /*
+   * El hándicap se resuelve con el marcador, que sí es de fiar: viene del
+   * calendario y no del detalle. Cubrirlo es que la diferencia de goles del
+   * equipo supere la línea.
+   */
+  if (metrica === 'handicap') {
+    const esLocal = partido.localId === sujetoId;
+    const esVisitante = partido.visitanteId === sujetoId;
+    if (!esLocal && !esVisitante) return { resultado: 'pendiente' };
+    const dif = esLocal
+      ? partido.golesLocal - partido.golesVisitante
+      : partido.golesVisitante - partido.golesLocal;
+    if (Number.isNaN(linea)) return { resultado: 'pendiente' };
+    return { resultado: dif > linea ? 'ganado' : 'perdido', valorReal: dif };
+  }
 
   // 1X2 se resuelve mirando el marcador.
   if (guardado.pickId.includes('-1x2-')) {
@@ -144,10 +186,18 @@ function resuelve(guardado: PickGuardado): { resultado: ResultadoPick; valorReal
 
   const metJugador = METRICAS_JUGADOR.find((m) => m.clave === metrica);
   if (metJugador) {
+    /*
+     * Sin el acta del partido no se sabe nada de este jugador, y eso NO es lo
+     * mismo que "no jugó". Antes se anulaban por igual los dos casos, así que
+     * un pick perfectamente ganado salía como "—" solo porque de ese partido no
+     * se había bajado el detalle. Se queda pendiente hasta que llegue.
+     */
+    if (!hayRegistros) return { resultado: 'pendiente' };
     const reg = (t.registrosPorPartido.get(guardado.partidoId) ?? []).find(
       (r) => r.jugadorId === sujetoId,
     );
-    // Si no jugo, el pick se anula: es lo que hacen las casas con las props.
+    // Con acta y sin él en ella, es que no jugó: el pick se anula, que es lo
+    // que hacen las casas con las props.
     if (!reg) return { resultado: 'nulo' };
     valor = metJugador.extractor(reg);
   }
@@ -180,6 +230,23 @@ function resuelve(guardado: PickGuardado): { resultado: ResultadoPick; valorReal
   }
 
   if (valor === undefined || Number.isNaN(linea)) return { resultado: 'pendiente' };
+
+  /*
+   * Un cero que viene de un hueco no cierra nada.
+   *
+   * Los goles salen del marcador y son de fiar siempre; el resto —remates,
+   * córners, tarjetas— sale del detalle, y del 86% de los partidos jugados no
+   * se ha bajado. Esos vienen con las estadísticas a cero, y sin esta guarda se
+   * cerraban picks con ellas: un "más de 8.5 córners" salía perdido y un "menos
+   * de 2.5" ganado, los dos mintiendo, y el acierto del perfil se calculaba
+   * sobre resultados inventados.
+   *
+   * Se queda pendiente, que es la verdad: todavía no se sabe. El detalle puede
+   * llegar en la siguiente descarga y entonces se cierra de verdad.
+   */
+  const saleDelMarcador = metrica === 'goles' || metrica === 'golesTotales';
+  if (!saleDelMarcador && !hayEstadisticas) return { resultado: 'pendiente' };
+
   const acierta = sentido === 'mas' ? valor > linea : valor < linea;
   return { resultado: acierta ? 'ganado' : 'perdido', valorReal: valor };
 }
