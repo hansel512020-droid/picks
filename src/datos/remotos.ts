@@ -24,6 +24,8 @@ import { aplicaLogos } from './imagenes';
 
 const CLAVE = 'scout-picks/datos-v1';
 const CLAVE_FECHA = 'scout-picks/datos-fecha';
+/** El sello del archivo que se tiene guardado, para preguntar si cambió. */
+const CLAVE_SELLO = 'scout-picks/datos-sello';
 
 const URL = process.env.EXPO_PUBLIC_SUPABASE_URL?.replace(/\/+$/, '');
 const RUTA = `${URL}/storage/v1/object/public/datos/importado.json`;
@@ -48,25 +50,53 @@ const RUTA_LOGOS = `${URL}/storage/v1/object/public/datos/logos.json`;
  * deliberado: quedarse con resultados de ayer es mejor que una pantalla vacía,
  * y desde luego mejor que tragarse 74 MB en el móvil.
  */
-async function bajaArchivo(): Promise<string | null> {
+/**
+ * Lo que devuelve una bajada: el archivo con su sello, `'igual'` cuando el
+ * servidor confirma que no ha cambiado, o `null` si no se pudo.
+ */
+type Bajada = { texto: string; sello: string | null } | 'igual' | null;
+
+async function bajaArchivo(selloPrevio: string | null): Promise<Bajada> {
+  /*
+   * Se pregunta con el sello de lo que ya se tiene.
+   *
+   * Si el archivo no ha cambiado, el servidor responde 304 y **no manda nada**:
+   * la comprobación sale gratis. Por eso se puede preguntar a menudo en vez de
+   * esperar horas, que era lo que hacía que una liga recién publicada tardara
+   * media jornada en aparecer.
+   */
+  const cabeceras: Record<string, string> = selloPrevio
+    ? { 'If-None-Match': selloPrevio }
+    : {};
+
   if (typeof DecompressionStream !== 'undefined') {
     try {
-      const r = await fetch(RUTA_GZ, { cache: 'no-store' });
+      const r = await fetch(RUTA_GZ, { cache: 'no-store', headers: cabeceras });
+      if (r.status === 304) return 'igual';
       if (r.ok && r.body) {
         const flujo = r.body.pipeThrough(new DecompressionStream('gzip'));
-        return await new Response(flujo).text();
+        return { texto: await new Response(flujo).text(), sello: r.headers.get('etag') };
       }
     } catch {
       // Si el comprimido falla se sigue con el normal, sin ruido.
     }
   }
 
-  const r = await fetch(RUTA, { cache: 'no-store' });
-  return r.ok ? await r.text() : null;
+  const r = await fetch(RUTA, { cache: 'no-store', headers: cabeceras });
+  if (r.status === 304) return 'igual';
+  return r.ok ? { texto: await r.text(), sello: r.headers.get('etag') } : null;
 }
 
-/** Cada cuánto se vuelve a preguntar, como mucho. */
-const CADA = 6 * 60 * 60 * 1000;
+/**
+ * Cada cuánto se vuelve a preguntar, como mucho.
+ *
+ * Eran seis horas, y con eso una competición o unos resultados recién
+ * publicados podían tardar media jornada en llegar al móvil: la app ni
+ * preguntaba. Ahora la pregunta lleva el sello de lo que ya se tiene y el
+ * servidor contesta 304 sin mandar nada cuando no ha cambiado, así que
+ * preguntar a menudo no cuesta ni datos ni batería.
+ */
+const CADA = 15 * 60 * 1000;
 
 /**
  * Carga lo guardado del intento anterior, si lo hay.
@@ -103,8 +133,15 @@ export async function descargaDatos(forzar = false): Promise<boolean> {
       if (ultima && Date.now() - ultima < CADA) return false;
     }
 
-    const texto = await bajaArchivo();
-    if (!texto) return false;
+    const selloPrevio = await AsyncStorage.getItem(CLAVE_SELLO);
+    const bajada = await bajaArchivo(selloPrevio);
+    if (!bajada) return false;
+    if (bajada === 'igual') {
+      // Sin novedad: se apunta la hora para no volver a preguntar enseguida.
+      await AsyncStorage.setItem(CLAVE_FECHA, String(Date.now()));
+      return false;
+    }
+    const { texto, sello } = bajada;
 
     // Una respuesta cortada a medias rompería el JSON y dejaría la app sin
     // datos: se comprueba que se puede leer antes de tocar nada.
@@ -126,7 +163,7 @@ export async function descargaDatos(forzar = false): Promise<boolean> {
      * Ahora se intenta aparte y si falla no pasa nada: se pierde el arranque
      * rápido de la próxima visita, no los datos de esta.
      */
-    guardaSiCabe(texto);
+    guardaSiCabe(texto, sello);
     // Las caras van aparte y son pequeñas. Que fallen no debe tocar los datos.
     descargaLogos();
     return true;
@@ -162,11 +199,19 @@ async function descargaLogos(): Promise<void> {
  * navegador y no hay forma fiable de preguntárselo: se intenta y se acepta el
  * no por respuesta.
  */
-async function guardaSiCabe(texto: string): Promise<void> {
+async function guardaSiCabe(texto: string, sello: string | null): Promise<void> {
   try {
     // IndexedDB en el navegador: localStorage no admite 76 MB.
     if (!(await guardaGrande(CLAVE, texto))) return;
     await AsyncStorage.setItem(CLAVE_FECHA, String(Date.now()));
+    /*
+     * El sello se guarda junto al archivo, no antes: solo vale si de verdad
+     * quedó guardado. Apuntarlo por adelantado sería peor que no tenerlo —la
+     * app diría "ya lo tengo" de algo que no llegó a guardar y se quedaría con
+     * los datos viejos sin volver a pedirlos.
+     */
+    if (sello) await AsyncStorage.setItem(CLAVE_SELLO, sello);
+    else await AsyncStorage.removeItem(CLAVE_SELLO);
   } catch {
     // Sin sitio. La app funciona igual, solo tarda más en arrancar la próxima
     // vez porque vuelve a descargar en lugar de leer lo guardado.
