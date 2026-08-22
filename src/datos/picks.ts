@@ -405,6 +405,97 @@ function valor(
   );
 }
 
+/**
+ * Reparte una lista ya ordenada para que no salgan seguidos picks del mismo
+ * mercado ni del mismo equipo.
+ *
+ * Va exportada porque el orden lo decide cada pantalla —por acierto, por
+ * cuota, por lo que sea— y cualquier reordenación deshace el reparto: si esto
+ * se aplicara solo al generar, Inicio volvería a juntar los hándicaps al
+ * ordenar a su manera. Se aplica al final, sobre lo que se va a enseñar.
+ *
+ * No descarta nada: lo que no cabe en su sitio baja unos puestos.
+ */
+export function reparteVariedad(lista: Pick[]): Pick[] {
+  /*
+   * Se reparte por VENTANA, no por cupo total.
+   *
+   * El primer intento ponía un tope por mercado sobre el total de la lista, y
+   * como ese total es enorme el tope salía en quinientos: no limitaba nada y
+   * la portada seguía abriendo con hándicap tras hándicap. Lo que molesta no
+   * es cuántos hay en total, es verlos seguidos.
+   *
+   * Así que se mira solo lo último colocado: como mucho dos del mismo mercado
+   * y uno del mismo equipo o jugador en cada seis. El siguiente que no cumpla
+   * espera su turno unos puestos, no se descarta —la lista sigue completa—.
+   */
+  const VENTANA = 6;
+  /*
+   * Solo se reparte la parte de arriba.
+   *
+   * La variedad importa en lo que se ve; del pick trescientos en adelante
+   * nadie está mirando si dos comparten mercado. Repartir la lista entera
+   * —y se recalcula en cada entrega parcial— multiplicaba por cuatro el
+   * tiempo de montar la portada.
+   */
+  const CABEZA = 300;
+  const cabeza = lista.slice(0, CABEZA);
+  const resto = lista.slice(CABEZA);
+
+  const usado = new Array(cabeza.length).fill(false);
+  const salida: Pick[] = [];
+  // Cuántos hay del mismo mercado y del mismo sujeto en la ventana. Se
+  // llevan al vuelo en vez de recontar la ventana en cada vuelta.
+  const porMetrica = new Map<string, number>();
+  const porSujeto = new Map<string, number>();
+  const suma = (m: Map<string, number>, k: string, n: number) =>
+    m.set(k, Math.max(0, (m.get(k) ?? 0) + n));
+
+  let inicio = 0;
+  for (let n = 0; n < cabeza.length; n++) {
+    while (inicio < cabeza.length && usado[inicio]) inicio++;
+    let elegido = -1;
+    // Se miran unos pocos candidatos, no la lista entera: la lista ya viene
+    // ordenada, así que con cuarenta hay de sobra para encontrar variedad
+    // sin enterrar un buen pick.
+    for (let i = inicio, mirados = 0; i < cabeza.length && mirados < 40; i++) {
+    if (usado[i]) continue;
+    mirados++;
+    const p = cabeza[i];
+    /*
+     * Uno por mercado en cada ventana, no dos.
+     *
+     * Con dos, el handicap seguia copando la parte de arriba: al generarse
+     * es solo el 10% de los picks, pero un "+1.5" acierta casi siempre y
+     * con el orden por probabilidad se cuela delante de todo. Un pick que
+     * gana el 95% de las veces y paga 1,20 no es un hallazgo, es una
+     * obviedad; lo que interesa es que quepa de todo.
+     */
+    if ((porMetrica.get(p.metrica) ?? 0) < 1 && (porSujeto.get(p.sujetoId) ?? 0) < 1) {
+      elegido = i;
+      break;
+    }
+    }
+    // Si entre esos no hay nada distinto, manda el orden: más vale repetir
+    // mercado que enterrar el mejor pick.
+    if (elegido === -1) elegido = inicio;
+
+    const p = cabeza[elegido];
+    usado[elegido] = true;
+    salida.push(p);
+    suma(porMetrica, p.metrica, 1);
+    suma(porSujeto, p.sujetoId, 1);
+
+    // Lo que sale de la ventana deja de contar.
+    const viejo = salida[salida.length - 1 - VENTANA];
+    if (viejo) {
+    suma(porMetrica, viejo.metrica, -1);
+    suma(porSujeto, viejo.sujetoId, -1);
+    }
+  }
+  return [...salida, ...resto];
+}
+
 // ------------------------------------------------------------ definicion de metricas
 
 type Extractor = (r: RegistroJugador) => number;
@@ -1428,76 +1519,7 @@ export function* picksDeCompeticionPorTrozos(
    * el cupo baja al final de la lista, así que sigue estando todo, pero lo
    * primero que se ve es variado.
    */
-  const reparte = (lista: Pick[]): Pick[] => {
-    /*
-     * Se reparte por VENTANA, no por cupo total.
-     *
-     * El primer intento ponía un tope por mercado sobre el total de la lista, y
-     * como ese total es enorme el tope salía en quinientos: no limitaba nada y
-     * la portada seguía abriendo con hándicap tras hándicap. Lo que molesta no
-     * es cuántos hay en total, es verlos seguidos.
-     *
-     * Así que se mira solo lo último colocado: como mucho dos del mismo mercado
-     * y uno del mismo equipo o jugador en cada seis. El siguiente que no cumpla
-     * espera su turno unos puestos, no se descarta —la lista sigue completa—.
-     */
-    const VENTANA = 6;
-    /*
-     * Solo se reparte la parte de arriba.
-     *
-     * La variedad importa en lo que se ve; del pick trescientos en adelante
-     * nadie está mirando si dos comparten mercado. Repartir la lista entera
-     * —y se recalcula en cada entrega parcial— multiplicaba por cuatro el
-     * tiempo de montar la portada.
-     */
-    const CABEZA = 300;
-    const cabeza = lista.slice(0, CABEZA);
-    const resto = lista.slice(CABEZA);
-
-    const usado = new Array(cabeza.length).fill(false);
-    const salida: Pick[] = [];
-    // Cuántos hay del mismo mercado y del mismo sujeto en la ventana. Se
-    // llevan al vuelo en vez de recontar la ventana en cada vuelta.
-    const porMetrica = new Map<string, number>();
-    const porSujeto = new Map<string, number>();
-    const suma = (m: Map<string, number>, k: string, n: number) =>
-      m.set(k, Math.max(0, (m.get(k) ?? 0) + n));
-
-    let inicio = 0;
-    for (let n = 0; n < cabeza.length; n++) {
-      while (inicio < cabeza.length && usado[inicio]) inicio++;
-      let elegido = -1;
-      // Se miran unos pocos candidatos, no la lista entera: la lista ya viene
-      // ordenada, así que con cuarenta hay de sobra para encontrar variedad
-      // sin enterrar un buen pick.
-      for (let i = inicio, mirados = 0; i < cabeza.length && mirados < 40; i++) {
-        if (usado[i]) continue;
-        mirados++;
-        const p = cabeza[i];
-        if ((porMetrica.get(p.metrica) ?? 0) < 2 && (porSujeto.get(p.sujetoId) ?? 0) < 1) {
-          elegido = i;
-          break;
-        }
-      }
-      // Si entre esos no hay nada distinto, manda el orden: más vale repetir
-      // mercado que enterrar el mejor pick.
-      if (elegido === -1) elegido = inicio;
-
-      const p = cabeza[elegido];
-      usado[elegido] = true;
-      salida.push(p);
-      suma(porMetrica, p.metrica, 1);
-      suma(porSujeto, p.sujetoId, 1);
-
-      // Lo que sale de la ventana deja de contar.
-      const viejo = salida[salida.length - 1 - VENTANA];
-      if (viejo) {
-        suma(porMetrica, viejo.metrica, -1);
-        suma(porSujeto, viejo.sujetoId, -1);
-      }
-    }
-    return [...salida, ...resto];
-  };
+  const reparte = reparteVariedad;
 
   /*
    * Lo que ya se ha entregado NO se vuelve a mover.

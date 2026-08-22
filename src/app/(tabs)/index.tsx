@@ -14,7 +14,7 @@ import { TarjetaPick } from '@/componentes/pick';
 import { competicion } from '@/datos/competiciones';
 import { claveDelPartido , seJuegaAhora } from '@/datos/envivo';
 import { temporada } from '@/datos/motor';
-import { FAMILIAS, picksDeCompeticionPorTrozos } from '@/datos/picks';
+import { FAMILIAS, picksDeCompeticionPorTrozos, reparteVariedad } from '@/datos/picks';
 import type { Familia, Pick } from '@/datos/tipos';
 import { useComunidad } from '@/estado/comunidad';
 import { useDerechos } from '@/estado/derechos';
@@ -263,7 +263,15 @@ export default function Inicio() {
     let lista = picks;
     if (familias.length) lista = lista.filter((p) => familias.includes(p.familia));
     if (grupo && partidosDelFiltro) lista = lista.filter((p) => partidosDelFiltro.has(p.partidoId));
-    return ordena(lista, orden, (p) => comunidad.cuenta(p.id));
+    /*
+     * Se ordena y DESPUÉS se reparte.
+     *
+     * El reparto tiene que ir al final, no al generar: cualquier reordenación
+     * lo deshace. Se repartía al montar la lista y aquí se volvía a ordenar por
+     * acierto, así que los hándicaps —que aciertan casi siempre y suben todos
+     * juntos— acababan otra vez pegados: cuatro de cada cinco tarjetas.
+     */
+    return reparteVariedad(ordena(lista, orden, (p) => comunidad.cuenta(p.id)));
   }, [picks, familias, grupo, orden, partidosDelFiltro, comunidad]);
 
   // Un partido que acaba de terminar deja de dar picks al momento.
