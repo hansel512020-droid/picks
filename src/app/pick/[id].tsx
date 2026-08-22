@@ -424,12 +424,31 @@ export default function PantallaPick() {
               ))}
             </View>
 
+            {/*
+              Con candado, el boton lleva a Pro en vez de guardar.
+              *
+              * Guardar un pick que no se puede leer no sirve de nada, y ademas
+              * colaba analisis de pago en el historial de una cuenta gratis:
+              * desde Rendimiento se veian el mercado y la cuota que la ficha
+              * acababa de tapar. Se aprovecha el gesto —quien guarda es quien
+              * mas interes tiene— para enseñar lo que cuesta desbloquearlo.
+              */}
             <Boton
               ancho
-              texto={guardado ? 'Quitar de mis picks' : 'Guardar pick'}
-              icono={guardado ? 'guardado' : 'guardar'}
-              variante={guardado ? 'secundario' : 'principal'}
+              texto={
+                bloqueado
+                  ? 'Desbloquear con Golden Pro'
+                  : guardado
+                    ? 'Quitar de mis picks'
+                    : 'Guardar pick'
+              }
+              icono={bloqueado ? 'candado' : guardado ? 'guardado' : 'guardar'}
+              variante={guardado && !bloqueado ? 'secundario' : 'principal'}
               onPress={() => {
+                if (bloqueado) {
+                  router.push('/pro');
+                  return;
+                }
                 if (guardado) {
                   quitar(pick.id);
                   comunidad.resta(pick.id);
