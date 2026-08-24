@@ -125,8 +125,23 @@ function adelgaza(acumulado) {
       lista.push(r);
       porJugador.set(r.jugadorId, lista);
     }
+    /*
+     * Y fuera los jugadores que no llegan al minimo del modelo.
+     *
+     * Para publicar un pick hace falta un historial de 6 partidos (`picks.ts`
+     * descarta por debajo de eso). Guardar a quien tiene uno, dos o cinco es
+     * peso que no produce ni un solo pick: la mitad del archivo, unos 10 MB, y
+     * eso es lo que el telefono tiene que abrir en memoria cada vez.
+     *
+     * No se pierde nada recuperable: los registros se rehacen en cada pasada a
+     * partir de los partidos con detalle, asi que si alguno llega a seis en la
+     * proxima, entra solo. Lo unico que se nota es que la ficha de un suplente
+     * con dos partidos sale sin historial.
+     */
+    const MINIMO_PARA_PICK = 6;
     const recortados = [];
     for (const lista of porJugador.values()) {
+      if (lista.length < MINIMO_PARA_PICK) continue;
       lista.sort((a, b) => (a.fecha || '').localeCompare(b.fecha || ''));
       recortados.push(...lista.slice(-REGISTROS_POR_JUGADOR));
     }
