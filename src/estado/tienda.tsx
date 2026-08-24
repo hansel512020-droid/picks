@@ -184,7 +184,20 @@ function resuelve(guardado: PickGuardado): { resultado: ResultadoPick; valorReal
 
   let valor: number | undefined;
 
-  const metJugador = METRICAS_JUGADOR.find((m) => m.clave === metrica);
+  /*
+   * Manda el SUJETO del pick, no el nombre de la metrica.
+   *
+   * `goles` esta en las dos tablas —la de jugador y la de equipo— y aqui se
+   * miraba primero la de jugador: un "mas de 1.5 goles del equipo" buscaba al
+   * "jugador" FC Cincinnati, no lo encontraba y daba el pick por ANULADO. En el
+   * historial salia un guion gris en picks que estaban perfectamente ganados o
+   * perdidos, y el porcentaje de acierto los ignoraba.
+   *
+   * El mismo fallo se corrigio en su dia en el resolutor del directo; aqui se
+   * habia quedado sin arreglar.
+   */
+  const esDeJugador = guardado.sujeto ? guardado.sujeto === 'jugador' : true;
+  const metJugador = esDeJugador ? METRICAS_JUGADOR.find((m) => m.clave === metrica) : undefined;
   if (metJugador) {
     /*
      * Sin el acta del partido no se sabe nada de este jugador, y eso NO es lo
