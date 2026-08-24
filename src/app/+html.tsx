@@ -26,7 +26,7 @@ const DIRECCION = 'https://goldenpicks.vercel.app';
  * carga; una captura de la app luciría más, pero una imagen rota luce peor que
  * un logo sencillo, y aquí una URL que falla deja la tarjeta sin nada.
  */
-const IMAGEN = `${DIRECCION}/assets/assets/imagenes/icono.png`;
+const IMAGEN = `${DIRECCION}/portada.png`;
 
 export default function Html({ children }: PropsWithChildren) {
   return (
