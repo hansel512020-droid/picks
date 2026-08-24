@@ -1,6 +1,6 @@
 import { seJuegaAhora } from '@/datos/envivo';
 import { router, useLocalSearchParams } from 'expo-router';
-import { useEffect, useMemo } from 'react';
+import { useEffect, useMemo, useState } from 'react';
 import { ActivityIndicator, ScrollView, Text, View } from 'react-native';
 import { useSafeAreaInsets } from 'react-native-safe-area-context';
 import { Boton, Fuego, Insignia, Pulsable, Separador, Tarjeta, Txt, Vacio } from '@/componentes/base';
@@ -16,6 +16,36 @@ import { useDerechos } from '@/estado/derechos';
 import { useTienda } from '@/estado/tienda';
 import { usePartidoVivoDe } from '@/estado/vivo';
 import { C, E, R } from '@/tema';
+
+/**
+ * Comparte un pick.
+ *
+ * Es la via de crecimiento mas directa que tiene la app: alguien manda un pick
+ * a su grupo, y quien lo recibe entra por el enlace y se encuentra la ficha
+ * entera. Por eso el texto lleva la racha —que es el gancho— y no solo el
+ * nombre del mercado.
+ *
+ * En el movil abre el menu del sistema (WhatsApp, Telegram…); donde no exista,
+ * copia al portapapeles, que es lo unico que funciona en todos los navegadores
+ * de escritorio.
+ *
+ * Un pick con candado NO se comparte entero: iria el analisis de una liga de
+ * pago a alguien que no la ha pagado, que es justo lo que el muro impide.
+ */
+async function comparte(texto: string): Promise<'compartido' | 'copiado' | null> {
+  if (typeof navigator === 'undefined') return null;
+  try {
+    if ((navigator as any).share) {
+      await (navigator as any).share({ text: texto });
+      return 'compartido';
+    }
+    await navigator.clipboard.writeText(texto);
+    return 'copiado';
+  } catch {
+    // Cancelar el menu de compartir tira una excepcion: no es un fallo.
+    return null;
+  }
+}
 import { useCalculo } from '@/utiles/carga';
 
 /**
@@ -323,11 +353,64 @@ export default function PantallaPick() {
   }
 
   const guardado = estaGuardado(pick.id);
+  // Aviso de "copiado", para cuando el navegador no tiene menu de compartir.
+  const [avisoCompartir, setAvisoCompartir] = useState<string | null>(null);
   const otros = (picks ?? []).filter((p) => p.id !== pick.id).slice(0, 4);
 
   return (
     <View style={{ flex: 1, backgroundColor: C.fondo, paddingTop: insets.top + E.sm }}>
-      <CabeceraAtras titulo="Detalle del pick" subtitulo={competicion(competicionId).nombre} />
+      <CabeceraAtras
+        titulo="Detalle del pick"
+        subtitulo={competicion(competicionId).nombre}
+        accion={
+          <Pulsable
+            onPress={async () => {
+              /*
+               * Con candado se comparte una invitacion, no el analisis: mandar
+               * la racha y el mercado de una liga de pago a quien no la ha
+               * pagado es saltarse el muro por la puerta de atras.
+               */
+              const enlace =
+                typeof window !== 'undefined'
+                  ? window.location.href
+                  : 'https://goldenpicks.vercel.app';
+              const texto = bloqueado
+                ? `${pick.titulo} · ${pick.contexto}
+
+Análisis en Golden Picks:
+${enlace}`
+                : `${pick.titulo} · ${pick.mercado}
+` +
+                  `Le sale en ${pick.aciertosL10} de sus últimos 10 partidos.
+` +
+                  `${pick.contexto}
+
+${enlace}`;
+              const r = await comparte(texto);
+              if (r === 'copiado') setAvisoCompartir('Copiado: ya puedes pegarlo donde quieras');
+              else if (r === 'compartido') setAvisoCompartir(null);
+            }}
+            hitSlop={10}
+            style={{
+              width: 34,
+              height: 34,
+              borderRadius: 17,
+              alignItems: 'center',
+              justifyContent: 'center',
+              backgroundColor: C.carta,
+              borderWidth: 1,
+              borderColor: C.borde,
+            }}
+          >
+            <Icono nombre="compartir" tam={15} color={C.texto2} />
+          </Pulsable>
+        }
+      />
+      {avisoCompartir ? (
+        <Txt v="mini" color={C.lima} style={{ textAlign: 'center', paddingBottom: E.sm }}>
+          {avisoCompartir}
+        </Txt>
+      ) : null}
 
       <ScrollView
         contentContainerStyle={{ paddingBottom: E.xxxl, gap: E.lg }}
