@@ -34,7 +34,18 @@ export default function LayoutPestanas() {
           key={p.name}
           name={p.name}
           options={{
-            title: p.titulo,
+            /*
+             * La etiqueta de abajo y el nombre de la ventana son cosas
+             * distintas.
+             *
+             * Esto era `title: p.titulo`, que hace las dos: en la barra ponia
+             * "Inicio" —bien— pero tambien mandaba ese texto a la pestaña del
+             * navegador, y ahi no dice nada de quien es la app. Con
+             * `tabBarLabel` la barra se queda igual y la pestaña conserva el
+             * nombre que viene de las opciones comunes.
+             */
+            tabBarLabel: p.titulo,
+            title: 'Golden Picks',
             tabBarIcon: ({ color }) => (
               <Icono nombre={p.icono} tam={22} color={String(color)} />
             ),

@@ -52,6 +52,19 @@ function Puerta() {
         headerShown: false,
         contentStyle: { backgroundColor: C.fondo },
         animation: 'slide_from_right',
+        /*
+         * El nombre de la pestaña del navegador.
+         *
+         * La plantilla HTML ya trae un <title>, pero en cuanto arranca la
+         * navegacion esta lo pisa con el de la pantalla activa; sin ninguno,
+         * Chrome se queda con la direccion y en la pestaña salia
+         * "goldenpicks.vercel.app" en vez del nombre.
+         *
+         * Va en las opciones comunes para que valga en todas las pantallas: da
+         * igual si alguien llega a un pick o al perfil, la pestaña se reconoce
+         * igual entre veinte abiertas.
+         */
+        title: 'Golden Picks',
       }}
     >
       <Stack.Screen name="(tabs)" />
