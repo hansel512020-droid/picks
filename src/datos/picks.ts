@@ -606,6 +606,23 @@ const CACHE = new Map<string, Pick[]>();
  */
 cuandoCambienLosDatos(() => CACHE.clear());
 
+/*
+ * Si un partido trae el detalle —remates, córners, tarjetas— o vino sin él.
+ *
+ * Cuando el importador no puede bajar las estadísticas de un partido, las deja
+ * a cero: así se rellena una estadística ausente, y un cero de ese origen es
+ * indistinguible de un cero de verdad. El único contador que nunca es cero en
+ * un partido jugado es el de remates —nadie termina noventa minutos sin tirar
+ * ni una vez—, así que remates a cero significa "no hubo dato", no "no remató".
+ *
+ * Se usa para no meter esos partidos en la muestra de tiros, córners y
+ * tarjetas: contarlos como cero fabrica una racha de "menos de" que no ocurrió,
+ * y esta app no inventa picks. Los goles no lo necesitan: están siempre.
+ */
+function tieneDetalle(p: Partido, esLocal: boolean): boolean {
+  return (esLocal ? p.estadisticas.local : p.estadisticas.visitante).remates > 0;
+}
+
 /** Picks de un partido concreto. */
 export function picksDePartido(
   competicionId: string,
@@ -797,25 +814,50 @@ export function picksDePartido(
      */
     const rival = equipo.id === local.id ? visitante : local;
     const fuerzaHoy = fuerzaDe(rival.id) ?? rival.fuerza ?? null;
-    const pesos = suyos.map(({ p, esLocal }) => {
-      const rivalId = esLocal ? p.visitanteId : p.localId;
-      const peso = pesoPorRival(fuerzaDe(rivalId), fuerzaHoy);
-      return rivalId === rival.id ? peso * PESO_ENFRENTAMIENTO : peso;
-    });
+    const pesosDe = (lista: { p: Partido; esLocal: boolean }[]) =>
+      lista.map(({ p, esLocal }) => {
+        const rivalId = esLocal ? p.visitanteId : p.localId;
+        const peso = pesoPorRival(fuerzaDe(rivalId), fuerzaHoy);
+        return rivalId === rival.id ? peso * PESO_ENFRENTAMIENTO : peso;
+      });
+
+    // Los partidos de la liga ya jugados, base de la media con la que tarifica
+    // el mercado. Se filtra una vez; cada métrica decide si además excluye los
+    // que vinieron sin detalle.
+    const partidosLiga = t.partidos.filter(
+      (p) => p.estado === 'finalizado' && p.fecha < partido.fecha,
+    );
 
     for (const met of METRICAS_EQUIPO) {
-      const valores = suyos.map(({ p, esLocal }) => met.valor(p, esLocal));
-      // El mercado tarifica con la media de la competicion, no con la del equipo.
-      // Tambien recortada en el tiempo: la media de la competicion de hoy no
-      // se conocia el dia del partido que se esta midiendo.
-      const mediaCompeticion =
-        t.partidos
-          .filter((p) => p.estado === 'finalizado' && p.fecha < partido.fecha)
-          .reduce((a, p) => a + met.valor(p, true) + met.valor(p, false), 0) /
-        Math.max(
-          2,
-          t.partidos.filter((p) => p.estado === 'finalizado' && p.fecha < partido.fecha).length * 2,
-        );
+      /*
+       * Los goles están siempre en el acta; tiros, córners y tarjetas solo
+       * cuando el importador pudo bajar el detalle. Un partido sin ese dato se
+       * guardó con ceros, así que se saca de la muestra: contarlo como cero
+       * inventaría una racha de "menos de" que nunca ocurrió.
+       */
+      const soloConDetalle = met.clave !== 'goles';
+      const muestra = soloConDetalle
+        ? suyos.filter(({ p, esLocal }) => tieneDetalle(p, esLocal))
+        : suyos;
+      // Sin al menos seis partidos con ese dato no hay muestra suficiente.
+      if (muestra.length < 6) continue;
+
+      const valores = muestra.map(({ p, esLocal }) => met.valor(p, esLocal));
+      const pesos = pesosDe(muestra);
+
+      // La media de la competición, con el mismo criterio: los partidos sin
+      // detalle no rebajan la media a base de ceros falsos. Recortada en el
+      // tiempo, porque la media de hoy no se conocía el día que se está midiendo.
+      let sumaLiga = 0;
+      let cuentaLiga = 0;
+      for (const p of partidosLiga) {
+        for (const esLocal of [true, false]) {
+          if (soloConDetalle && !tieneDetalle(p, esLocal)) continue;
+          sumaLiga += met.valor(p, esLocal);
+          cuentaLiga++;
+        }
+      }
+      const mediaCompeticion = sumaLiga / Math.max(2, cuentaLiga);
 
       for (const l of met.lineas) {
         for (const sentido of ['mas', 'menos'] as const) {
@@ -1004,9 +1046,23 @@ export function picksDePartido(
 
   if (delPartido.length >= 8) {
     for (const met of METRICAS_PARTIDO) {
-      const valores = delPartido.map(met.valor);
+      /*
+       * Igual que en los picks de equipo: los totales de córners, remates y
+       * tarjetas suman los dos lados, y un partido que vino sin detalle aporta
+       * un cero falso. Fuera de la muestra. El total de goles no lo necesita.
+       * El detalle de un partido se baja entero, así que basta mirar un lado.
+       */
+      const soloConDetalle = met.clave !== 'golesTotales';
+      const muestra = soloConDetalle
+        ? delPartido.filter((p) => tieneDetalle(p, true))
+        : delPartido;
+      if (muestra.length < 8) continue;
+      const valores = muestra.map(met.valor);
       const jugados = t.partidos.filter(
-        (p) => p.estado === 'finalizado' && p.fecha < partido.fecha,
+        (p) =>
+          p.estado === 'finalizado' &&
+          p.fecha < partido.fecha &&
+          (!soloConDetalle || tieneDetalle(p, true)),
       );
       const mediaCompeticion =
         jugados.reduce((a, p) => a + met.valor(p), 0) / Math.max(1, jugados.length);
