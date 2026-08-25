@@ -17,6 +17,16 @@ import type { PropsWithChildren } from 'react';
  * Solo afecta a la web: en la app nativa esta plantilla no existe.
  */
 
+/*
+ * Dos títulos, y a propósito.
+ *
+ * En la pestaña del navegador solo caben unos veinte caracteres antes de que
+ * Chrome corte con puntos suspensivos, así que el largo salía como
+ * "Golden Picks · Aná…" y no aportaba nada. La pestaña lleva el nombre a secas
+ * —que es como se reconoce entre veinte pestañas abiertas— y el largo se queda
+ * donde sí se lee entero: la tarjeta que sale al compartir el enlace.
+ */
+const TITULO_PESTANA = 'Golden Picks';
 const TITULO = 'Golden Picks · Análisis estadístico de fútbol';
 const DESCRIPCION =
   'Rachas medidas partido a partido en 39 competiciones. Mira qué línea viene batiendo cada equipo y cada jugador. 5 ligas gratis, sin registro de pago.';
@@ -43,7 +53,7 @@ export default function Html({ children }: PropsWithChildren) {
           content="width=device-width, initial-scale=1, maximum-scale=1, viewport-fit=cover"
         />
 
-        <title>{TITULO}</title>
+        <title>{TITULO_PESTANA}</title>
         <meta name="description" content={DESCRIPCION} />
         {/* El color de la barra del navegador en Android, para que no salga
             blanca sobre una app oscura. */}
