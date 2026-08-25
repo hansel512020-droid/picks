@@ -210,6 +210,21 @@ export function CarruselProximos() {
                 {cuando(p)}
               </Text>
               <View style={{ flex: 1 }} />
+              {/* Eliminatoria previa de Champions/Europa/Conference: se marca
+                  para que no se confunda con la fase de grupos, porque van
+                  dentro de la misma competición. */}
+              {p.fasePrevia ? (
+                <View
+                  style={{
+                    paddingHorizontal: 5,
+                    paddingVertical: 1,
+                    borderRadius: 4,
+                    backgroundColor: C.limaTenue,
+                  }}
+                >
+                  <Text style={{ ...T.mini, fontSize: 8, color: C.lima }}>PREVIA</Text>
+                </View>
+              ) : null}
               {/* La liga, no solo su escudo: mezclando treinta competiciones
                   un logo diminuto no dice de qué torneo es el partido. */}
               <Text

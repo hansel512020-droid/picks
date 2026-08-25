@@ -301,6 +301,8 @@ export interface ProximoPartido {
   visitante: Equipo;
   golesLocal: number;
   golesVisitante: number;
+  /** Eliminatoria previa continental, para el distintivo en la ruleta. */
+  fasePrevia?: boolean;
 }
 
 /**
@@ -338,6 +340,7 @@ export function proximosDeTodas(limite = 30): ProximoPartido[] {
         visitante,
         golesLocal: p.golesLocal,
         golesVisitante: p.golesVisitante,
+        fasePrevia: p.fasePrevia,
       });
     }
   }

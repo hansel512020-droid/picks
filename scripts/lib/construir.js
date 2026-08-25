@@ -289,6 +289,9 @@ function partidosDeHistorial(competicionId, historial, proximos, equipos) {
       golesVisitanteDescanso: jugado ? p.golesVisitanteDescanso : 0,
       jornada: 0,
       ronda: p.temporada ? `Temporada ${p.temporada}` : undefined,
+      // Solo se escribe en los partidos de eliminatoria previa; el resto lo
+      // dejan sin poner para no engordar el archivo con un `false` por partido.
+      fasePrevia: p.fasePrevia ? true : undefined,
       estadio: local.estadio ?? `Estadio del ${local.nombre}`,
       /*
        * Sin árbitro no se inventa un texto.
@@ -589,6 +592,9 @@ function desdeEspn(partidos) {
       arbitro: p.arbitro,
       estadio: p.estadio,
       idEspn: p.idEspn,
+      // Marca de eliminatoria continental (Champions/Europa/Conference), para
+      // que la app la distinga con un distintivo de "Fase previa".
+      fasePrevia: p.fasePrevia,
       cuotas: {},
     };
     if (p.estado === 'finalizado') {

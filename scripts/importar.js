@@ -191,6 +191,26 @@ const IMPORTANTES = [
   'colombia', 'chile', 'peru', 'bolivia', 'ecuador', 'uruguay', 'paraguay',
 ];
 
+/*
+ * Fases previas continentales.
+ *
+ * En ESPN la clasificación de Champions, Europa y Conference es un calendario
+ * aparte, con su propio slug. En la app, en cambio, esos partidos van DENTRO de
+ * su competición: los de la previa de Champions se guardan como 'champions'.
+ *
+ * Así, al abrir Champions se ven las eliminatorias de julio y agosto sin crear
+ * una competición temporal que luego haya que retirar —cuando la fase acaba,
+ * esos partidos se juegan y desaparecen del inicio solos—. Son datos reales de
+ * ESPN: equipos, fechas y resultados de verdad. Los clubes son pequeños y casi
+ * no traen historial, así que saldrán sobre todo como partidos con resultado y
+ * pocos picks, y marcados con "Fase previa" para que se distingan.
+ */
+const PREVIA_ESPN = {
+  champions: espn.LIGAS.championsprevia,
+  europaleague: espn.LIGAS.europaprevia,
+  conference: espn.LIGAS.conferenceprevia,
+};
+
 function argumentos() {
   const a = process.argv.slice(2);
   const o = {
@@ -306,19 +326,34 @@ async function importaCompeticion(id, opciones, catalogo, clave) {
   // Es la unica fuente gratuita que cubre copas y competiciones continentales,
   // y la unica que trae el calendario completo de lo que viene y el en vivo.
   const slugEspn = espn.LIGAS[id];
+  const slugPrevia = PREVIA_ESPN[id];
   let detallesEspn = [];
+  // Los idEspn de la fase previa, para pedir sus cuotas con el slug correcto.
+  const idsPrevia = new Set();
 
   if (slugEspn) {
     const desde = new Date(Date.now() - 400 * 86400000);
     const hasta = new Date(Date.now() + 120 * 86400000);
     process.stdout.write(`  ESPN (${slugEspn})… `);
-    const calendario = await espn.calendario(slugEspn, desde, hasta, dirCache, opciones.forzar || opciones.refrescar);
+    let calendario = await espn.calendario(slugEspn, desde, hasta, dirCache, opciones.forzar || opciones.refrescar);
+    // La fase previa es un calendario aparte en ESPN; se baja y se une a esta
+    // misma competición, marcando cada partido para distinguirlo en la app.
+    if (slugPrevia) {
+      const previa = await espn.calendario(slugPrevia, desde, hasta, dirCache, opciones.forzar || opciones.refrescar);
+      for (const m of previa) {
+        m.fasePrevia = true;
+        idsPrevia.add(m.idEspn);
+      }
+      calendario = calendario.concat(previa);
+    }
     const convertido = construir.desdeEspn(calendario);
     historial = convertido.historial;
     proximos = convertido.proximos;
     const vivos = calendario.filter((p) => p.estado === 'en_curso' || p.estado === 'descanso').length;
     console.log(
-      `${historial.length} jugados, ${proximos.length} por jugar` + (vivos ? `, ${vivos} en vivo` : ''),
+      `${historial.length} jugados, ${proximos.length} por jugar` +
+        (vivos ? `, ${vivos} en vivo` : '') +
+        (slugPrevia ? ', con fase previa' : ''),
     );
 
     // Cuotas reales de los partidos que aun no se han jugado. Son las que
@@ -328,7 +363,10 @@ async function importaCompeticion(id, opciones, catalogo, clave) {
       process.stdout.write(`  ESPN (cuotas de ${proximos.length} partidos)… `);
       let conCuotas = 0;
       for (const p of proximos) {
-        const q = await espn.cuotas(slugEspn, p.idEspn, dirCache, opciones.forzar || opciones.refrescar);
+        // Cada partido pide sus cuotas con el slug del que vino: un id de la
+        // previa contra el slug principal devolvería el partido equivocado.
+        const slugCuotas = idsPrevia.has(p.idEspn) ? slugPrevia : slugEspn;
+        const q = await espn.cuotas(slugCuotas, p.idEspn, dirCache, opciones.forzar || opciones.refrescar);
         if (q) {
           p.cuotas = q;
           conCuotas++;

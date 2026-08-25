@@ -103,6 +103,8 @@ export interface Partido {
   golesVisitanteDescanso: number;
   jornada: number;
   ronda?: string;
+  /** Eliminatoria previa continental (Champions/Europa/Conference qualifying). */
+  fasePrevia?: boolean;
   estadio: string;
   arbitro?: string;
   estadisticas: EstadisticasPartido;
