@@ -23,7 +23,7 @@ import { alineacionesDelPartido, type OnceEquipo } from '@/datos/alineaciones';
 import { ANTIGUOS_POR_PERFIL, CASAS, casa as casaPorId } from '@/datos/casas';
 import { competicion } from '@/datos/competiciones';
 import { extrasDelPartido, type Extras } from '@/datos/penales';
-import { alineacion, lesiones, temporada } from '@/datos/motor';
+import { alineacion, lesiones, posicionesEnLiga, temporada } from '@/datos/motor';
 import { FAMILIAS, picksDePartido } from '@/datos/picks';
 import type { Familia } from '@/datos/tipos';
 import { useDerechos } from '@/estado/derechos';
@@ -58,21 +58,21 @@ export default function PantallaPartido() {
     /*
      * Posición en la tabla: el "(1º)" que va junto al nombre.
      *
-     * Se ordena solo dentro de la competición del equipo, no sobre todos los
-     * equipos cargados. Con "Todas" activa la temporada junta mil doscientos
-     * clubes de treinta competiciones, y salía un "(1234º)" que no significa
-     * nada: nadie es el 1234º de su liga.
+     * Es la clasificación real por puntos de la liga del equipo, no un orden
+     * por fuerza —que era lo de antes y casi nunca coincidía con la tabla—. Se
+     * calcula solo entre equipos de esa misma competición: con "Todas" activa
+     * la temporada junta clubes de decenas de ligas, y un "(1234º)" no
+     * significa nada. `posicionesEnLiga` devuelve el puesto de cada equipo; si
+     * uno aún no ha jugado no aparece, y entonces se deja sin número.
      */
-    const suya = local.competicionId;
-    const tabla = t.equipos
-      .filter((e) => e.competicionId === suya)
-      .sort((a, b) => b.fuerza - a.fuerza);
+    const posLiga = posicionesEnLiga(t, local.competicionId);
+    const posVisLiga = posicionesEnLiga(t, visitante.competicionId);
     return {
       partido,
       local,
       visitante,
-      posLocal: tabla.findIndex((e) => e.id === local.id) + 1,
-      posVisitante: tabla.findIndex((e) => e.id === visitante.id) + 1,
+      posLocal: posLiga.get(local.id) ?? 0,
+      posVisitante: posVisLiga.get(visitante.id) ?? 0,
       jugadores: t.porJugador,
       historialLocal: (t.partidosPorEquipo.get(local.id) ?? [])
         .filter((p) => p.estado === 'finalizado')
@@ -299,9 +299,11 @@ export default function PantallaPartido() {
                   <Txt v="cuerpoFuerte" numberOfLines={2} style={{ textAlign: 'center' }}>
                     {e.nombre}
                   </Txt>
-                  <Txt v="mini" color={C.texto3}>
-                    ({pos}º)
-                  </Txt>
+                  {pos > 0 ? (
+                    <Txt v="mini" color={C.texto3}>
+                      ({pos}º)
+                    </Txt>
+                  ) : null}
                 </View>
               </Fragment>
             ))}

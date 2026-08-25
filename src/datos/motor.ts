@@ -573,6 +573,79 @@ export function temporada(competicionId: string): Temporada {
   return resultado;
 }
 
+// ------------------------------------------------------------- clasificacion
+
+const CLASIFICACIONES = new Map<string, Map<string, number>>();
+cuandoCambienLosDatos(() => CLASIFICACIONES.clear());
+
+/**
+ * La posición de cada equipo en la tabla de su liga.
+ *
+ * Antes esto se sacaba ordenando por `fuerza` —la nota interna del modelo—, y
+ * por eso el "(3º)" que salía junto al nombre casi nunca coincidía con la tabla
+ * de verdad: el equipo más fuerte no es el que va primero, va primero el que
+ * más puntos ha sumado. Aquí se cuentan los puntos reales de los partidos ya
+ * jugados: 3 por victoria, 1 por empate, y se desempata por diferencia de
+ * goles y luego por goles a favor, como en cualquier liga.
+ *
+ * Se ordena dentro de cada grupo cuando la competición los tiene (una MLS con
+ * dos conferencias no es una tabla única), y solo entre equipos de esa misma
+ * competición: con "Todas" activa la temporada junta clubes de decenas de
+ * ligas, y mezclarlos daría un "(1234º)" que no significa nada.
+ *
+ * Devuelve id de equipo → puesto (empezando en 1). Un equipo sin partidos aún
+ * no aparece: quien lo consulte debe tratar la ausencia como "sin posición".
+ */
+export function posicionesEnLiga(t: Temporada, competicionId: string): Map<string, number> {
+  const cacheado = CLASIFICACIONES.get(competicionId);
+  if (cacheado) return cacheado;
+
+  const equiposLiga = t.equipos.filter((e) => e.competicionId === competicionId);
+  const acc = new Map<string, { pts: number; dg: number; gf: number }>();
+  for (const e of equiposLiga) acc.set(e.id, { pts: 0, dg: 0, gf: 0 });
+
+  for (const p of t.partidos) {
+    if (p.competicionId !== competicionId || p.estado !== 'finalizado') continue;
+    const L = acc.get(p.localId);
+    const V = acc.get(p.visitanteId);
+    if (!L || !V) continue;
+    L.gf += p.golesLocal;
+    V.gf += p.golesVisitante;
+    L.dg += p.golesLocal - p.golesVisitante;
+    V.dg += p.golesVisitante - p.golesLocal;
+    if (p.golesLocal > p.golesVisitante) L.pts += 3;
+    else if (p.golesLocal < p.golesVisitante) V.pts += 3;
+    else {
+      L.pts += 1;
+      V.pts += 1;
+    }
+  }
+
+  const comparar = (a: Equipo, b: Equipo) => {
+    const A = acc.get(a.id)!;
+    const B = acc.get(b.id)!;
+    return B.pts - A.pts || B.dg - A.dg || B.gf - A.gf || a.nombre.localeCompare(b.nombre);
+  };
+
+  // Cada grupo es su propia tabla; sin grupos, todos caen en el mismo cubo.
+  const porGrupo = new Map<string, Equipo[]>();
+  for (const e of equiposLiga) {
+    const g = e.grupo ?? '';
+    const lista = porGrupo.get(g) ?? [];
+    lista.push(e);
+    porGrupo.set(g, lista);
+  }
+
+  const pos = new Map<string, number>();
+  for (const grupo of porGrupo.values()) {
+    grupo.sort(comparar);
+    grupo.forEach((e, i) => pos.set(e.id, i + 1));
+  }
+
+  CLASIFICACIONES.set(competicionId, pos);
+  return pos;
+}
+
 // ------------------------------------------------------- alineaciones y bajas
 
 const FORMACIONES: Record<string, [number, number][]> = {
