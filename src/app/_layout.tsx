@@ -31,6 +31,24 @@ function Puerta() {
   const segmentos = useSegments();
   const router = useRouter();
 
+  /*
+   * El nombre de la pestaña del navegador, puesto a mano.
+   *
+   * La plantilla HTML trae un <title>, pero la navegacion lo vacia al arrancar
+   * —`document.title` acaba en cadena vacia— y entonces Chrome enseña la
+   * direccion: en la pestaña salia "goldenpicks.vercel.app" mientras las de al
+   * lado decian "YouTube". Poner `title` en las opciones de las pantallas no
+   * bastaba.
+   *
+   * Se repone en cada cambio de pantalla, no solo al abrir: si no, bastaba con
+   * navegar una vez para que se volviera a quedar en blanco.
+   */
+  useEffect(() => {
+    if (typeof document !== 'undefined' && document.title !== 'Golden Picks') {
+      document.title = 'Golden Picks';
+    }
+  }, [segmentos]);
+
   useEffect(() => {
     if (!cargado || !cargada) return;
     const donde = segmentos[0];
