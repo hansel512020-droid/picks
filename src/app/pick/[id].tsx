@@ -203,6 +203,16 @@ function Serie({ valores, linea }: { valores: number[]; linea: number }) {
 }
 
 export default function PantallaPick() {
+  /*
+   * Este estado va aqui arriba, antes de cualquier `return`.
+   *
+   * Estaba mas abajo, despues del `if (!pick) return`, y eso rompe la regla de
+   * los hooks de React: cuando el pick no estaba, el estado no se creaba, y en
+   * el siguiente dibujado el numero de hooks cambiaba. La pantalla del pick se
+   * quedaba EN BLANCO al abrirla desde la portada.
+   */
+  // Aviso de "copiado", para cuando el navegador no tiene menu de compartir.
+  const [avisoCompartir, setAvisoCompartir] = useState<string | null>(null);
   const { id, comp, partido: partidoParam } = useLocalSearchParams<{
     id: string;
     comp: string;
@@ -353,8 +363,6 @@ export default function PantallaPick() {
   }
 
   const guardado = estaGuardado(pick.id);
-  // Aviso de "copiado", para cuando el navegador no tiene menu de compartir.
-  const [avisoCompartir, setAvisoCompartir] = useState<string | null>(null);
   const otros = (picks ?? []).filter((p) => p.id !== pick.id).slice(0, 4);
 
   return (
