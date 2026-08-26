@@ -1233,8 +1233,44 @@ async function main() {
   console.log('Reinicia la app para verlas con datos reales.\n');
 }
 
+/*
+ * Un fallo de red no puede tumbar una importacion de hora y media.
+ *
+ * Node 24 trae un fallo suyo en el cliente HTTP (undici): cuando el servidor
+ * corta una conexion en un momento concreto, revienta con
+ * "AssertionError: assert(!this.paused)" desde un callback interno de socket.
+ * Eso ocurre FUERA de cualquier try/catch —no hay await que lo atrape, porque
+ * no viaja por la promesa— asi que se llevaba por delante el proceso entero a
+ * mitad de la pasada, con cuarenta y tantas competiciones sin bajar.
+ *
+ * Aqui se atrapa a nivel de proceso: se apunta y se sigue. Lo que se pierde es
+ * esa peticion suelta (el partido se queda sin detalle, y ya esta); lo que se
+ * gana es que las competiciones que faltaban se importen igual.
+ *
+ * No se enmascara nada mas: un error de verdad del script sigue subiendo por
+ * su camino normal y cortando la pasada, que es lo que debe hacer.
+ */
+let fallosDeRed = 0;
+process.on('uncaughtException', (e) => {
+  const esFalloDeRed =
+    e?.code === 'ERR_ASSERTION' ||
+    e?.code === 'ECONNRESET' ||
+    e?.code === 'ETIMEDOUT' ||
+    e?.code === 'ERR_STREAM_PREMATURE_CLOSE' ||
+    /undici|socket|ECONNRESET/i.test(e?.stack ?? '');
+  if (!esFalloDeRed) throw e;
+  fallosDeRed++;
+  // Solo los primeros: si la red esta mal, cien lineas iguales no dicen nada.
+  if (fallosDeRed <= 3) {
+    console.error(`  (fallo de red del cliente HTTP, se continua: ${e.message.split('\n')[0]})`);
+  }
+});
+
 main()
   .then(() => {
+    if (fallosDeRed) {
+      console.log(`\n${fallosDeRed} peticiones se perdieron por fallos de red y se siguio sin ellas.`);
+    }
     /*
      * Se cierra a mano en vez de dejar que Node termine solo.
      *
