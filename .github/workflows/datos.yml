@@ -148,9 +148,16 @@ jobs:
       # Temporal, se quita en cuanto se confirme si musl funciona.
       - name: Diagnostico curl-cffi-node
         run: |
+          echo "--- se instalo el paquete? ---"
+          ls -la node_modules/@curl-cffi-node/ 2>/dev/null || echo "no existe node_modules/@curl-cffi-node"
+          ls -la node_modules/@curl-cffi-node/linux-x64-musl/ 2>/dev/null || echo "no existe el paquete musl"
+          echo "--- deteccion de libc ---"
+          node -e "console.log(require('os').platform(), require('os').arch())"
+          cat /etc/os-release 2>/dev/null | head -3
+          echo "--- require directo del paquete musl ---"
           node -e "
             try {
-              const m = require('curl-cffi-node');
+              const m = require('@curl-cffi-node/linux-x64-musl');
               console.log('CARGO BIEN:', Object.keys(m));
             } catch (e) {
               console.log('ERROR REAL:', e.stack);
