@@ -44,7 +44,12 @@ on:
 
 jobs:
   importar:
-    runs-on: ubuntu-latest
+    # Fijo en 22.04, no "ubuntu-latest": el binario nativo precompilado de
+    # curl-cffi-node para Linux pide una version del simbolo idn2_check_version
+    # que la libidn2 empaquetada en la 24.04 actual ("noble") no expone bajo
+    # esa etiqueta —aunque la funcion este ahi—. Con la 22.04 no pasaba, asi
+    # que se ancla aqui hasta que el paquete se compile de nuevo contra la 24.
+    runs-on: ubuntu-22.04
     # Pedir el acta de cada partido de 36 competiciones lleva su rato.
     timeout-minutes: 240
 
@@ -130,19 +135,6 @@ jobs:
       # install` sí resuelve el binario correcto para la maquina donde corre,
       # sea cual sea el lockfile de partida.
       - run: npm install
-
-      # El binario nativo de curl-cffi-node para Linux pide un simbolo
-      # (idn2_check_version) que la imagen ubuntu-latest actual no expone,
-      # segun el diagnostico de mas abajo. Se instala/actualiza la libreria
-      # del sistema para que el simbolo este disponible al cargar el .node.
-      - name: Asegurar libidn2 en el sistema
-        run: |
-          sudo apt-get update -qq
-          sudo apt-get install -y --reinstall libidn2-0
-          echo "--- version instalada ---"
-          dpkg -l | grep libidn2
-          echo "--- simbolo presente? ---"
-          nm -D /usr/lib/x86_64-linux-gnu/libidn2.so.0 2>/dev/null | grep idn2_check_version || echo "no aparece con nm"
 
       # Temporal: curl-cffi-node traga el error real con un catch vacío y solo
       # deja ver "no se pudo cargar", asi que no hay forma de saber POR QUE sin
