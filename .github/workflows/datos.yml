@@ -122,7 +122,14 @@ jobs:
           node-version: '20'
           cache: npm
 
-      - run: npm ci
+      # `npm ci` exige que el lockfile ya tenga resuelto el binario nativo de
+      # curl-cffi-node para esta plataforma (linux-x64-gnu). El lockfile se
+      # genera en Windows, donde npm nunca llega a resolver el binario de
+      # Linux porque no lo necesita, así que `npm ci` aquí fallaba con
+      # "Failed to load native binding for platform: linux-x64-gnu". `npm
+      # install` sí resuelve el binario correcto para la maquina donde corre,
+      # sea cual sea el lockfile de partida.
+      - run: npm install
 
       - name: Importar resultados y estadísticas
         env:
