@@ -131,6 +131,19 @@ jobs:
       # sea cual sea el lockfile de partida.
       - run: npm install
 
+      # El binario nativo de curl-cffi-node para Linux pide un simbolo
+      # (idn2_check_version) que la imagen ubuntu-latest actual no expone,
+      # segun el diagnostico de mas abajo. Se instala/actualiza la libreria
+      # del sistema para que el simbolo este disponible al cargar el .node.
+      - name: Asegurar libidn2 en el sistema
+        run: |
+          sudo apt-get update -qq
+          sudo apt-get install -y --reinstall libidn2-0
+          echo "--- version instalada ---"
+          dpkg -l | grep libidn2
+          echo "--- simbolo presente? ---"
+          nm -D /usr/lib/x86_64-linux-gnu/libidn2.so.0 2>/dev/null | grep idn2_check_version || echo "no aparece con nm"
+
       # Temporal: curl-cffi-node traga el error real con un catch vacío y solo
       # deja ver "no se pudo cargar", asi que no hay forma de saber POR QUE sin
       # esto. Se quita en cuanto se vea el motivo.
