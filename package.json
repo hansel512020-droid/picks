@@ -37,7 +37,8 @@
     "react-native-worklets": "0.10.1"
   },
   "optionalDependencies": {
-    "@curl-cffi-node/linux-x64-gnu": "0.1.8"
+    "@curl-cffi-node/linux-x64-gnu": "0.1.8",
+    "@curl-cffi-node/linux-x64-musl": "0.1.0"
   },
   "devDependencies": {
     "@types/react": "~19.2.2",

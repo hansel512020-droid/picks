@@ -45,10 +45,24 @@ on:
 jobs:
   importar:
     runs-on: ubuntu-latest
+    # Alpine, no la imagen normal de Ubuntu: usa musl en vez de glibc, y ahí
+    # el binario nativo de curl-cffi-node para SofaScore sí carga. Con glibc
+    # se probaron dos versiones de Ubuntu (22.04 y 24.04) y las dos fallaban,
+    # cada una por una version distinta de una libreria del sistema que el
+    # binario no reconocia — musl no tiene ese lio de versionado de simbolos.
+    container:
+      image: node:20-alpine
     # Pedir el acta de cada partido de 36 competiciones lleva su rato.
     timeout-minutes: 240
 
     steps:
+      # Alpine viene pelado: sin bash, sin git, sin curl. Hace falta antes que
+      # nada, hasta antes del propio checkout, y con `sh` a proposito: bash
+      # todavia no existe cuando arranca este paso.
+      - name: Preparar el contenedor (alpine)
+        shell: sh
+        run: apk add --no-cache bash curl git
+
       # Lo primero, antes de gastar tres cuartos de hora importando: comprobar
       # que están las claves para subir. Descubrirlo al final significa esperar
       # toda la importación para que te digan que falta un secreto, y volver a
