@@ -10,12 +10,24 @@
      node scripts/importar.js --liga premier --temporadas 2024-25,2025-26
      node scripts/importar.js --liga laliga --jugadores 60
      node scripts/importar.js --liga champions            (necesita clave)
+     node scripts/importar.js --liga premier --sofascore-partidos 200
+     node scripts/importar.js --liga premier --sin-sofascore
 
    Fuentes:
      · Football-Data.co.uk  gratis y sin clave. Resultados, tiros, corners,
        faltas, tarjetas, arbitro y cuotas reales de hasta 8 casas.
      · API-Football         opcional, con APIFOOTBALL_KEY en .env. Anade
        jugadores, sus estadisticas partido a partido, alineaciones y bajas.
+     · SofaScore            automatico, sin clave y sin archivos. Se conecta
+       con curl-cffi-node —que imita la huella TLS de Chrome, porque con `fetch`
+       la API responde 403— y baja de cada partido sus estadisticas globales y
+       la alineacion con la linea de cada jugador. Es la fuente que MANDA en
+       estadisticas: pisa las de ESPN campo a campo y aporta el xG medido, la
+       nota, los pases clave, los regates, las entradas, las intercepciones,
+       los despejes, los duelos y los toques. Si se cae, la importacion sigue
+       con lo de ESPN y no queda peor que antes.
+       Ademas se sigue leyendo el volcado manual scripts/sofascore_raw.txt para
+       lo que la red no cubra.
 
    Salida: src/datos/importado.json  (la app lo usa si tiene algo dentro).
    ========================================================================== */
@@ -28,10 +40,16 @@ const construir = require('./lib/construir');
 const espn = require('./lib/espn');
 const fd = require('./lib/footballdata');
 const { IMPORTABLES, SIN_CLAVE, fuentesDe, temporadaActual } = require('./lib/mapa-ligas');
+const pronosticos = require('./lib/pronosticos');
+const sofascore = require('./lib/sofascore');
+const sofared = require('./lib/sofascore-api');
 
 const RAIZ = path.join(__dirname, '..');
 const DIR_CACHE = path.join(RAIZ, '.cache-datos');
 const SALIDA = path.join(RAIZ, 'src', 'datos', 'importado.json');
+// El volcado de SofaScore, en esta misma carpeta. Es un archivo local: no se
+// descarga, lo pone el usuario.
+const SOFASCORE = path.join(__dirname, 'sofascore_raw.txt');
 
 /*
  * Los valores por defecto de una linea de jugador y de las estadisticas de un
@@ -182,6 +200,10 @@ const IMPORTANTES = [
   // ESPN, pero no aqui: como esta lista es la que decide que se descarga, no
   // llegaban a bajarse nunca y en la app salian vacias.
   'laliga2', 'serieb', 'brasileiraob',
+  // Copa nacional de Brasil (Copa Betano do Brasil). Solo ESPN; sus equipos
+  // pequeños de primeras rondas no traen estadística, así que darán sobre todo
+  // picks de goles y hándicap, como el resto de copas con clubes menores.
+  'copadobrasil',
   // Continentales.
   'champions', 'europaleague', 'conference', 'libertadores', 'sudamericana',
   'concachampions',
@@ -235,6 +257,20 @@ function argumentos() {
     partidos: 240,
     // De cuantos se bajan estadisticas y jugadores desde ESPN.
     detalles: 90,
+    // El volcado local de SofaScore. Se puede apuntar a otro archivo o
+    // desactivarlo del todo para importar solo con ESPN, como antes.
+    sofascore: SOFASCORE,
+    sinSofascore: false,
+    /*
+     * De cuantos partidos se baja el detalle de SofaScore.
+     *
+     * Cuestan tres peticiones cada uno —globales, alineaciones y acta— asi que
+     * es el numero que decide lo que tarda la primera pasada. Las siguientes
+     * van de cache: lo de un partido terminado no cambia nunca.
+     */
+    sofascorePartidos: 90,
+    // Freno entre peticiones, en milisegundos. Bajarlo acaba en bloqueo.
+    sofascorePausa: 350,
   };
   for (let i = 0; i < a.length; i++) {
     // Todas las que se pueden bajar sin clave, de una sola vez.
@@ -249,6 +285,10 @@ function argumentos() {
     else if (a[i] === '--partidos') o.partidos = Number(a[++i]) || 320;
     else if (a[i] === '--detalles') o.detalles = Number(a[++i]) || 0;
     else if (a[i] === '--importantes') o.ligas = [...IMPORTANTES];
+    else if (a[i] === '--sofascore') o.sofascore = path.resolve(a[++i]);
+    else if (a[i] === '--sin-sofascore') o.sinSofascore = true;
+    else if (a[i] === '--sofascore-partidos') o.sofascorePartidos = Number(a[++i]) || 0;
+    else if (a[i] === '--sofascore-pausa') o.sofascorePausa = Number(a[++i]) || 350;
   }
   return o;
 }
@@ -309,7 +349,247 @@ function aplicaEstadisticas(partido, respuesta) {
   partido.estadisticas = { local: lado(local), visitante: lado(visitante) };
 }
 
-async function importaCompeticion(id, opciones, catalogo, clave) {
+/* ------------------------------------------------------------- SofaScore */
+
+/** Un nombre de persona comparable: sin acentos, sin puntos y sin mayusculas. */
+function claveNombre(s) {
+  return (s || '')
+    .toLowerCase()
+    .normalize('NFD')
+    .replace(/[̀-ͯ]/g, '')
+    .replace(/[^a-z ]/g, ' ')
+    .replace(/\s+/g, ' ')
+    .trim();
+}
+
+/*
+ * Los campos de un registro que trae SofaScore. Se listan para poder copiarlos
+ * encima de lo que puso ESPN sin tocar el contexto del registro —de que partido
+ * es, de que jugador, contra quien— que se calcula aqui y SofaScore no sabe.
+ */
+const CAMPOS_REGISTRO = Object.keys(REGISTRO_VACIO);
+
+/**
+ * Baja SofaScore y lo pone POR DELANTE de ESPN.
+ *
+ * ESPN sigue mandando en lo que sabe mejor —el calendario, el estado en vivo,
+ * los escudos y las cuotas— y ahi no se toca nada. Pero en lo que los dos
+ * publican, manda SofaScore: su xG esta medido y el de ESPN no existe (se
+ * estimaba a partir del propio gol), y de cada jugador da la nota, los pases
+ * clave, los regates, las entradas, las intercepciones, los despejes, los
+ * duelos y los toques, que son quince campos que con ESPN se quedaban a cero y
+ * dejaban esos mercados sin poder ofrecerse.
+ *
+ * Lo que SofaScore no publica de un partido concreto se queda como lo dejo
+ * ESPN: es una capa encima, no un reemplazo, asi que un corte de esta fuente
+ * nunca deja la importacion peor que antes.
+ */
+async function aplicaSofaScore(id, opciones, dirCache, contexto) {
+  const { partidos, equipos, jugadores, registros, bandera } = contexto;
+  const torneoId = sofared.TORNEOS[id];
+  if (!torneoId) return null;
+
+  const jugados = partidos
+    .filter((p) => p.estado === 'finalizado')
+    .sort((a, b) => a.fecha.localeCompare(b.fecha));
+  const objetivo = jugados.slice(-opciones.sofascorePartidos);
+  if (!objetivo.length) return null;
+
+  const cli = new sofared.Cliente(dirCache, {
+    forzar: opciones.forzar,
+    pausaMs: opciones.sofascorePausa,
+  });
+
+  process.stdout.write('  SofaScore (calendario)… ');
+  const calendario = await sofared.calendario(cli, torneoId, { desde: objetivo[0].fecha });
+  console.log(`${calendario.length} partidos`);
+  if (!calendario.length) {
+    return { pegados: 0, conXgReal: new Set(), cortado: cli.resumen().cortado };
+  }
+
+  const nombreDe = new Map(equipos.map((e) => [e.id, e.nombre]));
+
+  /*
+   * El encaje pide las dos cosas: que los dos nombres se parezcan y que la
+   * fecha cuadre. En una liga los mismos dos equipos se ven dos veces por
+   * temporada, asi que solo con los nombres las estadisticas de la vuelta
+   * acabarian en el partido de la ida.
+   */
+  const encajeDe = (p) => {
+    const local = nombreDe.get(p.localId);
+    const visitante = nombreDe.get(p.visitanteId);
+    if (!local || !visitante) return null;
+    return calendario.find((s) => {
+      if (Math.abs(new Date(s.fecha) - new Date(p.fecha)) > 2 * 86400000) return false;
+      if (construir.parecido(s.local, local) < 0.72) return false;
+      if (construir.parecido(s.visitante, visitante) < 0.72) return false;
+      // Y el marcador de cerrojo: si no cuadra, no es este partido.
+      if (s.terminado && s.golesLocal !== null) {
+        if (s.golesLocal !== p.golesLocal || s.golesVisitante !== p.golesVisitante) return false;
+      }
+      return true;
+    });
+  };
+
+  /*
+   * El mismo futbolista tiene un identificador en ESPN y otro en SofaScore. Si
+   * cada fuente crea su ficha, la app acaba con dos "Declan Rice" a media
+   * temporada cada uno y ninguno llega a los seis partidos que pide un pick.
+   * Se casan por nombre dentro de su propio equipo, que es donde no hay dos
+   * personas que se llamen igual, y gana el identificador que ya existia.
+   */
+  const porJugador = new Map(jugadores.map((j) => [j.id, j]));
+  const indice = new Map();
+  for (const j of jugadores) {
+    indice.set(`${j.equipoId}|${claveNombre(j.nombre)}`, j.id);
+  }
+  const registroDe = new Map(registros.map((r) => [`${r.partidoId}|${r.jugadorId}`, r]));
+
+  const resuelve = (equipoId, nombre) => {
+    const exacto = indice.get(`${equipoId}|${claveNombre(nombre)}`);
+    if (exacto) return exacto;
+    // Sin coincidencia exacta, el mas parecido de su equipo: ESPN escribe
+    // "Emile Smith Rowe" donde SofaScore pone "E. Smith Rowe".
+    let mejor = null;
+    let puntos = 0;
+    for (const j of jugadores) {
+      if (j.equipoId !== equipoId) continue;
+      const p = construir.parecido(j.nombre, nombre);
+      if (p > puntos) {
+        puntos = p;
+        mejor = j;
+      }
+    }
+    return puntos >= 0.82 ? mejor.id : null;
+  };
+
+  const conXgReal = new Set();
+  const notas = new Map();
+  const minutos = new Map();
+  let pegados = 0;
+  let conJugadores = 0;
+
+  process.stdout.write(`  SofaScore (detalle de ${objetivo.length} partidos)… `);
+  for (const partido of objetivo) {
+    const evento = encajeDe(partido);
+    if (!evento) continue;
+
+    const detalle = await sofared.detalle(cli, evento.idSofa);
+    if (!detalle) {
+      if (cli.resumen().cortado) break;
+      continue;
+    }
+
+    // --- globales del equipo: SofaScore pisa a ESPN campo a campo
+    if (detalle.globales) {
+      for (const lado of ['local', 'visitante']) {
+        const suyas = detalle.globales[lado];
+        if (!suyas) continue;
+        for (const [campo, valor] of Object.entries(suyas)) {
+          if (valor !== null && valor !== undefined) partido.estadisticas[lado][campo] = valor;
+        }
+        if (suyas.xg > 0) conXgReal.add(partido.id);
+      }
+      pegados++;
+    }
+
+    // --- la linea de cada jugador
+    if (!detalle.plantillas) continue;
+    for (const lado of ['local', 'visitante']) {
+      const esLocal = lado === 'local';
+      const equipoId = esLocal ? partido.localId : partido.visitanteId;
+      const rivalId = esLocal ? partido.visitanteId : partido.localId;
+
+      for (const j of detalle.plantillas[lado]) {
+        if (!j.registro) continue;
+        const jugadorId = resuelve(equipoId, j.nombre) ?? `${id}:s${j.idSofa}`;
+
+        // Ficha: la de ESPN se completa, y si el jugador no estaba, se crea.
+        const ficha = porJugador.get(jugadorId);
+        if (ficha) {
+          ficha.posicion = j.posicion || ficha.posicion;
+          ficha.dorsal = ficha.dorsal || j.dorsal;
+          ficha.pais = ficha.pais || j.pais;
+        } else {
+          const nuevo = {
+            id: jugadorId,
+            nombre: j.nombre,
+            equipoId,
+            posicion: j.posicion,
+            dorsal: j.dorsal,
+            edad: 0,
+            pais: j.pais,
+            bandera,
+            nivel: 75,
+            rol: 'rotacion',
+          };
+          jugadores.push(nuevo);
+          porJugador.set(jugadorId, nuevo);
+          indice.set(`${equipoId}|${claveNombre(j.nombre)}`, jugadorId);
+        }
+
+        // Los que no llegaron a saltar al campo no dejan registro: un cero de
+        // quien no jugo hunde su media y fabrica rachas de "menos de" falsas.
+        if (!j.registro.minutos) continue;
+
+        const clave = `${partido.id}|${jugadorId}`;
+        const existente = registroDe.get(clave);
+        if (existente) {
+          for (const campo of CAMPOS_REGISTRO) {
+            if (j.registro[campo] !== undefined) existente[campo] = j.registro[campo];
+          }
+        } else {
+          const nuevo = {
+            partidoId: partido.id,
+            jugadorId,
+            equipoId,
+            rivalId,
+            local: esLocal,
+            fecha: partido.fecha,
+            ...j.registro,
+          };
+          registros.push(nuevo);
+          registroDe.set(clave, nuevo);
+        }
+
+        notas.set(jugadorId, [...(notas.get(jugadorId) ?? []), j.registro.nota]);
+        minutos.set(jugadorId, (minutos.get(jugadorId) ?? 0) + j.registro.minutos);
+      }
+    }
+    conJugadores++;
+  }
+  console.log(`${pegados} con estadísticas, ${conJugadores} con alineaciones`);
+
+  /*
+   * El nivel del jugador sale de su nota media real, no de un 75 fijo. Importa
+   * porque el orden de la portada lo usa: sin esto, un pick de un suplente sale
+   * por delante de uno de Haaland.
+   */
+  for (const [jugadorId, lista] of notas) {
+    const ficha = porJugador.get(jugadorId);
+    if (!ficha || !lista.length) continue;
+    const media = lista.reduce((a, b) => a + b, 0) / lista.length;
+    ficha.nivel = Math.max(58, Math.min(94, Math.round(40 + media * 6.2)));
+  }
+
+  // Y el rol, por minutos jugados dentro de su equipo: la app descarta los
+  // picks de quien marca como suplente.
+  const porEquipo = new Map();
+  for (const j of jugadores) {
+    if (!minutos.has(j.id)) continue;
+    porEquipo.set(j.equipoId, [...(porEquipo.get(j.equipoId) ?? []), j]);
+  }
+  for (const plantel of porEquipo.values()) {
+    plantel.sort((a, b) => (minutos.get(b.id) ?? 0) - (minutos.get(a.id) ?? 0));
+    plantel.forEach((j, i) => {
+      j.rol = i < 11 ? 'titular' : i < 16 ? 'rotacion' : 'suplente';
+    });
+  }
+
+  return { pegados, conJugadores, conXgReal, ...cli.resumen() };
+}
+
+async function importaCompeticion(id, opciones, catalogo, clave, sofa) {
   const fuentes = fuentesDe(id);
   const meta = catalogo[id];
   if (!fuentes || !meta) throw new Error(`La competicion "${id}" no se puede importar.`);
@@ -676,16 +956,90 @@ async function importaCompeticion(id, opciones, catalogo, clave) {
     );
   }
 
+  // ----------------------------------------- 5. SofaScore (red, la principal)
+  // Se baja sola con curl-cffi-node. Es la fuente que manda en estadisticas:
+  // pisa las de ESPN campo a campo y añade la linea completa de cada jugador.
+  let conXgReal = new Set();
+  let resumenSofa = null;
+  let redSofa = null;
+  if (!opciones.sinSofascore && opciones.sofascorePartidos > 0) {
+    try {
+      redSofa = await aplicaSofaScore(id, opciones, dirCache, {
+        partidos,
+        equipos,
+        jugadores,
+        registros,
+        bandera: meta.bandera,
+      });
+    } catch (e) {
+      console.log(`no disponible (${e.message})`);
+    }
+    if (redSofa) {
+      for (const x of redSofa.conXgReal) conXgReal.add(x);
+      console.log(
+        `  ${jugadores.length} jugadores · ${registros.length} registros (SofaScore sobre ESPN)` +
+          ` · ${redSofa.nuevas} peticiones nuevas, ${redSofa.cache} de caché`,
+      );
+      if (redSofa.cortado) {
+        aviso.push(
+          'SofaScore dejó de responder a mitad de la descarga y se siguió con lo de ESPN. Lo ya bajado queda en caché: al volver a lanzarlo seguirá donde lo dejó.',
+        );
+      }
+    } else if (!sofared.TORNEOS[id]) {
+      aviso.push('Esta competición no está dada de alta en SofaScore, así que va solo con ESPN.');
+    }
+  }
+
+  // ------------------------------------------- 6. SofaScore (archivo local)
+  // El volcado a mano, para lo que la red no cubra. Solo rellena estadisticas
+  // de partidos que ya existen: nunca crea partidos ni equipos, para que un
+  // archivo con otra liga dentro no ensucie esta.
+  if (sofa?.partidos?.length) {
+    process.stdout.write(`  SofaScore (archivo local, ${sofa.partidos.length} partidos)… `);
+    const r = sofascore.pega(partidos, equipos, sofa.partidos, construir.parecido);
+    conXgReal = r.conXgReal;
+    resumenSofa = { pegados: r.pegados, conXgReal: r.conXgReal.size, formato: sofa.formato };
+    console.log(`${r.pegados} encajados, ${r.conXgReal.size} con xG real`);
+    if (!r.pegados) {
+      aviso.push(
+        'El archivo de SofaScore no tiene ningún partido de esta competición, o los nombres de los equipos no se parecen a los de ESPN.',
+      );
+    }
+  }
+
+  // ------------------------------------------------------ 6. los pronosticos
+  // Las formulas viven en lib/pronosticos.js. Se calculan aqui, en la
+  // importacion, para que la app se los encuentre hechos.
+  const calculado = pronosticos.deCompeticion(partidos, equipos, conXgReal);
+  if (calculado.pronosticos.length) {
+    const altas = calculado.pronosticos.filter((p) => p.confianza === 'alta').length;
+    const conValor = calculado.pronosticos.filter((p) => p.valor.some((v) => v.valorEsperado > 0)).length;
+    console.log(
+      `  ${calculado.pronosticos.length} pronósticos · ${altas} de confianza alta · ${conValor} con valor sobre la cuota`,
+    );
+  } else if (calculado.aviso) {
+    aviso.push(calculado.aviso);
+  }
+
   return {
     competicionId: id,
     nombre: meta.nombre,
     temporadas,
     importadoEn: new Date().toISOString(),
-    fuentes: [fuentes.fd ? 'Football-Data.co.uk' : null, cliente ? 'API-Football' : null].filter(Boolean),
+    fuentes: [
+      redSofa?.pegados ? 'SofaScore' : null,
+      slugEspn ? 'ESPN' : null,
+      fuentes.fd ? 'Football-Data.co.uk' : null,
+      cliente ? 'API-Football' : null,
+      resumenSofa?.pegados ? 'SofaScore (volcado local)' : null,
+    ].filter(Boolean),
     equipos,
     partidos,
     jugadores,
     registros,
+    pronosticos: calculado.pronosticos,
+    modelo: calculado.modelo ?? null,
+    sofascore: resumenSofa,
     aviso,
   };
 }
@@ -718,6 +1072,26 @@ async function main() {
       : '\nSin clave de API-Football: se importan equipos, partidos y cuotas reales.\n',
   );
 
+  /*
+   * El volcado de SofaScore se lee una sola vez, aqui, y se reparte a todas las
+   * competiciones. Es un archivo local y no cambia a mitad de la pasada, asi que
+   * abrirlo una vez por liga solo seria mas lento.
+   */
+  let sofa = null;
+  if (!o.sinSofascore) {
+    sofa = sofascore.lee(o.sofascore);
+    const donde = path.relative(RAIZ, o.sofascore).replace(/\\/g, '/');
+    if (!sofa.existe) {
+      console.log(`Sin ${donde}: se importa solo con ESPN y los pronósticos irán con goles, sin xG real.\n`);
+    } else if (sofa.partidos.length) {
+      console.log(`SofaScore: ${sofa.partidos.length} partidos leídos de ${donde} (formato ${sofa.formato}).\n`);
+    } else {
+      console.log(`SofaScore: ${donde} está pero no se entendió nada dentro.`);
+      for (const a of sofa.avisos) console.log(`  · ${a}`);
+      console.log('');
+    }
+  }
+
   // Lo ya importado se conserva: asi se pueden ir sumando competiciones.
   let acumulado = { competiciones: {} };
   if (fs.existsSync(SALIDA)) {
@@ -732,7 +1106,7 @@ async function main() {
   for (const id of o.ligas) {
     console.log(`${catalogo[id]?.nombre ?? id}`);
     try {
-      acumulado.competiciones[id] = await importaCompeticion(id, o, catalogo, clave);
+      acumulado.competiciones[id] = await importaCompeticion(id, o, catalogo, clave, sofa);
     } catch (e) {
       console.error(`  ✗ ${e.message}\n`);
       continue;

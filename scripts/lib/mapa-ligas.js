@@ -46,6 +46,7 @@ const MAPA = {
    * sus precios los estima el modelo.
    */
   brasileiraob: { af: 72 },
+  copadobrasil: { af: 73 },
   argentinab: { af: 129 },
   expansionmx: { af: 263 },
 

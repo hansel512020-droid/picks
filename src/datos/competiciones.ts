@@ -53,6 +53,7 @@ const FILAS: Fila[] = [
   ['sudamericana', 'CONMEBOL Sudamericana', 'Sudamericana', 'CONMEBOL', '🎖️', 'continental', 73, 2.6],
   ['brasileirao', 'Brasileirão Série A', 'Brasileirão', 'Brasil', '🇧🇷', 'liga', 79, 2.45, true],
   ['brasileiraob', 'Brasileirão Série B', 'Brasileirão B', 'Brasil', '🇧🇷', 'liga', 67, 2.35],
+  ['copadobrasil', 'Copa do Brasil', 'Copa do Brasil', 'Brasil', '🇧🇷', 'copa', 77, 2.4],
   ['argentina', 'Liga Profesional Argentina', 'Liga Argentina', 'Argentina', '🇦🇷', 'liga', 76, 2.3],
   ['argentinab', 'Primera Nacional', 'Primera Nacional', 'Argentina', '🇦🇷', 'liga', 64, 2.2],
   ['mls', 'Major League Soccer', 'MLS', 'Estados Unidos', '🇺🇸', 'liga', 72, 3.0],

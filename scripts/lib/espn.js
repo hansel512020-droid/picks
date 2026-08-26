@@ -58,6 +58,8 @@ const LIGAS = {
   ligue2: 'fra.2',
   expansionmx: 'mex.2',
   brasileiraob: 'bra.2',
+  // Ojo: el slug de la Copa do Brasil lleva "z" (brazil), no "s".
+  copadobrasil: 'bra.copa_do_brazil',
   argentinab: 'arg.2',
   conference: 'uefa.europa.conf',
   // Fases previas: en ESPN son competiciones aparte, con su propio calendario.
