@@ -212,11 +212,36 @@ export function claveEquipo(nombre: string): string {
  */
 const HISTORIALES = new Map<string, { competicionId: string; partido: Partido; esLocal: boolean }[]>();
 
+/*
+ * Si una cadena es la bandera de un país (o de una subdivisión), no otro emoji.
+ *
+ * Las banderas de país son dos indicadores regionales (🇪🇸, 🇦🇷); las de
+ * Inglaterra, Escocia y Gales son 🏴 con etiquetas. El resto de emojis que la
+ * app usa como "bandera" de una competición —🌟 Champions, 🥈 Europa, 🥉
+ * Conference, 🏅 Libertadores— NO identifican a un país.
+ *
+ * Importa para cruzar el historial: un club continental (Hearts en Conference)
+ * lleva el emoji del torneo, no 🏴, y filtrar por esa "bandera" tiraba justo sus
+ * partidos de su liga —los escoceses de Hearts, que sí tenemos—. Cuando la
+ * bandera no es de país no sirve para separar homónimos, así que se ignora y se
+ * busca solo por nombre.
+ */
+function esBanderaDePais(s?: string): boolean {
+  if (!s) return false;
+  const cp = [...s].map((c) => c.codePointAt(0) ?? 0);
+  if (cp.length === 2 && cp.every((c) => c >= 0x1f1e6 && c <= 0x1f1ff)) return true;
+  if (cp[0] === 0x1f3f4 && cp.length > 2) return true;
+  return false;
+}
+
 export function partidosDelEquipoEnTodas(
   nombreEquipo: string,
   bandera?: string,
 ): { competicionId: string; partido: Partido; esLocal: boolean }[] {
-  const memo = `${claveEquipo(nombreEquipo)}|${bandera ?? ''}`;
+  // Solo una bandera de país sirve para distinguir homónimos; el emoji de un
+  // torneo, no. Así un club continental encuentra su historial doméstico.
+  const banderaPais = esBanderaDePais(bandera) ? bandera : undefined;
+  const memo = `${claveEquipo(nombreEquipo)}|${banderaPais ?? ''}`;
   const guardado = HISTORIALES.get(memo);
   if (guardado) return guardado;
 
@@ -230,11 +255,11 @@ export function partidosDelEquipoEnTodas(
      * Hay homónimos en países distintos —el River Plate argentino y el de
      * Montevideo— y buscando solo por nombre se mezclaban: en la ficha del
      * argentino aparecía "Primera División · 1 partido", que es la liga
-     * uruguaya del otro. Con la bandera se separan, y quien no la pase se
+     * uruguaya del otro. Con la bandera de país se separan; quien no la pase se
      * queda con el comportamiento de antes.
      */
     const suyos = c.equipos.filter(
-      (e) => claveEquipo(e.nombre) === clave && (!bandera || !e.bandera || e.bandera === bandera),
+      (e) => claveEquipo(e.nombre) === clave && (!banderaPais || !e.bandera || e.bandera === banderaPais),
     );
     if (!suyos.length) continue;
     const ids = new Set(suyos.map((e) => e.id));

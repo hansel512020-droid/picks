@@ -59,20 +59,19 @@ export default function PantallaPartido() {
      * Posición en la tabla: el "(1º)" que va junto al nombre.
      *
      * Es la clasificación real por puntos de la liga del equipo, no un orden
-     * por fuerza —que era lo de antes y casi nunca coincidía con la tabla—. Se
-     * calcula solo entre equipos de esa misma competición: con "Todas" activa
-     * la temporada junta clubes de decenas de ligas, y un "(1234º)" no
-     * significa nada. `posicionesEnLiga` devuelve el puesto de cada equipo; si
-     * uno aún no ha jugado no aparece, y entonces se deja sin número.
+     * por fuerza. Y solo tiene sentido en LIGAS: una copa o una competición
+     * continental no es una tabla única —la Conference, con la fase previa
+     * dentro, junta 220 clubes y a un Hearts le salía un "(100º)" que no
+     * significa nada—. En copas y continentales no se enseña posición.
      */
-    const posLiga = posicionesEnLiga(t, local.competicionId);
-    const posVisLiga = posicionesEnLiga(t, visitante.competicionId);
+    const posDe = (comp: string, id: string) =>
+      competicion(comp).tipo === 'liga' ? (posicionesEnLiga(t, comp).get(id) ?? 0) : 0;
     return {
       partido,
       local,
       visitante,
-      posLocal: posLiga.get(local.id) ?? 0,
-      posVisitante: posVisLiga.get(visitante.id) ?? 0,
+      posLocal: posDe(local.competicionId, local.id),
+      posVisitante: posDe(visitante.competicionId, visitante.id),
       jugadores: t.porJugador,
       historialLocal: (t.partidosPorEquipo.get(local.id) ?? [])
         .filter((p) => p.estado === 'finalizado')
