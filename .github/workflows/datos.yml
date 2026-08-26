@@ -145,6 +145,18 @@ jobs:
       # sea cual sea el lockfile de partida.
       - run: npm install
 
+      # Temporal, se quita en cuanto se confirme si musl funciona.
+      - name: Diagnostico curl-cffi-node
+        run: |
+          node -e "
+            try {
+              const m = require('curl-cffi-node');
+              console.log('CARGO BIEN:', Object.keys(m));
+            } catch (e) {
+              console.log('ERROR REAL:', e.stack);
+            }
+          "
+
       - name: Importar resultados y estadísticas
         env:
           APIFOOTBALL_KEY: ${{ secrets.APIFOOTBALL_KEY }}
