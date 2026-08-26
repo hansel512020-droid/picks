@@ -32,7 +32,25 @@ const path = require('node:path');
 const crypto = require('node:crypto');
 const zlib = require('node:zlib');
 
-const { get } = require('curl-cffi-node');
+/*
+ * curl-cffi-node trae un binario nativo por sistema operativo, y ese binario
+ * puede simplemente no cargar en una maquina concreta —una version de glibc
+ * que no trae el simbolo que pide, una libreria del sistema con otra
+ * numeracion— sin que haya nada que el propio proyecto pueda arreglar desde
+ * aqui. Antes esto tumbaba TODO importar.js nada mas arrancar, antes de que
+ * ninguna de las bajadas de mas abajo tuviera oportunidad de decidir nada.
+ *
+ * Con el require protegido, si el binario no carga, `get` queda `null` y
+ * cada peticion de este archivo devuelve null en vez de reventar: la
+ * importacion sigue con ESPN, exactamente como ya pasa cuando SofaScore
+ * responde 403 o se corta a medias.
+ */
+let get = null;
+try {
+  ({ get } = require('curl-cffi-node'));
+} catch (e) {
+  console.error(`  (SofaScore por red no disponible en esta maquina: ${e.message})`);
+}
 
 const RAIZ = 'https://api.sofascore.com/api/v1';
 
@@ -202,6 +220,13 @@ class Cliente {
           /* copia rota: se vuelve a pedir */
         }
       }
+    }
+
+    // Sin el binario nativo no hay con que pedir nada nuevo: lo de cache ya
+    // se devolvio arriba: de aqui para abajo solo hay peticiones de red.
+    if (!get) {
+      this.cortado = true;
+      return null;
     }
 
     if (this.cortado) return null;

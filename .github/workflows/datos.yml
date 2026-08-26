@@ -44,12 +44,7 @@ on:
 
 jobs:
   importar:
-    # Fijo en 22.04, no "ubuntu-latest": el binario nativo precompilado de
-    # curl-cffi-node para Linux pide una version del simbolo idn2_check_version
-    # que la libidn2 empaquetada en la 24.04 actual ("noble") no expone bajo
-    # esa etiqueta —aunque la funcion este ahi—. Con la 22.04 no pasaba, asi
-    # que se ancla aqui hasta que el paquete se compile de nuevo contra la 24.
-    runs-on: ubuntu-22.04
+    runs-on: ubuntu-latest
     # Pedir el acta de cada partido de 36 competiciones lleva su rato.
     timeout-minutes: 240
 
@@ -135,23 +130,6 @@ jobs:
       # install` sí resuelve el binario correcto para la maquina donde corre,
       # sea cual sea el lockfile de partida.
       - run: npm install
-
-      # Temporal: curl-cffi-node traga el error real con un catch vacío y solo
-      # deja ver "no se pudo cargar", asi que no hay forma de saber POR QUE sin
-      # esto. Se quita en cuanto se vea el motivo.
-      - name: Diagnostico curl-cffi-node
-        run: |
-          echo "--- contenido del paquete ---"
-          ls -la node_modules/@curl-cffi-node/linux-x64-gnu/ || echo "no existe el directorio"
-          echo "--- intento de require directo ---"
-          node -e "
-            try {
-              const m = require('@curl-cffi-node/linux-x64-gnu');
-              console.log('CARGO BIEN:', Object.keys(m));
-            } catch (e) {
-              console.log('ERROR REAL:', e.stack);
-            }
-          "
 
       - name: Importar resultados y estadísticas
         env:
