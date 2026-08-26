@@ -131,7 +131,10 @@ function tomaElCerrojo() {
 
 /** Deja el archivo listo para escribir: sin ceros, sin objetos vacios y sin exceso de registros. */
 function adelgaza(acumulado) {
-  const REGISTROS_POR_JUGADOR = 25;
+  // 40 y no 25: el modelo mira los 20 mas recientes para la racha, pero la
+  // ficha del jugador y las medias de temporada se leen de todo lo que haya, y
+  // con 25 un titular se quedaba sin la temporada anterior entera.
+  const REGISTROS_POR_JUGADOR = 40;
   for (const c of Object.values(acumulado.competiciones ?? {})) {
     // Solo los registros de partidos que se conservan: si un partido se
     // recorto, sus registros tampoco sirven y engordan el archivo de balde.
@@ -213,6 +216,13 @@ const IMPORTANTES = [
   // igual que eslovenia y eslovaquia, que ESPN ni siquiera tiene dadas de
   // alta.
   'noruega', 'croacia', 'eslovenia', 'eslovaquia',
+  // Y el resto de ligas europeas medianas, por lo mismo: sus clubes llenan las
+  // previas continentales de julio y agosto. AGF (danes) y Mjallby (sueco)
+  // llegaron a jugar la previa con 5 partidos de historial —todos de la propia
+  // previa— porque su liga no se bajaba; con su liga domestica pasan de largo
+  // el minimo que pide el modelo. Las tres fuentes ya las tenian configuradas.
+  'dinamarca', 'suecia', 'suiza', 'austria', 'polonia', 'chequia',
+  'serbia', 'ucrania', 'rumania',
   // Copa nacional de Brasil (Copa Betano do Brasil). Solo ESPN; sus equipos
   // pequeños de primeras rondas no traen estadística, así que darán sobre todo
   // picks de goles y hándicap, como el resto de copas con clubes menores.
@@ -266,8 +276,12 @@ function argumentos() {
      * partidos de la portada salian sin un solo pick. Los partidos pesan poco
      * comparados con los registros de jugador, asi que subirlos da historial de
      * sobra sin disparar el tamaño del archivo.
+     *
+     * A 400 para que las tres temporadas que ahora se conservan lleguen
+     * enteras: una liga de veinte equipos juega 380 partidos por temporada, y
+     * con 240 se cortaba antes de terminar la anterior.
      */
-    partidos: 240,
+    partidos: 400,
     // De cuantos se bajan estadisticas y jugadores desde ESPN.
     detalles: 90,
     // El volcado local de SofaScore. Se puede apuntar a otro archivo o
@@ -318,11 +332,19 @@ function argumentos() {
   return o;
 }
 
+/*
+ * Tres temporadas, no dos: la de ahora y las dos anteriores.
+ *
+ * Con dos, un equipo que juega la previa continental en julio —cuando su liga
+ * apenas ha empezado— se quedaba practicamente sin historial, porque la
+ * temporada que de verdad lo describe es la que acaba de terminar. El recorte
+ * por fecha de mas abajo (1150 dias) esta puesto para conservar justo esto.
+ */
 function temporadasPorDefecto() {
   const actual = temporadaActual();
   const anio = Number(actual.split('-')[0]);
   const fmt = (a) => `${a}-${String((a + 1) % 100).padStart(2, '0')}`;
-  return [fmt(anio - 1), actual];
+  return [fmt(anio - 2), fmt(anio - 1), actual];
 }
 
 /** Convierte los fixtures de API-Football a la forma que espera el constructor. */
@@ -638,7 +660,16 @@ async function importaCompeticion(id, opciones, catalogo, clave, sofa) {
   const idsPrevia = new Set();
 
   if (slugEspn) {
-    const desde = new Date(Date.now() - 400 * 86400000);
+    /*
+     * 1150 dias hacia atras: tres temporadas.
+     *
+     * Estaba en 400 —poco mas de una temporada— y ESPN es la fuente principal,
+     * asi que ese era el techo real del historial por mucho que el resto del
+     * script conservara mas. Un club que juega la previa continental en julio
+     * salia con cuatro o cinco partidos porque su temporada anterior no se
+     * habia llegado a pedir.
+     */
+    const desde = new Date(Date.now() - 1150 * 86400000);
     const hasta = new Date(Date.now() + 120 * 86400000);
     process.stdout.write(`  ESPN (${slugEspn})… `);
     let calendario = await espn.calendario(slugEspn, desde, hasta, dirCache, opciones.forzar || opciones.refrescar);
@@ -880,10 +911,12 @@ async function importaCompeticion(id, opciones, catalogo, clave, sofa) {
   }
 
   // Las ligas del formato "nuevo" traen todas las temporadas de su historia:
-  // seis mil partidos por liga no caben en una app y tampoco sirven, porque el
-  // modelo mira los ultimos diez. Se recortan a las dos ultimas temporadas.
+  // seis mil partidos por liga no caben en una app. Se recortan a las tres
+  // ultimas temporadas: con dos, un equipo que juega la previa continental en
+  // julio se quedaba sin nada de la temporada que acababa de terminar, que es
+  // justo el historial que lo describe.
   const DIAS = 86400000;
-  const corte = Date.now() - 800 * DIAS;
+  const corte = Date.now() - 1150 * DIAS;
   const recortado = historial.filter((p) => new Date(p.fecha).getTime() >= corte);
   if (recortado.length >= 40) historial = recortado;
 
