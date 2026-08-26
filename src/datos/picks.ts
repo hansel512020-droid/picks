@@ -1131,8 +1131,7 @@ export function picksDePartido(
         | 'empate'
         | 'visitante'
         | 'local-o-empate'
-        | 'visitante-o-empate'
-        | 'sin-empate';
+        | 'visitante-o-empate';
     }[] = [
       // El nombre entero del club, no las siglas: "Gana GUC" no lo entiende
       // nadie, y este texto se lee también en el argumento y en el historial.
@@ -1168,12 +1167,12 @@ export function picksDePartido(
         prob: implicita(partido.cuotas.visitante) + implicita(partido.cuotas.empate),
         tipo: 'visitante-o-empate',
       },
-      {
-        nombre: 'Gana uno de los dos (sin empate)',
-        cuota: dobleOportunidad(partido.cuotas.local, partido.cuotas.visitante),
-        prob: implicita(partido.cuotas.local) + implicita(partido.cuotas.visitante),
-        tipo: 'sin-empate',
-      },
+      /*
+       * "Gana uno de los dos (sin empate)" salió de aquí: ninguna casa la
+       * ofrece como mercado —el usuario lo confirmó revisando varias—, así
+       * que no tenía con qué cuota compararse en la vida real. Quedan solo
+       * las dos dobles oportunidades que sí se pueden apostar.
+       */
     ];
     /*
      * Normalizar solo con los tres resultados básicos.
@@ -1214,7 +1213,6 @@ export function picksDePartido(
           // dos cosas que cubre, no solo la victoria.
           if (op.tipo === 'local-o-empate' || op.tipo === 'visitante-o-empate')
             return ganoEl || empate;
-          if (op.tipo === 'sin-empate') return !empate;
           return ganoEl;
         });
 

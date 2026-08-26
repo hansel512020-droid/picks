@@ -49,9 +49,20 @@ function deEnv(clave) {
     if (!fs.existsSync(ruta)) continue;
     const linea = fs
       .readFileSync(ruta, 'utf8')
+      /*
+       * Se quita la marca de orden de bytes del principio.
+       *
+       * PowerShell escribe los archivos UTF-8 con un BOM invisible delante, así
+       * que la primera línea empieza por un carácter que no se ve y el nombre
+       * de la variable no coincidía: el archivo estaba bien puesto y aquí
+       * parecía vacío. Cuesta media hora dar con esto la primera vez.
+       */
+      .replace(/^﻿/, '')
       .split('\n')
+      // Y espacios sueltos alrededor, que también se cuelan al pegar.
+      .map((l) => l.trim())
       .find((l) => l.startsWith(`${clave}=`));
-    if (linea) return linea.split('=').slice(1).join('=').trim();
+    if (linea) return linea.slice(clave.length + 1).trim();
   }
   return null;
 }

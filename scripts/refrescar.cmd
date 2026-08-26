@@ -1,12 +1,25 @@
 @echo off
 REM Refresco automatico de los datos de Scout Picks.
 REM
-REM Vuelve a pedir a ESPN el calendario, los resultados y las cuotas de las
+REM Vuelve a pedir el calendario, los resultados y las cuotas de las
 REM competiciones importantes, y deja el resultado en src/datos/importado.json.
 REM Lo lanza la tarea programada "ScoutPicksDatos" cada hora; tambien se puede
 REM ejecutar a mano haciendo doble clic.
 REM
+REM Baja las dos fuentes, no solo ESPN: ESPN pone el calendario, el estado en
+REM vivo y las cuotas, y SofaScore pone las estadisticas —xG medido y la linea
+REM completa de cada jugador—, que es de donde salen los pronosticos. No hace
+REM falta ninguna bandera para eso: SofaScore entra sola salvo que se le pase
+REM --sin-sofascore.
+REM
 REM El registro de cada pasada queda en scripts\refrescar.log.
+REM
+REM La PRIMERA pasada con SofaScore es larga: son tres peticiones por partido y
+REM van con freno para que no nos bloqueen, asi que el catalogo entero puede
+REM pasar de la hora. No rompe nada —lo de un partido terminado se guarda en
+REM cache para siempre y las pasadas siguientes van sobre todo de cache—, y si
+REM la tarea vuelve a saltar antes de que termine, la segunda se planta sola por
+REM el cerrojo en vez de pisar el archivo.
 REM
 REM Dos detalles que costaron una ejecucion muerta (0x8007042B):
 REM   · el archivo pasa de 28 MB, y Node necesita mas monton del que reserva
@@ -28,7 +41,13 @@ REM ESPN. Con 12 por liga, repartidos entre veintitantos equipos, cada jugador
 REM aparecia menos de una vez: ninguno llegaba a los 6 partidos que pide el
 REM modelo y la app no ensenaba NI UN pick de jugador. Con 90 son unos ocho por
 REM equipo y los titulares pasan el corte.
-node --max-old-space-size=4096 scripts\importar.js --refrescar --detalles 90 >> scripts\refrescar.log 2>&1
+REM
+REM --importantes va escrito aunque --refrescar ya elija esa misma lista cuando
+REM no se le nombra ninguna liga. Se pone a proposito: asi el .cmd dice cual es
+REM el catalogo que refresca sin que haya que ir a leer argumentos() en
+REM importar.js, y si algun dia se le anade un --liga delante, sigue entrando
+REM el catalogo entero y no una sola competicion.
+node --max-old-space-size=4096 scripts\importar.js --refrescar --importantes --detalles 90 >> scripts\refrescar.log 2>&1
 echo Importar: %ERRORLEVEL% >> scripts\refrescar.log
 
 REM Sube el archivo recortado a Supabase Storage para que los telefonos

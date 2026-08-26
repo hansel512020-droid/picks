@@ -102,6 +102,15 @@ const MAPA = {
   nationsleague: { af: 5 },
   concachampions: { af: 16 },
   eliminatoriassud: { af: 34 },
+
+  /*
+   * Sin ESPN ni Football-Data: van solo con SofaScore, con el respaldo de
+   * importaCompeticion() que arma el historial directo desde ahi cuando no
+   * hay otra fuente. El id vacio basta para que fuentesDe() no de null y
+   * el importador no las descarte antes de intentarlo.
+   */
+  eslovenia: {},
+  eslovaquia: {},
 };
 
 /** Competiciones que se pueden importar. */

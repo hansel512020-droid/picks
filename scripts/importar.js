@@ -12,6 +12,8 @@
      node scripts/importar.js --liga champions            (necesita clave)
      node scripts/importar.js --liga premier --sofascore-partidos 200
      node scripts/importar.js --liga premier --sin-sofascore
+     node scripts/importar.js --liga premier --sin-sofascore-red   (solo el archivo local, sin red)
+     node scripts/importar.js --liga premier --sofascore-pausa-min 5000 --sofascore-pausa-max 12000
 
    Fuentes:
      · Football-Data.co.uk  gratis y sin clave. Resultados, tiros, corners,
@@ -25,9 +27,11 @@
        estadisticas: pisa las de ESPN campo a campo y aporta el xG medido, la
        nota, los pases clave, los regates, las entradas, las intercepciones,
        los despejes, los duelos y los toques. Si se cae, la importacion sigue
-       con lo de ESPN y no queda peor que antes.
-       Ademas se sigue leyendo el volcado manual scripts/sofascore_raw.txt para
-       lo que la red no cubra.
+       con lo de ESPN y no queda peor que antes. Se apaga con --sin-sofascore
+       o solo la parte de red con --sin-sofascore-red.
+       Ademas se sigue leyendo el volcado manual scripts/sofascore_raw.json
+       (JSON entero, un JSON por linea, o texto pegado de la web) para lo que
+       la red no cubra.
 
    Salida: src/datos/importado.json  (la app lo usa si tiene algo dentro).
    ========================================================================== */
@@ -49,7 +53,7 @@ const DIR_CACHE = path.join(RAIZ, '.cache-datos');
 const SALIDA = path.join(RAIZ, 'src', 'datos', 'importado.json');
 // El volcado de SofaScore, en esta misma carpeta. Es un archivo local: no se
 // descarga, lo pone el usuario.
-const SOFASCORE = path.join(__dirname, 'sofascore_raw.txt');
+const SOFASCORE = path.join(__dirname, 'sofascore_raw.json');
 
 /*
  * Los valores por defecto de una linea de jugador y de las estadisticas de un
@@ -200,6 +204,15 @@ const IMPORTANTES = [
   // ESPN, pero no aqui: como esta lista es la que decide que se descarga, no
   // llegaban a bajarse nunca y en la app salian vacias.
   'laliga2', 'serieb', 'brasileiraob',
+  // Ligas domesticas de paises cuyos clubes aparecen en las fases previas de
+  // Champions/Europa/Conference en agosto. Sin esto, `partidosDelEquipoEnTodas`
+  // (importado.ts) no tiene de donde sacar el historial de un Viking FK o un
+  // Dinamo Zagreb, y el motor de picks se queda con uno o dos partidos. Noruega
+  // funciona en ESPN (nor.1); croacia no tiene ESPN (cro.1 devolvio 0
+  // partidos) asi que va por el respaldo de SofaScore como unica fuente,
+  // igual que eslovenia y eslovaquia, que ESPN ni siquiera tiene dadas de
+  // alta.
+  'noruega', 'croacia', 'eslovenia', 'eslovaquia',
   // Copa nacional de Brasil (Copa Betano do Brasil). Solo ESPN; sus equipos
   // pequeños de primeras rondas no traen estadística, así que darán sobre todo
   // picks de goles y hándicap, como el resto de copas con clubes menores.
@@ -261,6 +274,9 @@ function argumentos() {
     // desactivarlo del todo para importar solo con ESPN, como antes.
     sofascore: SOFASCORE,
     sinSofascore: false,
+    // La descarga de SofaScore por red es la fuente principal de
+    // estadisticas: entra sola salvo que se pida --sin-sofascore.
+    sofascoreRed: true,
     /*
      * De cuantos partidos se baja el detalle de SofaScore.
      *
@@ -269,8 +285,14 @@ function argumentos() {
      * van de cache: lo de un partido terminado no cambia nunca.
      */
     sofascorePartidos: 90,
-    // Freno entre peticiones, en milisegundos. Bajarlo acaba en bloqueo.
-    sofascorePausa: 350,
+    /*
+     * Freno entre peticiones, en milisegundos: un rango, no un numero fijo.
+     * Cada peticion espera algo distinto dentro de este rango, para no dejar
+     * un patron de tiempos identicos que un antibot reconoce a la legua.
+     * Bajarlo, o volverlo fijo, acaba en bloqueo.
+     */
+    sofascorePausaMin: 3000,
+    sofascorePausaMax: 7000,
   };
   for (let i = 0; i < a.length; i++) {
     // Todas las que se pueden bajar sin clave, de una sola vez.
@@ -287,8 +309,11 @@ function argumentos() {
     else if (a[i] === '--importantes') o.ligas = [...IMPORTANTES];
     else if (a[i] === '--sofascore') o.sofascore = path.resolve(a[++i]);
     else if (a[i] === '--sin-sofascore') o.sinSofascore = true;
+    else if (a[i] === '--sofascore-red') o.sofascoreRed = true;
+    else if (a[i] === '--sin-sofascore-red') o.sofascoreRed = false;
     else if (a[i] === '--sofascore-partidos') o.sofascorePartidos = Number(a[++i]) || 0;
-    else if (a[i] === '--sofascore-pausa') o.sofascorePausa = Number(a[++i]) || 350;
+    else if (a[i] === '--sofascore-pausa-min') o.sofascorePausaMin = Number(a[++i]) || 3000;
+    else if (a[i] === '--sofascore-pausa-max') o.sofascorePausaMax = Number(a[++i]) || 7000;
   }
   return o;
 }
@@ -397,7 +422,8 @@ async function aplicaSofaScore(id, opciones, dirCache, contexto) {
 
   const cli = new sofared.Cliente(dirCache, {
     forzar: opciones.forzar,
-    pausaMs: opciones.sofascorePausa,
+    pausaMinMs: opciones.sofascorePausaMin,
+    pausaMaxMs: opciones.sofascorePausaMax,
   });
 
   process.stdout.write('  SofaScore (calendario)… ');
@@ -787,12 +813,7 @@ async function importaCompeticion(id, opciones, catalogo, clave, sofa) {
   }
 
   // Sin ESPN ni Football-Data, la unica fuente posible es API-Football.
-  if (!fuentes.fd && !slugEspn) {
-    if (!cliente) {
-      throw new Error(
-        `"${id}" no está ni en ESPN ni en Football-Data, y no hay clave de API-Football.`,
-      );
-    }
+  if (!fuentes.fd && !slugEspn && cliente) {
     process.stdout.write('  API-Football (partidos)… ');
     const anio = Number(temporadas[temporadas.length - 1].split('-')[0]);
     fixturesAPI = await cliente.fixtures(fuentes.af, anio);
@@ -804,6 +825,53 @@ async function importaCompeticion(id, opciones, catalogo, clave, sofa) {
       aviso.push(
         'Sin --estadisticas no hay tiros, córners ni tarjetas: solo funcionan los mercados de goles y resultado.',
       );
+    }
+  }
+
+  /*
+   * Ultimo recurso: SofaScore como unica fuente, sin ESPN.
+   *
+   * Pasa con paises que ESPN no cubre pero SofaScore si (Croacia, ID 170:
+   * ESPN devuelve "cro.1" pero con cero partidos). Sin esto la competicion
+   * ni se guardaba, y un club que juega ahi contra la ronda previa de la
+   * Champions se quedaba con uno o dos partidos de historial en vez de con
+   * el de su liga: `partidosDelEquipoEnTodas` (importado.ts) no tenia de
+   * donde sacarlo.
+   *
+   * Sale mas pobre que un import normal —solo equipo, marcador y fecha, sin
+   * cuotas ni jugadores, porque aqui solo hace falta el historial para el
+   * cruce entre competiciones—, pero es mejor que nada.
+   */
+  if (!historial.length && sofared.TORNEOS[id]) {
+    process.stdout.write(`  SofaScore (unica fuente, ESPN no tiene "${id}")… `);
+    try {
+      const cli = new sofared.Cliente(dirCache, {
+        forzar: opciones.forzar,
+        pausaMinMs: opciones.sofascorePausaMin,
+        pausaMaxMs: opciones.sofascorePausaMax,
+      });
+      const desde = new Date(Date.now() - 800 * 86400000).toISOString();
+      const crudos = await sofared.calendario(cli, sofared.TORNEOS[id], { desde });
+      const adaptados = crudos.map((p) => ({
+        idEspn: `sofa:${p.idSofa}`,
+        fecha: p.fecha,
+        local: p.local,
+        visitante: p.visitante,
+        golesLocal: p.golesLocal,
+        golesVisitante: p.golesVisitante,
+        estado: p.terminado ? 'finalizado' : 'previa',
+      }));
+      const convertido = construir.desdeEspn(adaptados);
+      historial = convertido.historial;
+      proximos = convertido.proximos;
+      console.log(`${historial.length} jugados, ${proximos.length} por jugar`);
+      if (historial.length) {
+        aviso.push(
+          'Esta competición viene solo de SofaScore, sin ESPN: hay resultados y calendario, pero sin cuotas ni jugadores.',
+        );
+      }
+    } catch (e) {
+      console.log(`no disponible (${e.message})`);
     }
   }
 
@@ -957,12 +1025,13 @@ async function importaCompeticion(id, opciones, catalogo, clave, sofa) {
   }
 
   // ----------------------------------------- 5. SofaScore (red, la principal)
-  // Se baja sola con curl-cffi-node. Es la fuente que manda en estadisticas:
-  // pisa las de ESPN campo a campo y añade la linea completa de cada jugador.
+  // Se baja sola con curl-cffi-node salvo que se pida --sin-sofascore o
+  // --sin-sofascore-red. Es la fuente que manda en estadisticas: pisa las de
+  // ESPN campo a campo y añade la linea completa de cada jugador.
   let conXgReal = new Set();
   let resumenSofa = null;
   let redSofa = null;
-  if (!opciones.sinSofascore && opciones.sofascorePartidos > 0) {
+  if (opciones.sofascoreRed && !opciones.sinSofascore && opciones.sofascorePartidos > 0) {
     try {
       redSofa = await aplicaSofaScore(id, opciones, dirCache, {
         partidos,

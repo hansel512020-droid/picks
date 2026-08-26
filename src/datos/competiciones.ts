@@ -84,6 +84,8 @@ const FILAS: Fila[] = [
   ['polonia', 'Ekstraklasa', 'Ekstraklasa', 'Polonia', '🇵🇱', 'liga', 67, 2.7],
   ['chequia', 'Chance Liga', 'Chance Liga', 'Chequia', '🇨🇿', 'liga', 68, 2.75],
   ['croacia', 'HNL', 'HNL', 'Croacia', '🇭🇷', 'liga', 68, 2.6],
+  ['eslovenia', 'Prva Liga', 'Prva Liga', 'Eslovenia', '🇸🇮', 'liga', 60, 2.75],
+  ['eslovaquia', 'Niké Liga', 'Niké Liga', 'Eslovaquia', '🇸🇰', 'liga', 61, 2.7],
   ['serbia', 'Superliga Serbia', 'Superliga SRB', 'Serbia', '🇷🇸', 'liga', 66, 2.7],
   ['rumania', 'SuperLiga', 'SuperLiga ROU', 'Rumanía', '🇷🇴', 'liga', 65, 2.6],
   ['ucrania', 'Premier Liga', 'Premier UKR', 'Ucrania', '🇺🇦', 'liga', 68, 2.5],

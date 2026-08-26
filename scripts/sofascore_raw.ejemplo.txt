@@ -1,0 +1,73 @@
+Ejemplo del volcado de SofaScore.
+
+Copia este archivo a  scripts/sofascore_raw.txt  y mete dentro tus partidos.
+importar.js lo lee del disco: no descarga nada de SofaScore.
+
+Se aceptan tres formatos y el script adivina cuál es. Estas líneas de texto
+suelto no molestan: lo que no encaja se ignora.
+
+
+-------------------------------------------------------------------------
+FORMATO 1 · copiar y pegar de la web  (el más cómodo)
+-------------------------------------------------------------------------
+La fecha en su línea (opcional pero recomendable: es lo que evita que las
+estadísticas caigan en el partido del año pasado), el marcador en la cabecera
+y debajo las estadísticas tal cual salen en la página.
+
+2026-08-20
+Arsenal 2 - 1 Chelsea
+1.85	Expected goals (xG)	0.94
+14	Total shots	9
+6	Shots on target	3
+7	Corner kicks	4
+58%	Ball possession	42%
+
+También vale en español y con la etiqueta delante:
+
+21/08/2026
+Real Madrid 3 - 1 Getafe
+Goles esperados  2.44  0.71
+Tiros a puerta  8  2
+Saques de esquina  9  3
+
+
+-------------------------------------------------------------------------
+FORMATO 2 · el JSON de la API de SofaScore
+-------------------------------------------------------------------------
+Pega la respuesta entera. Se busca dentro sin importar cómo esté anidada:
+
+{"events":[{"homeTeam":{"name":"Arsenal"},"awayTeam":{"name":"Chelsea"},
+"homeScore":{"current":2},"awayScore":{"current":1},
+"statistics":[{"period":"ALL","groups":[{"statisticsItems":[
+{"name":"Expected goals (xG)","home":"1.85","away":"0.94"}]}]}]}]}
+
+
+-------------------------------------------------------------------------
+FORMATO 3 · un JSON por línea
+-------------------------------------------------------------------------
+{"homeTeam":"Arsenal","awayTeam":"Chelsea","xg":{"home":1.85,"away":0.94}}
+
+
+-------------------------------------------------------------------------
+QUÉ SE LEE DE CADA PARTIDO
+-------------------------------------------------------------------------
+xG (goles esperados) · remates · remates a puerta · corners · posesión ·
+faltas · tarjetas · fueras de juego · pases y precisión de pases.
+
+El xG es el que de verdad importa: ESPN no lo publica y el script lo venía
+estimando a partir de los goles. Con el de SofaScore, los pronósticos miden
+lo que un equipo mereció marcar y no solo lo que le entró.
+
+Lo demás se ignora sin quejarse (duelos, despejes, paradas...).
+
+
+-------------------------------------------------------------------------
+CÓMO SE EMPAREJA CON LOS PARTIDOS DE ESPN
+-------------------------------------------------------------------------
+Por los dos nombres de equipo (aguanta "Man City" por "Manchester City"),
+por la fecha si la pones, y por el marcador si lo pones. Si el marcador no
+cuadra, el partido se descarta: es preferible quedarse sin la estadística
+que metérsela al partido equivocado.
+
+Nunca crea partidos ni equipos. Si metes una liga que no estás importando,
+simplemente no encaja nada y el resto de la importación sigue igual.
