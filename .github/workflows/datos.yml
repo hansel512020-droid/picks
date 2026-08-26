@@ -131,6 +131,23 @@ jobs:
       # sea cual sea el lockfile de partida.
       - run: npm install
 
+      # Temporal: curl-cffi-node traga el error real con un catch vacío y solo
+      # deja ver "no se pudo cargar", asi que no hay forma de saber POR QUE sin
+      # esto. Se quita en cuanto se vea el motivo.
+      - name: Diagnostico curl-cffi-node
+        run: |
+          echo "--- contenido del paquete ---"
+          ls -la node_modules/@curl-cffi-node/linux-x64-gnu/ || echo "no existe el directorio"
+          echo "--- intento de require directo ---"
+          node -e "
+            try {
+              const m = require('@curl-cffi-node/linux-x64-gnu');
+              console.log('CARGO BIEN:', Object.keys(m));
+            } catch (e) {
+              console.log('ERROR REAL:', e.stack);
+            }
+          "
+
       - name: Importar resultados y estadísticas
         env:
           APIFOOTBALL_KEY: ${{ secrets.APIFOOTBALL_KEY }}
