@@ -23,9 +23,6 @@ const LIGAS: Record<string, string> = {
   croacia: 'cro.1', serbia: 'srb.1', ucrania: 'ukr.1',
   champions: 'uefa.champions', europaleague: 'uefa.europa',
   conference: 'uefa.europa.conf',
-  // Fases previas: competiciones distintas en ESPN, con su propio marcador.
-  championsprevia: 'uefa.champions_qual', europaprevia: 'uefa.europa_qual',
-  conferenceprevia: 'uefa.europa.conf_qual',
   libertadores: 'conmebol.libertadores',
   sudamericana: 'conmebol.sudamericana', concachampions: 'concacaf.champions',
   copadelrey: 'esp.copa_del_rey', facup: 'eng.fa', carabao: 'eng.league_cup',
@@ -48,6 +45,20 @@ const LIGAS: Record<string, string> = {
 export function slugDe(competicionId: string): string | undefined {
   return LIGAS[competicionId];
 }
+
+/*
+ * La fase previa de Champions/Europa/Conference vive en ESPN como una
+ * competición aparte, con su propio marcador en vivo — igual que en
+ * `scripts/lib/espn.js`, que la baja aparte y la guarda dentro de la misma
+ * competición marcada con `fasePrevia`. Sin esto, un partido de la previa que
+ * ya empezó no se encontraba nunca aquí (se preguntaba por el slug de la fase
+ * de grupos) y la ficha lo daba por "retrasado" con el partido ya en marcha.
+ */
+const PREVIA: Record<string, string> = {
+  champions: 'uefa.champions_qual',
+  europaleague: 'uefa.europa_qual',
+  conference: 'uefa.europa.conf_qual',
+};
 
 export type EstadoVivo = 'previa' | 'en_curso' | 'descanso' | 'penales' | 'finalizado';
 
@@ -103,10 +114,8 @@ export function claveDelPartido(local: string, visitante: string): string {
   return `${limpio(local)}|${limpio(visitante)}`;
 }
 
-/** Pide a ESPN los partidos de hoy de una competición. */
-async function deLaCompeticion(competicionId: string): Promise<PartidoVivo[]> {
-  const slug = LIGAS[competicionId];
-  if (!slug) return [];
+/** Pide a ESPN los partidos de hoy de un slug concreto. */
+async function deSlug(slug: string, competicionId: string): Promise<PartidoVivo[]> {
   try {
     const r = await fetch(`${RAIZ}/${slug}/scoreboard?dates=${aFecha(new Date())}`);
     if (!r.ok) return [];
@@ -151,6 +160,19 @@ async function deLaCompeticion(competicionId: string): Promise<PartidoVivo[]> {
   } catch {
     return [];
   }
+}
+
+/** Pide a ESPN los partidos de hoy de una competición, previa incluida. */
+async function deLaCompeticion(competicionId: string): Promise<PartidoVivo[]> {
+  const slug = LIGAS[competicionId];
+  if (!slug) return [];
+  const slugPrevia = PREVIA[competicionId];
+  if (!slugPrevia) return deSlug(slug, competicionId);
+  const [principal, previa] = await Promise.all([
+    deSlug(slug, competicionId),
+    deSlug(slugPrevia, competicionId),
+  ]);
+  return [...principal, ...previa];
 }
 
 /**
