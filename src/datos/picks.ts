@@ -1358,16 +1358,29 @@ export function picksDePartido(
 /** Partidos de una competicion que aun se pueden analizar. */
 export function partidosAbiertos(competicionId: string): Partido[] {
   /*
-   * Lo que se está jugando ahora y lo que viene, nunca lo de ayer. No basta
-   * con mirar el estado: un partido importado hace días sigue guardado como
-   * "previa" aunque ya se haya jugado, y colarlo aquí gasta un hueco de la
-   * portada en un partido que ya no se puede apostar.
+   * Lo que viene, nunca lo que ya empezó. No basta con mirar el estado: un
+   * partido importado hace días sigue guardado como "previa" aunque ya se haya
+   * jugado, y colarlo aquí gasta un hueco de la portada en un partido que ya
+   * no se puede apostar.
+   *
+   * El margen son cinco minutos, no tres horas. Con tres horas un partido que
+   * habia empezado hacia dos seguia dando picks en la portada, y solo
+   * desaparecia cuando llegaba el estado en vivo de ESPN unos segundos
+   * despues: quien abria la app veia primero partidos ya jugados. Un pick de
+   * un partido en marcha no sirve —ninguna casa lo paga—, asi que el propio
+   * reloj basta para descartarlo.
+   *
+   * Los cinco minutos son para los horarios que bailan entre fuentes: sin
+   * ellos, un partido a punto de empezar podria caerse de la lista antes de
+   * tiempo.
    */
-  const corte = Date.now() - 3 * 3600_000;
+  const corte = Date.now() - 5 * 60_000;
   return temporada(competicionId)
     .partidos.filter((p) => {
       if (p.estado === 'finalizado') return false;
-      if (p.estado === 'en_curso' || p.estado === 'descanso') return true;
+      // Tambien el que ya rueda: un partido en marcha no da picks apostables,
+      // y antes se colaba por aqui saltandose el corte de la linea siguiente.
+      if (p.estado === 'en_curso' || p.estado === 'descanso') return false;
       return new Date(p.fecha).getTime() >= corte;
     })
     .sort((a, b) => a.fecha.localeCompare(b.fecha));

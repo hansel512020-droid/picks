@@ -22,6 +22,7 @@ import { SelloCasa, TarjetaPick } from '@/componentes/pick';
 import { alineacionesDelPartido, type OnceEquipo } from '@/datos/alineaciones';
 import { ANTIGUOS_POR_PERFIL, CASAS, casa as casaPorId } from '@/datos/casas';
 import { competicion } from '@/datos/competiciones';
+import { partidosDelEquipoEnTodas } from '@/datos/importado';
 import { extrasDelPartido, type Extras } from '@/datos/penales';
 import { alineacion, lesiones, posicionesEnLiga, temporada } from '@/datos/motor';
 import { FAMILIAS, picksDePartido } from '@/datos/picks';
@@ -73,10 +74,20 @@ export default function PantallaPartido() {
       posLocal: posDe(local.competicionId, local.id),
       posVisitante: posDe(visitante.competicionId, visitante.id),
       jugadores: t.porJugador,
-      historialLocal: (t.partidosPorEquipo.get(local.id) ?? [])
+      /*
+       * Los ultimos diez de VERDAD, contando todas las competiciones.
+       *
+       * Con `t.partidosPorEquipo` solo salian los de la competicion abierta:
+       * en un partido de Conference, un equipo enseñaba dos o tres partidos
+       * bajo el rotulo de "ultimos 10" —los suyos de esa copa— y no lo que
+       * lleva hecho en su liga, que es donde juega casi siempre.
+       */
+      historialLocal: partidosDelEquipoEnTodas(local.nombre, local.bandera)
+        .map(({ partido: p }) => p)
         .filter((p) => p.estado === 'finalizado')
         .slice(-10),
-      historialVisitante: (t.partidosPorEquipo.get(visitante.id) ?? [])
+      historialVisitante: partidosDelEquipoEnTodas(visitante.nombre, visitante.bandera)
+        .map(({ partido: p }) => p)
         .filter((p) => p.estado === 'finalizado')
         .slice(-10),
     };

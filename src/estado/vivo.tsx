@@ -505,6 +505,23 @@ export function usePicksVigentes<
       const vivo = partido.idEspn
         ? porEspn.get(partido.idEspn)
         : porPartido.get(claveDelPartido(local.nombre, visitante.nombre));
+
+      /*
+       * Por la hora, sin esperar a ESPN.
+       *
+       * El estado en vivo tarda unos segundos en llegar, y hasta entonces
+       * `vivo` es indefinido para todo: la portada abria enseñando picks de
+       * partidos que ya se habian jugado, y solo cuando contestaba ESPN
+       * desaparecian de golpe. Como un pick de un partido que ya empezo no
+       * sirve para apostar —ninguna casa lo paga—, la hora basta para
+       * descartarlo desde el primer pintado.
+       *
+       * Cinco minutos de margen: los horarios de las fuentes bailan un poco y
+       * no conviene tirar un pick de un partido que aun no ha arrancado.
+       */
+      const empieza = new Date(partido.fecha).getTime();
+      if (Number.isFinite(empieza) && Date.now() > empieza + 5 * 60_000) return false;
+
       // Si ESPN no lo tiene hoy, no hay nada que objetar: se queda.
       if (!vivo) return true;
       if (vivo.estado === 'finalizado') return false;

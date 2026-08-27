@@ -9,6 +9,7 @@ import { Escudo, LogoCompeticion } from '@/componentes/imagen';
 import { CabeceraAtras, FilaDato } from '@/componentes/navegacion';
 import { Avatar, BarraL10, FilaMercado, TarjetaPick } from '@/componentes/pick';
 import { competicion } from '@/datos/competiciones';
+import { partidosDelEquipoEnTodas } from '@/datos/importado';
 import { temporada } from '@/datos/motor';
 import { coma, METRICAS_EQUIPO, METRICAS_JUGADOR, picksDePartido } from '@/datos/picks';
 import { useComunidad } from '@/estado/comunidad';
@@ -158,8 +159,25 @@ function ElPartido({
 }
 
 /** Barras de la metrica partido a partido, con la linea del mercado marcada. */
-function Serie({ valores, linea }: { valores: number[]; linea: number }) {
+function Serie({
+  valores,
+  linea,
+  sentido,
+}: {
+  valores: number[];
+  linea: number;
+  /*
+   * Hacia donde acierta el pick.
+   *
+   * Sin esto se pintaba de verde todo lo que superaba la linea, fuera cual
+   * fuera el pick: en un "Menos de 14,5 remates" que le habia salido 10 de 10,
+   * el grafico enseñaba diez barras grises —ninguna pasa la linea, que es
+   * justo lo que se buscaba— y parecia que el pick no habia acertado nunca.
+   */
+  sentido: 'mas' | 'menos' | 'si' | 'no';
+}) {
   const maximo = Math.max(linea * 1.6, ...valores, 1);
+  const acierta = (v: number) => (sentido === 'menos' || sentido === 'no' ? v < linea : v > linea);
   return (
     <View style={{ gap: E.sm }}>
       <View style={{ height: 96, flexDirection: 'row', alignItems: 'flex-end', gap: 3 }}>
@@ -169,7 +187,7 @@ function Serie({ valores, linea }: { valores: number[]; linea: number }) {
               style={{
                 height: `${Math.max(4, (v / maximo) * 100)}%`,
                 borderRadius: 3,
-                backgroundColor: v > linea ? C.acierto : C.neutro,
+                backgroundColor: acierta(v) ? C.acierto : C.neutro,
               }}
             />
           </View>
@@ -312,16 +330,29 @@ export default function PantallaPick() {
     const metEquipo = METRICAS_EQUIPO.find((m) => m.clave === pick.metrica);
     const equipo = t.porEquipo.get(pick.sujetoId);
     if (equipo && metEquipo) {
-      const suyos = (t.partidosPorEquipo.get(equipo.id) ?? [])
+      /*
+       * Su historial en TODAS las competiciones, no solo en esta.
+       *
+       * Con `t.partidosPorEquipo` salian unicamente los partidos de la
+       * competicion abierta: en un pick de Braga en la Conference eso son dos
+       * o tres, asi que el grafico quedaba practicamente vacio y la "media de
+       * la temporada" era la de un par de partidos —2,80 debajo de un pick que
+       * hablaba de 10,4 de media—. Es la misma fuente que usa el motor para
+       * decidir el pick (`picks.ts`), asi que ahora la ficha enseña los
+       * numeros con los que se calculo.
+       */
+      const suyos = partidosDelEquipoEnTodas(equipo.nombre, equipo.bandera)
+        .map(({ partido, esLocal }) => ({ ...partido, esLocal }))
         .filter((p) => p.estado === 'finalizado' && p.id !== pick.partidoId)
         .sort((a, b) => a.fecha.localeCompare(b.fecha));
-      const valor = (p: (typeof suyos)[number]) => metEquipo.valor(p, p.localId === equipo.id);
+      // El lado viene del historial: fuera de esta competicion el equipo tiene
+      // otro id, asi que comparar con `localId` daria "visitante" siempre.
+      const valor = (p: (typeof suyos)[number]) => metEquipo.valor(p, p.esLocal);
+      const acierta = (v: number) =>
+        pick.sentido === 'menos' || pick.sentido === 'no' ? v < pick.linea : v > pick.linea;
       const tasa = (lista: typeof suyos) =>
         lista.length
-          ? (lista.filter((p) => (pick.sentido === 'mas' ? valor(p) > pick.linea : valor(p) < pick.linea))
-              .length /
-              lista.length) *
-            100
+          ? (lista.filter((p) => acierta(valor(p))).length / lista.length) * 100
           : 0;
       return {
         tipo: 'equipo' as const,
@@ -331,13 +362,13 @@ export default function PantallaPick() {
           { etiqueta: 'Toda la temporada', valor: tasa(suyos), n: suyos.length },
           {
             etiqueta: 'En casa',
-            valor: tasa(suyos.filter((p) => p.localId === equipo.id)),
-            n: suyos.filter((p) => p.localId === equipo.id).length,
+            valor: tasa(suyos.filter((p) => p.esLocal)),
+            n: suyos.filter((p) => p.esLocal).length,
           },
           {
             etiqueta: 'Fuera',
-            valor: tasa(suyos.filter((p) => p.visitanteId === equipo.id)),
-            n: suyos.filter((p) => p.visitanteId === equipo.id).length,
+            valor: tasa(suyos.filter((p) => !p.esLocal)),
+            n: suyos.filter((p) => !p.esLocal).length,
           },
         ],
         mediaGeneral: suyos.length ? suyos.reduce((a, p) => a + valor(p), 0) / suyos.length : 0,
@@ -557,7 +588,7 @@ ${enlace}`;
           <View style={{ paddingHorizontal: E.lg, gap: E.sm }}>
             <Txt v="subtitulo">Partido a partido</Txt>
             <Tarjeta style={{ padding: E.md, gap: E.md }}>
-              <Serie valores={contexto.serie} linea={pick.linea} />
+              <Serie valores={contexto.serie} linea={pick.linea} sentido={pick.sentido} />
               <Separador />
               <FilaDato etiqueta="Media de la temporada" valor={coma(contexto.mediaGeneral, 2)} />
               <FilaDato etiqueta="Media en los últimos 10" valor={coma(pick.media, 2)} destacado />
