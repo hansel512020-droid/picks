@@ -159,12 +159,33 @@ export function competicionOpcional(id: string | undefined) {
   return id ? PORID.get(id) : undefined;
 }
 
+/*
+ * Ligas que se importan pero NO se enseñan.
+ *
+ * Están para dar historial, no para navegarlas: sus clubes llenan las
+ * eliminatorias previas de Champions, Europa y Conference cada julio, y sin su
+ * liga doméstica el motor de picks los ve con cuatro o cinco partidos —los de
+ * la propia previa— y no puede afirmar nada. Con ella, `partidosDelEquipoEnTodas`
+ * les encuentra la temporada entera.
+ *
+ * Siguen en el catálogo a propósito: el nombre y la bandera hacen falta para
+ * rotular un partido de un equipo suyo cuando aparece en una competición que sí
+ * se enseña. Lo único que se les quita es el sitio en el selector.
+ */
+export const SOLO_RELLENO = new Set([
+  'dinamarca', 'suecia', 'suiza', 'austria', 'polonia', 'chequia',
+  'serbia', 'ucrania', 'rumania', 'noruega', 'croacia',
+  'eslovenia', 'eslovaquia',
+]);
+
 /**
  * Las que se enseñan en la app. Cuando hay datos importados solo salen esas:
  * los torneos que no se están jugando (Mundial, Eurocopa, Copa América) se
  * ocultan hasta que vuelvan a importarse, sin borrarlos del catálogo.
  */
 export function competicionesVisibles(): Competicion[] {
-  const visibles = COMPETICIONES.filter((c) => competicionVisible(c.id));
-  return visibles.length ? visibles : COMPETICIONES;
+  const visibles = COMPETICIONES.filter(
+    (c) => !SOLO_RELLENO.has(c.id) && competicionVisible(c.id),
+  );
+  return visibles.length ? visibles : COMPETICIONES.filter((c) => !SOLO_RELLENO.has(c.id));
 }

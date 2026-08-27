@@ -335,6 +335,17 @@ export interface ProximoPartido {
  * y con lo que se está jugando ahora mismo por delante. Es lo que sale en la
  * tira de la portada: da igual qué competición esté activa.
  */
+/**
+ * Ligas que se importan solo para dar historial, no para enseñarlas. La lista
+ * buena vive en `competiciones.ts` (SOLO_RELLENO); aquí se repite porque ese
+ * módulo importa de este y traerlo cerraría el círculo.
+ */
+const RELLENO = new Set([
+  'dinamarca', 'suecia', 'suiza', 'austria', 'polonia', 'chequia',
+  'serbia', 'ucrania', 'rumania', 'noruega', 'croacia',
+  'eslovenia', 'eslovaquia',
+]);
+
 export function proximosDeTodas(limite = 30): ProximoPartido[] {
   const salida: ProximoPartido[] = [];
 
@@ -353,6 +364,14 @@ export function proximosDeTodas(limite = 30): ProximoPartido[] {
   const corte = Date.now() - 2.25 * 3600_000;
 
   for (const [competicionId, c] of Object.entries(ARCHIVO.competiciones ?? {})) {
+    /*
+     * Las ligas que solo están para dar historial no salen en la tira.
+     *
+     * La lista se repite aquí en vez de importarse de `competiciones.ts`
+     * porque ese módulo ya importa de este: traerlo de vuelta cerraría el
+     * círculo. Son trece nombres que cambian una vez al año.
+     */
+    if (RELLENO.has(competicionId)) continue;
     const porId = new Map(c.equipos.map((e) => [e.id, e]));
     for (const p of c.partidos) {
       if (p.estado === 'finalizado') continue;

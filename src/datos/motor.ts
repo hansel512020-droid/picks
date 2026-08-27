@@ -1,6 +1,6 @@
 import { Aleatorio } from '@/utiles/aleatorio';
 import { CASAS } from './casas';
-import { competicion, TODAS } from './competiciones';
+import { competicion, SOLO_RELLENO, TODAS } from './competiciones';
 import { competicionesImportadas, datosReales, cuandoCambienLosDatos } from './importado';
 import { plantilla } from './plantillas';
 import type {
@@ -496,6 +496,17 @@ export function temporada(competicionId: string): Temporada {
     const registros: RegistroJugador[] = [];
 
     for (const id of competicionesImportadas()) {
+      /*
+       * Las ligas de relleno no entran en "Todas".
+       *
+       * Se importan solo para dar historial a los clubes que juegan las
+       * previas continentales —sin su liga domestica el motor los ve con
+       * cuatro partidos—, pero sus propios partidos no son lo que el usuario
+       * viene a mirar: colarlos aqui llenaria la portada de Ekstraklasa y
+       * Allsvenskan. `partidosDelEquipoEnTodas` los sigue leyendo del archivo,
+       * que es para lo que estan.
+       */
+      if (SOLO_RELLENO.has(id)) continue;
       const r = datosReales(id);
       if (!r) continue;
       equipos.push(...r.equipos);
