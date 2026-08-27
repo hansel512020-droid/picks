@@ -950,6 +950,25 @@ export function picksDePartido(
     );
 
     /*
+     * Cuanto se parece cada rival del historial al de hoy, igual que en los
+     * picks de equipo de mas arriba.
+     *
+     * Sin esto el handicap comparaba dos cosas que no hablaban del mismo
+     * partido: la cuota SI miraba la diferencia de fuerza (`margenEsperado`,
+     * unas lineas mas abajo), pero la probabilidad salia del "10 de 10" crudo,
+     * como si el rival de hoy fuera uno mas de los de siempre. En un Gornik
+     * Zabrze —que cubre el +1.5 contra media liga polaca— contra el Monaco,
+     * eso daba una "ventaja" del 24% que era casi toda de mentira: el mercado
+     * ya habia descontado la diferencia de nivel y el modelo no.
+     */
+    const fuerzaHoyH = fuerzaDe(rival.id) ?? rival.fuerza ?? null;
+    const pesosH = suyos.map(({ p, esLocal }) => {
+      const rivalId = esLocal ? p.visitanteId : p.localId;
+      const peso = pesoPorRival(fuerzaDe(rivalId), fuerzaHoyH);
+      return rivalId === rival.id ? peso * PESO_ENFRENTAMIENTO : peso;
+    });
+
+    /*
      * Lo que el mercado espera que gane o pierda hoy: la diferencia de fuerza
      * entre los dos, más la ventaja de jugar en casa. Es lo que tarifica el
      * hándicap; la ventaja sale de comparar eso con lo que dice el historial.
@@ -974,7 +993,39 @@ export function picksDePartido(
        */
       const lineaCubrir = -h;
       const id = `${partidoId}-${equipo.id}-handicap-${lineaCubrir < 0 ? `m${Math.abs(lineaCubrir)}` : lineaCubrir}-mas`;
-      const prob = probabilidad(ev.aciertosL10, ev.aciertosL20, ev.muestraL20);
+      /*
+       * La misma mezcla que en los picks de equipo: la mitad del conteo crudo
+       * y la mitad de la tasa pesada por el parecido del rival. Aqui no hay
+       * `factorDelRival` —no existe un "margen concedido" comparable a una
+       * media de competicion, porque el margen ya es la diferencia entre los
+       * dos— asi que va en 1 y el ajuste lo hace entero el contexto.
+       */
+      const base = probabilidad(ev.aciertosL10, ev.aciertosL20, ev.muestraL20);
+      const enContexto = tasaEnContexto(margenes, pesosH, -h, 'mas');
+      /*
+       * Cuanto manda el contexto sobre el conteo crudo.
+       *
+       * `probabilidadAjustada` los mezcla siempre a medias, y para un handicap
+       * eso se queda corto justo donde mas falta hace. Cuando el rival de hoy
+       * no se parece a NINGUNO de los que el equipo lleva enfrentados —Gornik
+       * Zabrze cubriendo el +1.5 contra media liga polaca y hoy recibiendo al
+       * Monaco— el "10 de 10" no describe el partido de hoy en absoluto, y
+       * dejarle la mitad del voto es dejarle demasiado.
+       *
+       * `pesosH` ya dice exactamente eso: es el parecido de cada rival del
+       * historial con el de hoy. Si su media es alta el equipo juega contra
+       * gente como la de hoy y el conteo vale; si es baja, casi todo lo que
+       * sabemos viene de partidos que no se parecen, y entonces pesa mas lo
+       * poco que si se parece.
+       */
+      const parecidoMedio = pesosH.length
+        ? pesosH.reduce((a, b) => a + Math.min(b, 1), 0) / pesosH.length
+        : 1;
+      // De 0.5 (rivales parecidos, como antes) a 0.85 (rival de otro mundo).
+      const pesoContexto = 0.5 + (1 - Math.min(1, parecidoMedio)) * 0.35;
+      let prob =
+        enContexto === null ? base : base * (1 - pesoContexto) + enContexto * pesoContexto;
+      prob = Math.min(0.94, Math.max(0.06, prob));
       /*
        * Probabilidad de cubrirlo según el mercado: la diferencia de goles se
        * reparte como una normal alrededor de lo esperado. `normalSobre` da la
