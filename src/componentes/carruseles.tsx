@@ -136,7 +136,18 @@ export function CarruselCompeticion({
  */
 export function CarruselProximos() {
   const { porPartido } = useVivo();
-  const crudos = proximosDeTodas(30);
+  /*
+   * Sesenta, no treinta.
+   *
+   * Con treinta, un dia de fase previa continental —que son treinta y tantos
+   * partidos el mismo dia, casi todos a la misma hora— llenaba la tira entero
+   * y dejaba fuera todo lo que venia despues: la tira se cortaba en la una de
+   * la tarde y no habia forma de ver el resto de la jornada.
+   *
+   * La tira es horizontal y se desplaza, asi que alargarla no quita sitio a
+   * nada: solo hay que arrastrar mas para llegar al final.
+   */
+  const crudos = proximosDeTodas(60);
 
   /*
    * El archivo importado es de cuando se descargó: sus minutos y marcadores se
