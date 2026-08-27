@@ -341,10 +341,16 @@ export function proximosDeTodas(limite = 30): ProximoPartido[] {
   /*
    * No basta con descartar los finalizados: si una competición se importó hace
    * días, sus partidos siguen guardados como "previa" aunque ya se hayan
-   * jugado. Un partido cuya hora pasó hace más de tres horas no es próximo
-   * diga lo que diga el archivo.
+   * jugado. Un partido cuya hora pasó hace rato no es próximo diga lo que diga
+   * el archivo.
+   *
+   * Dos horas y cuarto, no tres. Un partido dura noventa minutos mas el
+   * descanso y el descuento: a las 2:15 de haber empezado ha terminado, salvo
+   * prorroga. Con tres horas quedaba una ventana de tres cuartos de hora en la
+   * que un partido ya acabado seguia saliendo en la portada como si fuera a
+   * jugarse, hasta que llegaba el estado real de ESPN y lo corregia.
    */
-  const corte = Date.now() - 3 * 3600_000;
+  const corte = Date.now() - 2.25 * 3600_000;
 
   for (const [competicionId, c] of Object.entries(ARCHIVO.competiciones ?? {})) {
     const porId = new Map(c.equipos.map((e) => [e.id, e]));

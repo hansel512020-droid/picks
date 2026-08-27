@@ -176,21 +176,31 @@ async function deLaCompeticion(competicionId: string): Promise<PartidoVivo[]> {
 }
 
 /**
- * Partidos de hoy. Sin argumentos barre las 36 competiciones importadas, que
- * tarda unos segundos; pasándole una lista corta se refresca solo lo que está
- * en juego, que es lo que permite ir al minuto sin castigar la batería ni los
- * datos del móvil.
+ * Partidos de hoy. Sin argumentos barre todas las competiciones importadas;
+ * pasándole una lista corta se refresca solo lo que está en juego, que es lo
+ * que permite ir al minuto sin castigar la batería ni los datos del móvil.
  *
- * Se piden de cinco en cinco para no abrir sesenta conexiones a la vez.
+ * De doce en doce, no de cinco en cinco.
+ *
+ * Cada tanda espera a la anterior, asi que el tiempo total es (ligas / tanda)
+ * viajes en fila. Con cincuenta y tantas competiciones —y tres de ellas
+ * pidiendo ademas su fase previa— eran once tandas encadenadas, que son los
+ * segundos que el marcador de un partido ya empezado tardaba en corregirse en
+ * la portada. Con doce baja a cinco tandas.
+ *
+ * No mas de doce a proposito: los navegadores limitan las conexiones
+ * simultaneas por dominio, asi que pedirlas todas de golpe no las haria mas
+ * rapidas —se encolarian igual— y de paso castigaria a un movil con datos.
  */
 export async function partidosDeHoy(
   competiciones?: string[],
 ): Promise<Map<string, PartidoVivo>> {
   const mapa = new Map<string, PartidoVivo>();
   const ids = (competiciones ?? competicionesImportadas()).filter((id) => LIGAS[id]);
+  const TANDA = 12;
 
-  for (let i = 0; i < ids.length; i += 5) {
-    const lote = await Promise.all(ids.slice(i, i + 5).map(deLaCompeticion));
+  for (let i = 0; i < ids.length; i += TANDA) {
+    const lote = await Promise.all(ids.slice(i, i + TANDA).map(deLaCompeticion));
     for (const partidos of lote) {
       for (const p of partidos) mapa.set(claveDelPartido(p.local, p.visitante), p);
     }
