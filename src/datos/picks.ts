@@ -781,10 +781,20 @@ export function picksDePartido(
     const propios = (t.partidosPorEquipo.get(equipo.id) ?? [])
       .filter(antesDeEste)
       .map((p) => ({ p, esLocal: p.localId === equipo.id }));
-    if (propios.length >= 6) {
-      return propios.sort((a, b) => b.p.fecha.localeCompare(a.p.fecha));
-    }
 
+    /*
+     * Siempre todas las competiciones, aunque en esta ya haya seis partidos.
+     *
+     * Aqui habia un atajo —si `propios` llegaba a seis se devolvia tal cual y
+     * no se miraba nada mas— que en una copa daba picks sencillamente falsos:
+     * el "Fulham marca" de la Carabao anunciaba "10 de sus ultimos 10" con
+     * media 1,40 cuando el Fulham venia de marcar en 5 de sus ultimos 10 y
+     * promediaba 0,90. Los diez de la copa eran los unicos que se miraban, y
+     * en una copa se juega contra rivales de otra categoria.
+     *
+     * El coste es recorrer el archivo entero por equipo, pero
+     * `partidosDelEquipoEnTodas` ya lo memoriza.
+     */
     // El lado viene dado: fuera de esta competición el equipo tiene otro id,
     // así que compararlo con `localId` daría "visitante" siempre.
     // Con la bandera: sin ella se mezclaban los clubes homónimos de países
