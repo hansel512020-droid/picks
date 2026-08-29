@@ -122,6 +122,9 @@ export function ProveedorVivo({ children }: { children: ReactNode }) {
   const porPartidoRef = useRef<Map<string, PartidoVivo>>(new Map());
   // Para no avisar dos veces del mismo pick.
   const avisados = useRef<Set<string>>(new Set());
+  // Picks "nulo" de partidos ya terminados que ya se comprobaron contra el acta
+  // de ESPN: no hace falta volver a pedirla si el jugador sigue sin aparecer.
+  const nulosComprobados = useRef<Set<string>>(new Set());
   const permiso = useRef(false);
   // La última versión de `tieneAcceso`, para leerla dentro del barrido sin
   // rehacer el reloj cada vez que cambian los derechos.
@@ -206,7 +209,17 @@ export function ProveedorVivo({ children }: { children: ReactNode }) {
        * partido que terminaba despues de la ultima descarga se quedaba
        * pendiente para siempre.
        */
-      if (g.resultado !== 'pendiente') continue;
+      /*
+       * Se reintentan también los "nulo".
+       *
+       * El archivo marca "nulo" (el "—") a un jugador que no encuentra en el
+       * acta que guardó, pero esa acta viene RECORTADA: `adelgaza()` borra a
+       * quien tiene menos de seis partidos, así que da por "no jugó" a gente
+       * que sí jugó. ESPN tiene el acta entera, así que a los nulo se les
+       * vuelve a preguntar. Los que el archivo ya cerró como ganado o perdido
+       * sí se saltan: esos son de fiar.
+       */
+      if (g.resultado !== 'pendiente' && g.resultado !== 'nulo') continue;
 
       const t = temporada(g.competicionId);
       const partido = t.porPartido.get(g.partidoId);
@@ -231,6 +244,15 @@ export function ProveedorVivo({ children }: { children: ReactNode }) {
         enDirecto?.estado === 'descanso';
       if (!seguible) continue;
 
+      // Un "nulo" de un partido ya terminado se comprueba UNA vez contra el
+      // acta de ESPN; si el jugador sigue sin aparecer, es que de verdad no
+      // jugó y no se vuelve a pedir. Mientras se juega sí se reintenta, por si
+      // entra más tarde.
+      if (g.resultado === 'nulo' && enDirecto?.estado === 'finalizado') {
+        if (nulosComprobados.current.has(g.pickId)) continue;
+        nulosComprobados.current.add(g.pickId);
+      }
+
       const slug = slugDe(g.competicionId);
       if (!slug) continue;
       const resumen = await resumenDelPartido(slug, partido.idEspn);
@@ -254,6 +276,11 @@ export function ProveedorVivo({ children }: { children: ReactNode }) {
 
       // El resultado se guarda siempre, se haya avisado o no.
       setResueltos((prev) => new Map(prev).set(g.pickId, { resultado, valorReal }));
+
+      // Si ya venía "nulo" del archivo y ESPN lo confirma, no hay novedad: se
+      // cachea, pero no se avisa —el usuario no esperaba nada de un pick que ya
+      // estaba anulado, y un aviso "anulado" en bloque al abrir sobra.
+      if (g.resultado === 'nulo' && resultado === 'nulo') continue;
 
       // A partir de aqui, solo el aviso. Una vez por pick.
       if (avisados.current.has(g.pickId)) continue;
