@@ -1,4 +1,19 @@
 import { useEffect, useRef, useState } from 'react';
+import { cuandoLlegueMasDato } from '@/datos/importado';
+
+/*
+ * Un contador que sube cada vez que llegan más datos (el detalle por jugador
+ * que entra en segundo plano). Los cálculos lo llevan entre sus dependencias
+ * para rehacerse cuando eso pasa —y así aparecen los picks de jugador— pero SIN
+ * remontar: el `primera` de abajo se queda en false, la pantalla conserva lo
+ * que ya tenía y no vuelve a salir el "Analizando…". Antes esto se hacía
+ * remontando la pantalla entera, y por eso los picks parecían cargar dos veces.
+ */
+function useGeneracionDatos(): number {
+  const [gen, setGen] = useState(0);
+  useEffect(() => cuandoLlegueMasDato(() => setGen((n) => n + 1)), []);
+  return gen;
+}
 
 /**
  * Calcula algo pesado (generar una temporada, montar los picks) despues de
@@ -34,6 +49,7 @@ export function useCalculoProgresivo<T>(
 ): T | undefined {
   const [datos, setDatos] = useState<T | undefined>(undefined);
   const primera = useRef(true);
+  const gen = useGeneracionDatos();
 
   useEffect(() => {
     let vivo = true;
@@ -58,7 +74,7 @@ export function useCalculoProgresivo<T>(
       clearTimeout(arranque);
     };
     // eslint-disable-next-line react-hooks/exhaustive-deps
-  }, deps);
+  }, [...deps, gen]);
 
   return datos;
 }
@@ -73,6 +89,7 @@ export function useCalculo<T>(calcula: () => T, deps: unknown[]): T | undefined 
    * "Analizando…" parpadeando encima de lo que el usuario estaba leyendo.
    */
   const primera = useRef(true);
+  const gen = useGeneracionDatos();
 
   useEffect(() => {
     let vivo = true;
@@ -89,7 +106,7 @@ export function useCalculo<T>(calcula: () => T, deps: unknown[]): T | undefined 
       clearTimeout(temporizador);
     };
     // eslint-disable-next-line react-hooks/exhaustive-deps
-  }, deps);
+  }, [...deps, gen]);
 
   return datos;
 }

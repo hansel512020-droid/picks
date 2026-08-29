@@ -5,7 +5,6 @@ import { ActivityIndicator, Platform, Text, View } from 'react-native';
 import { GestureHandlerRootView } from 'react-native-gesture-handler';
 import { SafeAreaProvider } from 'react-native-safe-area-context';
 import { Simbolo } from '@/componentes/marca';
-import { cuandoLlegueMasDato } from '@/datos/importado';
 import { cargaGuardados, descargaDatos } from '@/datos/remotos';
 import { ProveedorAvisos } from '@/estado/avisos';
 import { ProveedorComunidad } from '@/estado/comunidad';
@@ -160,11 +159,12 @@ function ConDatos({ children }: { children: React.ReactNode }) {
   const [listo, setListo] = useState(false);
 
   /*
-   * Cuando el detalle por jugador entra en segundo plano, se sube la versión
-   * para que las pantallas se repinten y aparezcan los picks de jugador. El
-   * núcleo ya se veía; esto solo añade.
+   * Cuando el detalle por jugador entra en segundo plano NO se remonta nada: los
+   * cálculos (`useCalculo`/`useCalculoProgresivo`) lo recogen solos y se rehacen
+   * en el sitio, conservando en pantalla lo que ya había. Remontar aquí hacía
+   * que los picks parecieran cargar dos veces. El `version` de abajo se reserva
+   * para el reemplazo completo del archivo, no para este añadido.
    */
-  useEffect(() => cuandoLlegueMasDato(() => setVersion((v) => v + 1)), []);
 
   useEffect(() => {
     let vivo = true;
