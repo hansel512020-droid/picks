@@ -611,12 +611,52 @@ export function posicionesEnLiga(t: Temporada, competicionId: string): Map<strin
   const cacheado = CLASIFICACIONES.get(competicionId);
   if (cacheado) return cacheado;
 
-  const equiposLiga = t.equipos.filter((e) => e.competicionId === competicionId);
+  /*
+   * Solo la temporada en curso.
+   *
+   * El archivo trae varias temporadas seguidas de cada liga —para el
+   * historial—, y sumar los puntos de todas daba una tabla sin sentido: una
+   * Premier con 400 partidos y 23 equipos, no los 380 y 20 de una temporada.
+   *
+   * La temporada en curso es el bloque de partidos más reciente. Se corta en el
+   * primer hueco largo yendo hacia atrás: el parón de verano entre una
+   * temporada y la siguiente pasa de cincuenta días, mientras que ni el parón
+   * de invierno ni un paréntesis de selecciones llegan a tanto. Sirve igual
+   * para las ligas de agosto a mayo y para las de año natural (Brasil, MLS,
+   * nórdicas), porque todas tienen su hueco.
+   */
+  const DIA = 86400000;
+  const finalizados = t.partidos
+    .filter((p) => p.competicionId === competicionId && p.estado === 'finalizado')
+    .sort((a, b) => b.fecha.localeCompare(a.fecha));
+  let corte: number | null = null;
+  for (let i = 1; i < finalizados.length; i++) {
+    const hueco =
+      new Date(finalizados[i - 1].fecha).getTime() - new Date(finalizados[i].fecha).getTime();
+    if (hueco > 50 * DIA) {
+      corte = new Date(finalizados[i - 1].fecha).getTime();
+      break;
+    }
+  }
+  const deLaTemporada = finalizados.filter(
+    (p) => corte === null || new Date(p.fecha).getTime() >= corte,
+  );
+
+  // Solo los equipos que han jugado esta temporada: los descendidos el año
+  // pasado siguen en los datos, y sin esto salían al fondo de la tabla con
+  // cero puntos como si aún compitieran.
+  const enJuego = new Set<string>();
+  for (const p of deLaTemporada) {
+    enJuego.add(p.localId);
+    enJuego.add(p.visitanteId);
+  }
+  const equiposLiga = t.equipos.filter(
+    (e) => e.competicionId === competicionId && enJuego.has(e.id),
+  );
   const acc = new Map<string, { pts: number; dg: number; gf: number }>();
   for (const e of equiposLiga) acc.set(e.id, { pts: 0, dg: 0, gf: 0 });
 
-  for (const p of t.partidos) {
-    if (p.competicionId !== competicionId || p.estado !== 'finalizado') continue;
+  for (const p of deLaTemporada) {
     const L = acc.get(p.localId);
     const V = acc.get(p.visitanteId);
     if (!L || !V) continue;
