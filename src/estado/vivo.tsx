@@ -477,7 +477,14 @@ export function usePicksVigentes<
     sujeto?: string;
     sujetoId?: string;
   },
->(picks: T[]): T[] {
+  /*
+   * En la ficha de un partido concreto se quiere ver lo que hay AHORA, aunque
+   * ya haya empezado: el usuario lo abrió para seguirlo en vivo, y quitarle
+   * todos los picks a los 25 minutos —dejando un "ya se han cumplido" con el
+   * marcador a cero— no tiene sentido. En la portada, en cambio, la tira mira
+   * al futuro y un partido ya empezado no pinta nada, así que ahí se descarta.
+   */
+>(picks: T[], mostrarEnVivo = false): T[] {
   const { porPartido, porEspn, resueltos } = useVivo();
 
   return useMemo(() => {
@@ -519,8 +526,12 @@ export function usePicksVigentes<
        * Cinco minutos de margen: los horarios de las fuentes bailan un poco y
        * no conviene tirar un pick de un partido que aun no ha arrancado.
        */
+      // En la ficha del partido no se descarta por haber empezado: se sigue en
+      // vivo. En la portada sí, que ahí solo cuenta lo que aún no arrancó.
       const empieza = new Date(partido.fecha).getTime();
-      if (Number.isFinite(empieza) && Date.now() > empieza + 5 * 60_000) return false;
+      if (!mostrarEnVivo && Number.isFinite(empieza) && Date.now() > empieza + 5 * 60_000) {
+        return false;
+      }
 
       // Si ESPN no lo tiene hoy, no hay nada que objetar: se queda.
       if (!vivo) return true;
@@ -557,7 +568,7 @@ export function usePicksVigentes<
 
       return true;
     });
-  }, [picks, porPartido, porEspn, resueltos]);
+  }, [picks, porPartido, porEspn, resueltos, mostrarEnVivo]);
 }
 
 /**

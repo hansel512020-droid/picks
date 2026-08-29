@@ -105,7 +105,9 @@ export default function PantallaPartido() {
 
   // Antes de los returns tempranos: los hooks no pueden quedarse a medias.
   const enDirecto = usePartidoVivoDe(datos?.partido);
-  const picksEnCartel = usePicksVigentes(picksVisibles);
+  // `true`: en la ficha del partido los picks se ven aunque ya haya empezado
+  // —se siguen en vivo—; solo se quitan los que de verdad ya se decidieron.
+  const picksEnCartel = usePicksVigentes(picksVisibles, true);
 
   /*
    * Global de la eliminatoria y tanda de penaltis. Se piden en cuanto el
