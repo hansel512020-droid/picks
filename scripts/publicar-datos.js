@@ -81,9 +81,9 @@ async function sube(supaUrl, serviceKey, nombre, contenido, tipo) {
  * archivo sigue estando. Y hay que borrar antes de subir porque `cp` no
  * sobrescribe.
  */
-function subeConLaCli(archivoGz) {
+function subeConLaCli(archivoGz, nombreDestino = 'importado.json.gz') {
   const { spawnSync } = require('node:child_process');
-  const destino = 'ss:///datos/importado.json.gz';
+  const destino = `ss:///datos/${nombreDestino}`;
   /*
    * Con `shell: true` a la fuerza: en Windows, Node se niega a ejecutar un
    * `.cmd` —y `npx` lo es— sin pasar por el intérprete, y falla con un EINVAL
@@ -108,7 +108,7 @@ function subeConLaCli(archivoGz) {
    */
   const origen = path.relative(RAIZ, archivoGz).split(path.sep).join('/');
 
-  process.stdout.write('Subiendo importado.json.gz… ');
+  process.stdout.write(`Subiendo ${nombreDestino}… `);
   const subida = corre([
     'storage', 'cp', origen, destino,
     '--content-type', 'application/gzip',
@@ -138,9 +138,42 @@ async function main() {
 
   console.log(`Original:   ${(crudo.length / 1024 / 1024).toFixed(1)} MB`);
   console.log(`Comprimido: ${(comprimido.length / 1024 / 1024).toFixed(1)} MB`);
+
+  /*
+   * Además del archivo completo, se sube partido en dos:
+   *
+   *  · nucleo  — todas las competiciones con sus equipos y partidos, pero SIN
+   *              el detalle por jugador. Es lo que la app baja primero: basta
+   *              para la portada, las tablas, el historial de equipo y los
+   *              picks de equipo, y pesa la mitad, así que abre el doble de
+   *              rápido.
+   *  · detalle — solo los jugadores y sus registros, por competición. La app lo
+   *              baja después, en segundo plano, y con él aparecen los picks de
+   *              jugador.
+   *
+   * El completo se sigue subiendo como respaldo: una app que no encuentre el
+   * núcleo tira de él, como hasta ahora. No se recorta ningún dato: es el mismo,
+   * repartido en dos.
+   */
+  const datos = JSON.parse(crudo);
+  const nucleo = { ...datos, competiciones: {} };
+  const detalle = { actualizado: datos.actualizado, competiciones: {} };
+  for (const [id, c] of Object.entries(datos.competiciones ?? {})) {
+    nucleo.competiciones[id] = { ...c, jugadores: [], registros: [] };
+    detalle.competiciones[id] = { jugadores: c.jugadores ?? [], registros: c.registros ?? [] };
+  }
+  const gzNucleo = zlib.gzipSync(Buffer.from(JSON.stringify(nucleo)), { level: 9 });
+  const gzDetalle = zlib.gzipSync(Buffer.from(JSON.stringify(detalle)), { level: 9 });
+  const nucleoGz = path.join(RAIZ, 'src', 'datos', 'nucleo.json.gz');
+  const detalleGz = path.join(RAIZ, 'src', 'datos', 'detalle.json.gz');
+  fs.writeFileSync(nucleoGz, gzNucleo);
+  fs.writeFileSync(detalleGz, gzDetalle);
+  console.log(`Núcleo:     ${(gzNucleo.length / 1024 / 1024).toFixed(1)} MB · Detalle: ${(gzDetalle.length / 1024 / 1024).toFixed(1)} MB`);
   console.log('');
 
-  subeConLaCli(archivoGz);
+  subeConLaCli(archivoGz, 'importado.json.gz');
+  subeConLaCli(nucleoGz, 'nucleo.json.gz');
+  subeConLaCli(detalleGz, 'detalle.json.gz');
 
   console.log('\nPublicado. Los usuarios recibirán la versión nueva en su próxima visita.');
 }

@@ -67,6 +67,47 @@ export function cuandoCambienLosDatos(rehacer: () => void): void {
   alCambiar.push(rehacer);
 }
 
+/*
+ * Avisos de "ha llegado más dato", para repintar la app.
+ *
+ * El archivo se baja en dos piezas: primero el núcleo —equipos y partidos de
+ * todas las competiciones, que basta para la portada, las tablas y los picks de
+ * equipo— y después, en segundo plano, el detalle por jugador. Cuando el
+ * detalle entra hay que repintar para que aparezcan los picks de jugador, y de
+ * eso avisa esto. `cuandoCambienLosDatos` tira cachés; esto además repinta.
+ */
+const alLlegarMas: (() => void)[] = [];
+
+/** Se llama cuando llega dato nuevo y hay que repintar. Devuelve cómo darse de baja. */
+export function cuandoLlegueMasDato(repinta: () => void): () => void {
+  alLlegarMas.push(repinta);
+  return () => {
+    const i = alLlegarMas.indexOf(repinta);
+    if (i >= 0) alLlegarMas.splice(i, 1);
+  };
+}
+
+/**
+ * Pega el detalle por jugador (jugadores y registros) sobre el núcleo ya
+ * cargado. Es la segunda pieza de la descarga: llega después y sin ella la app
+ * ya funciona, solo que sin picks de jugador.
+ */
+export function fusionaDetalle(detalle: unknown): void {
+  const d = detalle as { competiciones?: Record<string, Partial<CompeticionImportada>> };
+  const comps = d?.competiciones;
+  if (!comps) return;
+  for (const [id, parte] of Object.entries(comps)) {
+    const c = ARCHIVO.competiciones?.[id];
+    if (!c) continue;
+    if (parte.jugadores) c.jugadores = parte.jugadores as CompeticionImportada['jugadores'];
+    if (parte.registros) c.registros = parte.registros as CompeticionImportada['registros'];
+  }
+  CACHE.clear();
+  HISTORIALES.clear();
+  for (const rehacer of alCambiar) rehacer();
+  for (const repinta of alLlegarMas) repinta();
+}
+
 /**
  * Sustituye los datos por otros recién descargados.
  *

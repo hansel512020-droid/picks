@@ -1,6 +1,6 @@
 import AsyncStorage from '@react-native-async-storage/async-storage';
 import { guardaGrande, leeGrande } from './almacen';
-import { aplicaDatos } from './importado';
+import { aplicaDatos, fusionaDetalle } from './importado';
 import { aplicaLogos } from './imagenes';
 
 /**
@@ -26,13 +26,26 @@ const CLAVE = 'scout-picks/datos-v1';
 const CLAVE_FECHA = 'scout-picks/datos-fecha';
 /** El sello del archivo que se tiene guardado, para preguntar si cambió. */
 const CLAVE_SELLO = 'scout-picks/datos-sello';
+/*
+ * El archivo se baja en dos piezas: el núcleo (equipos y partidos de todas las
+ * competiciones) y el detalle (jugadores y registros). Cada uno se guarda por
+ * separado, para que el arranque cargue primero el núcleo —la mitad— y el
+ * detalle entre después sin bloquear.
+ */
+const CLAVE_NUCLEO = 'scout-picks/nucleo-v1';
+const CLAVE_DETALLE = 'scout-picks/detalle-v1';
+const CLAVE_SELLO_NUCLEO = 'scout-picks/nucleo-sello';
 
 const URL = process.env.EXPO_PUBLIC_SUPABASE_URL?.replace(/\/+$/, '');
-const RUTA = `${URL}/storage/v1/object/public/datos/importado.json`;
-/** El mismo archivo comprimido: 3,8 MB en vez de 70. */
+const BASE = `${URL}/storage/v1/object/public/datos`;
+const RUTA = `${BASE}/importado.json`;
+/** El archivo completo comprimido. Es el respaldo si el núcleo no está. */
 const RUTA_GZ = `${RUTA}.gz`;
+/** Núcleo y detalle, las dos piezas nuevas. */
+const RUTA_NUCLEO = `${BASE}/nucleo.json.gz`;
+const RUTA_DETALLE = `${BASE}/detalle.json.gz`;
 /** Catálogo de escudos y caras. Son solo direcciones: pesa unos cientos de kB. */
-const RUTA_LOGOS = `${URL}/storage/v1/object/public/datos/logos.json`;
+const RUTA_LOGOS = `${BASE}/logos.json`;
 
 /**
  * Baja el archivo, comprimido si se puede.
@@ -88,6 +101,30 @@ async function bajaArchivo(selloPrevio: string | null): Promise<Bajada> {
 }
 
 /**
+ * Baja un `.gz` cualquiera (núcleo o detalle) y lo descomprime.
+ *
+ * Devuelve `null` si no se puede —no existe, o el navegador no descomprime—,
+ * para que quien llame recurra al archivo completo. Estos dos solo están
+ * comprimidos, así que sin `DecompressionStream` no hay forma: se usa el
+ * respaldo.
+ */
+async function bajaGz(ruta: string, selloPrevio: string | null): Promise<Bajada> {
+  if (typeof DecompressionStream === 'undefined') return null;
+  const cabeceras: Record<string, string> = selloPrevio ? { 'If-None-Match': selloPrevio } : {};
+  try {
+    const r = await fetch(ruta, { cache: 'no-store', headers: cabeceras });
+    if (r.status === 304) return 'igual';
+    if (r.ok && r.body) {
+      const flujo = r.body.pipeThrough(new DecompressionStream('gzip'));
+      return { texto: await new Response(flujo).text(), sello: r.headers.get('etag') };
+    }
+  } catch {
+    // Cae a null: el que llama tira del completo.
+  }
+  return null;
+}
+
+/**
  * Cada cuánto se vuelve a preguntar, como mucho.
  *
  * Eran seis horas, y con eso una competición o unos resultados recién
@@ -106,6 +143,23 @@ const CADA = 15 * 60 * 1000;
  */
 export async function cargaGuardados(): Promise<boolean> {
   try {
+    // Primero el núcleo, que es la mitad y hace que la app abra ya. El detalle
+    // por jugador se pega después, sin bloquear.
+    const nucleo = await leeGrande(CLAVE_NUCLEO);
+    if (nucleo) {
+      aplicaDatos(JSON.parse(nucleo));
+      (async () => {
+        try {
+          const det = await leeGrande(CLAVE_DETALLE);
+          if (det) fusionaDetalle(JSON.parse(det));
+        } catch {
+          // Sin detalle guardado: la app queda con los picks de equipo hasta
+          // que la descarga traiga el detalle.
+        }
+      })();
+      return true;
+    }
+    // Respaldo: el archivo completo que guardaba una versión anterior de la app.
     const crudo = await leeGrande(CLAVE);
     if (!crudo) return false;
     aplicaDatos(JSON.parse(crudo));
@@ -133,38 +187,66 @@ export async function descargaDatos(forzar = false): Promise<boolean> {
       if (ultima && Date.now() - ultima < CADA) return false;
     }
 
+    const selloPrevio = await AsyncStorage.getItem(CLAVE_SELLO_NUCLEO);
+    const bajada = await bajaGz(RUTA_NUCLEO, selloPrevio);
+
+    // Sin núcleo —no está publicado todavía, o el navegador no descomprime— se
+    // tira del archivo completo, como antes de partirlo en dos. Respaldo total.
+    if (bajada === null) return descargaCompleto();
+
+    if (bajada === 'igual') {
+      await AsyncStorage.setItem(CLAVE_FECHA, String(Date.now()));
+      return false;
+    }
+
+    // Una respuesta cortada rompería el JSON: se comprueba antes de tocar nada.
+    const datos = JSON.parse(bajada.texto);
+    if (!datos?.competiciones || !Object.keys(datos.competiciones).length) return false;
+
+    aplicaDatos(datos);
+    // Guardar es un extra: si el navegador no tiene sitio, no pasa nada. Se
+    // intenta aparte para que un fallo al guardar no descarte los datos buenos.
+    guardaSiCabe(CLAVE_NUCLEO, bajada.texto, CLAVE_SELLO_NUCLEO, bajada.sello);
+    descargaLogos();
+
+    /*
+     * El detalle por jugador, en segundo plano. No bloquea el repintado del
+     * núcleo: la app ya se ve con los picks de equipo, y los de jugador
+     * aparecen cuando el detalle entra. `fusionaDetalle` avisa para repintar.
+     */
+    (async () => {
+      try {
+        const det = await bajaGz(RUTA_DETALLE, null);
+        if (det && det !== 'igual') {
+          fusionaDetalle(JSON.parse(det.texto));
+          guardaSiCabe(CLAVE_DETALLE, det.texto, null, null);
+        }
+      } catch {
+        // Sin detalle: la app se queda con los picks de equipo, que ya es útil.
+      }
+    })();
+
+    return true;
+  } catch {
+    return false;
+  }
+}
+
+/** Respaldo: baja el archivo completo de una vez, como antes de partirlo. */
+async function descargaCompleto(): Promise<boolean> {
+  try {
     const selloPrevio = await AsyncStorage.getItem(CLAVE_SELLO);
     const bajada = await bajaArchivo(selloPrevio);
     if (!bajada) return false;
     if (bajada === 'igual') {
-      // Sin novedad: se apunta la hora para no volver a preguntar enseguida.
       await AsyncStorage.setItem(CLAVE_FECHA, String(Date.now()));
       return false;
     }
     const { texto, sello } = bajada;
-
-    // Una respuesta cortada a medias rompería el JSON y dejaría la app sin
-    // datos: se comprueba que se puede leer antes de tocar nada.
     const datos = JSON.parse(texto);
     if (!datos?.competiciones || !Object.keys(datos.competiciones).length) return false;
-
     aplicaDatos(datos);
-
-    /*
-     * Guardar es un extra, no parte del trabajo.
-     *
-     * Antes iba en el mismo `try` y arruinaba todo: el archivo son 76 MB, el
-     * navegador no guarda más de 10, y al reventar caía en el `catch` que
-     * devolvía `false`. Los datos buenos ya estaban aplicados, pero quien
-     * llamaba entendía "no hay nada nuevo" y no repintaba. Resultado: la web
-     * descargaba los resultados de verdad y seguía enseñando los de relleno,
-     * cada vez, para todo el mundo.
-     *
-     * Ahora se intenta aparte y si falla no pasa nada: se pierde el arranque
-     * rápido de la próxima visita, no los datos de esta.
-     */
-    guardaSiCabe(texto, sello);
-    // Las caras van aparte y son pequeñas. Que fallen no debe tocar los datos.
+    guardaSiCabe(CLAVE, texto, CLAVE_SELLO, sello);
     descargaLogos();
     return true;
   } catch {
@@ -199,10 +281,15 @@ async function descargaLogos(): Promise<void> {
  * navegador y no hay forma fiable de preguntárselo: se intenta y se acepta el
  * no por respuesta.
  */
-async function guardaSiCabe(texto: string, sello: string | null): Promise<void> {
+async function guardaSiCabe(
+  claveDatos: string,
+  texto: string,
+  claveSello: string | null,
+  sello: string | null,
+): Promise<void> {
   try {
-    // IndexedDB en el navegador: localStorage no admite 76 MB.
-    if (!(await guardaGrande(CLAVE, texto))) return;
+    // IndexedDB en el navegador: localStorage no admite tantos megas.
+    if (!(await guardaGrande(claveDatos, texto))) return;
     await AsyncStorage.setItem(CLAVE_FECHA, String(Date.now()));
     /*
      * El sello se guarda junto al archivo, no antes: solo vale si de verdad
@@ -210,8 +297,10 @@ async function guardaSiCabe(texto: string, sello: string | null): Promise<void> 
      * app diría "ya lo tengo" de algo que no llegó a guardar y se quedaría con
      * los datos viejos sin volver a pedirlos.
      */
-    if (sello) await AsyncStorage.setItem(CLAVE_SELLO, sello);
-    else await AsyncStorage.removeItem(CLAVE_SELLO);
+    if (claveSello) {
+      if (sello) await AsyncStorage.setItem(claveSello, sello);
+      else await AsyncStorage.removeItem(claveSello);
+    }
   } catch {
     // Sin sitio. La app funciona igual, solo tarda más en arrancar la próxima
     // vez porque vuelve a descargar en lugar de leer lo guardado.
