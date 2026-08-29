@@ -225,26 +225,35 @@ export function compruebaPick(
     return { resultado: 'pendiente' };
   }
 
-  // 1X2 se decide con el marcador.
+  // 1X2 —incluida la doble oportunidad— se decide con el marcador.
   if (guardado.pickId.includes('-1x2-')) {
-    if (guardado.mercado === 'Empate') {
-      return {
-        resultado: resumen.golesLocal === resumen.golesVisitante ? 'ganado' : 'perdido',
-      };
-    }
+    const empate = resumen.golesLocal === resumen.golesVisitante;
+    const ganaLocal = resumen.golesLocal > resumen.golesVisitante;
+    const ganaVisitante = resumen.golesVisitante > resumen.golesLocal;
+    const m = guardado.mercado;
+    const nLocal = limpio(resumen.nombreLocal);
     /*
-     * De qué equipo hablaba el pick. El mercado dice "Gana <club>" con el
-     * nombre entero, así que se compara normalizado contra los dos nombres de
-     * ESPN y gana el que más se parezca. Antes se miraban las tres primeras
-     * letras del local, y bastaba con que aparecieran en cualquier parte del
-     * texto para dar por bueno el equipo equivocado.
+     * Los seis mercados del 1X2. Antes solo se resolvían "Empate" y "Gana
+     * <club>": la doble oportunidad ("X gana o empata", "gana uno de los dos")
+     * caía al caso recto y un empate —que la cubre— salía perdido.
+     *
+     * De qué equipo habla se saca del nombre entero, que es el que va en el
+     * texto, comparado normalizado contra los nombres de ESPN.
      */
-    const dicho = limpio(guardado.mercado.replace(/^Gana\s+/i, ''));
-    const esLocal = dicho.includes(limpio(resumen.nombreLocal)) ||
-      limpio(resumen.nombreLocal).includes(dicho);
-    const gana = esLocal
-      ? resumen.golesLocal > resumen.golesVisitante
-      : resumen.golesVisitante > resumen.golesLocal;
+    let gana: boolean;
+    if (m === 'Empate') {
+      gana = empate;
+    } else if (m === 'Gana uno de los dos (sin empate)') {
+      gana = !empate;
+    } else if (/gana o empata/i.test(m)) {
+      const txt = limpio(m.replace(/\s*gana o empata\s*$/i, ''));
+      const esLocal = txt === nLocal || nLocal.includes(txt) || txt.includes(nLocal);
+      gana = esLocal ? ganaLocal || empate : ganaVisitante || empate;
+    } else {
+      const dicho = limpio(m.replace(/^Gana\s+/i, ''));
+      const esLocal = dicho.includes(nLocal) || nLocal.includes(dicho);
+      gana = esLocal ? ganaLocal : ganaVisitante;
+    }
     return { resultado: gana ? 'ganado' : 'perdido' };
   }
 

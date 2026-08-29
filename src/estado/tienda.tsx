@@ -170,15 +170,32 @@ function resuelve(guardado: PickGuardado): { resultado: ResultadoPick; valorReal
     return { resultado: dif > linea ? 'ganado' : 'perdido', valorReal: dif };
   }
 
-  // 1X2 se resuelve mirando el marcador.
+  // 1X2 —incluida la doble oportunidad— se resuelve mirando el marcador.
   if (guardado.pickId.includes('-1x2-')) {
     const local = t.porEquipo.get(partido.localId);
-    const gana =
-      guardado.mercado === 'Empate'
-        ? partido.golesLocal === partido.golesVisitante
-        : guardado.mercado.includes(local?.corto ?? '@@')
-          ? partido.golesLocal > partido.golesVisitante
-          : partido.golesVisitante > partido.golesLocal;
+    const L = partido.golesLocal;
+    const V = partido.golesVisitante;
+    const empate = L === V;
+    const ganaLocal = L > V;
+    const ganaVisitante = V > L;
+    const m = guardado.mercado;
+    /*
+     * Los seis mercados que genera el 1X2, resueltos por el NOMBRE COMPLETO del
+     * equipo —que es el que va en el texto—, no por las siglas.
+     *
+     * Antes solo se miraban tres (gana local / empate / gana visitante), y con
+     * las siglas, que ni siquiera están en el texto. La doble oportunidad
+     * "X gana o empata" caía al último caso y se leía como "gana el visitante",
+     * así que un empate —que la cubre— salía PERDIDO: fue lo que marcó
+     * "Nottingham Forest gana o empata" como fallado después de un empate, y de
+     * paso falseaba el rendimiento.
+     */
+    let gana: boolean;
+    if (m === 'Empate') gana = empate;
+    else if (m === 'Gana uno de los dos (sin empate)') gana = !empate;
+    else if (m.endsWith('gana o empata'))
+      gana = m.startsWith(local?.nombre ?? '\0') ? ganaLocal || empate : ganaVisitante || empate;
+    else gana = m === `Gana ${local?.nombre}` ? ganaLocal : ganaVisitante;
     return { resultado: gana ? 'ganado' : 'perdido' };
   }
 
