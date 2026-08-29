@@ -173,10 +173,17 @@ export function CarruselProximos() {
 
   if (!partidos.length) return null;
 
+  // Ya empezó, aunque ESPN todavía no haya mandado el minuto: pasó su hora.
+  const empezado = (p: (typeof partidos)[number]) =>
+    new Date(p.fecha).getTime() < Date.now() - 3 * 60_000;
+
   const cuando = (p: (typeof partidos)[number]) => {
     if (p.estado === 'descanso') return 'DESCANSO';
     if (p.estado === 'penales') return 'PENALTIS';
     if (p.estado === 'en_curso') return `${p.reloj ?? p.minuto ?? ''}'`;
+    // Empezó pero aún sin minuto del directo: no se enseña su hora como si
+    // fuera a jugarse —eso hacía que un partido ya en marcha pareciera pasado—.
+    if (empezado(p)) return 'EN JUEGO';
     const d = new Date(p.fecha);
     const hoy = new Date();
     const hora = `${String(d.getHours()).padStart(2, '0')}:${String(d.getMinutes()).padStart(2, '0')}`;
@@ -190,7 +197,7 @@ export function CarruselProximos() {
   return (
     <TiraChips>
       {partidos.map((p) => {
-        const vivo = seJuegaAhora(p.estado);
+        const vivo = seJuegaAhora(p.estado) || empezado(p);
         return (
           <Pulsable
             key={`${p.competicionId}-${p.partidoId}`}
