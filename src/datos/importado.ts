@@ -387,6 +387,15 @@ const RELLENO = new Set([
   'eslovenia', 'eslovaquia',
 ]);
 
+/**
+ * Si una competición está solo para dar historial y NO se enseña. Se usa para
+ * no preguntarle a ESPN sus marcadores en vivo: no se ven, así que consultarlos
+ * es gastar peticiones —y muchas dan 400, porque ESPN ni tiene esos slugs—.
+ */
+export function esSoloRelleno(competicionId: string): boolean {
+  return RELLENO.has(competicionId);
+}
+
 export function proximosDeTodas(limite = 30): ProximoPartido[] {
   const salida: ProximoPartido[] = [];
 

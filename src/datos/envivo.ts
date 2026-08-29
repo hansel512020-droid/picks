@@ -1,4 +1,4 @@
-import { competicionesImportadas } from './importado';
+import { competicionesImportadas, esSoloRelleno } from './importado';
 
 /**
  * Datos en vivo pedidos por la propia app, no por el importador.
@@ -196,7 +196,11 @@ export async function partidosDeHoy(
   competiciones?: string[],
 ): Promise<Map<string, PartidoVivo>> {
   const mapa = new Map<string, PartidoVivo>();
-  const ids = (competiciones ?? competicionesImportadas()).filter((id) => LIGAS[id]);
+  // Las ligas ocultas (solo contexto) no se preguntan: no se enseñan sus
+  // partidos, y varias ni existen en ESPN, así que solo darían errores 400.
+  const ids = (competiciones ?? competicionesImportadas()).filter(
+    (id) => LIGAS[id] && !esSoloRelleno(id),
+  );
   const TANDA = 12;
 
   for (let i = 0; i < ids.length; i += TANDA) {
