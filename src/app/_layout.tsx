@@ -15,6 +15,24 @@ import { ProveedorTienda, useTienda } from '@/estado/tienda';
 import { ProveedorVivo } from '@/estado/vivo';
 import { C, E } from '@/tema';
 
+/*
+ * La versión de los datos, para repintar cuando llegan unos nuevos.
+ *
+ * Antes esto era un `key` sobre TODO el árbol —proveedores incluidos—, así que
+ * al llegar datos frescos del servidor se remontaba la app entera: la sesión y
+ * los derechos se recargaban, y la pantalla de carga volvía a salir con la app
+ * ya abierta. Se veía como "se carga dos veces". Ahora la versión viaja por
+ * contexto y solo remonta las pantallas (más abajo, con `Versionado`), no los
+ * proveedores, que se quedan montados y no vuelven a cargar nada.
+ */
+const CtxVersionDatos = React.createContext(0);
+
+/** Remonta a sus hijos cuando cambia la versión de los datos, y nada más. */
+function Versionado({ children }: { children: React.ReactNode }) {
+  const version = React.useContext(CtxVersionDatos);
+  return <React.Fragment key={version}>{children}</React.Fragment>;
+}
+
 /** Pantalla de carga mientras se lee el estado guardado. */
 function Cargando() {
   return (
@@ -180,7 +198,9 @@ function ConDatos({ children }: { children: React.ReactNode }) {
     );
   }
 
-  return <React.Fragment key={version}>{children}</React.Fragment>;
+  // La versión viaja por contexto; el remonte se hace abajo, solo alrededor de
+  // las pantallas, para no arrastrar a los proveedores.
+  return <CtxVersionDatos.Provider value={version}>{children}</CtxVersionDatos.Provider>;
 }
 
 export default function Raiz() {
@@ -198,7 +218,9 @@ export default function Raiz() {
                 {/* Sube y baja los picks del usuario mientras la app vive. */}
                 <Sincroniza />
                 <MarcoMovil>
-                  <Puerta />
+                  <Versionado>
+                    <Puerta />
+                  </Versionado>
                 </MarcoMovil>
               </ProveedorVivo>
             </ProveedorComunidad>
