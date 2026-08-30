@@ -25,7 +25,7 @@ import { competicion } from '@/datos/competiciones';
 import { partidosDelEquipoEnTodas } from '@/datos/importado';
 import { extrasDelPartido, type Extras } from '@/datos/penales';
 import { alineacion, lesiones, posicionesEnLiga, temporada } from '@/datos/motor';
-import { FAMILIAS, picksDePartido } from '@/datos/picks';
+import { desglose1x2, FAMILIAS, picksDePartido } from '@/datos/picks';
 import type { Familia } from '@/datos/tipos';
 import { useDerechos } from '@/estado/derechos';
 import { useTienda } from '@/estado/tienda';
@@ -585,6 +585,79 @@ export default function PantallaPartido() {
 
         {vista === 'cuotas' ? (
           <View style={{ paddingHorizontal: E.lg, gap: E.lg }}>
+            {/*
+              El 1X2 completo, para enseñar. La portada solo publica lo que tiene
+              ventaja —casi siempre la doble oportunidad del equipo flojo—, así
+              que parecía que no había mercado de "quién gana". Aquí salen las
+              seis opciones con su probabilidad y su cuota, y la de valor marcada.
+            */}
+            {(() => {
+              const ops = desglose1x2(competicionId, partidoId, ajustes.casaId);
+              if (!ops.length) return null;
+              return (
+                <Tarjeta style={{ overflow: 'hidden' }}>
+                  <View
+                    style={{
+                      flexDirection: 'row',
+                      paddingHorizontal: E.md,
+                      paddingVertical: 10,
+                      backgroundColor: C.carta2,
+                    }}
+                  >
+                    <Txt v="mini" color={C.texto3} style={{ flex: 1 }}>
+                      RESULTADO (1X2)
+                    </Txt>
+                    <Txt v="mini" color={C.texto3} style={{ width: 52, textAlign: 'center' }}>
+                      MODELO
+                    </Txt>
+                    <Txt v="mini" color={C.texto3} style={{ width: 52, textAlign: 'center' }}>
+                      CUOTA
+                    </Txt>
+                  </View>
+                  {ops.map((o, i) => (
+                    <View key={o.nombre}>
+                      {i > 0 ? <Separador /> : null}
+                      <View
+                        style={{
+                          flexDirection: 'row',
+                          alignItems: 'center',
+                          paddingHorizontal: E.md,
+                          paddingVertical: 12,
+                          gap: E.sm,
+                        }}
+                      >
+                        <View
+                          style={{
+                            flex: 1,
+                            flexDirection: 'row',
+                            alignItems: 'center',
+                            gap: 6,
+                            flexWrap: 'wrap',
+                          }}
+                        >
+                          <Txt v="pequeno" numberOfLines={1}>
+                            {o.nombre}
+                          </Txt>
+                          {o.valor ? (
+                            <Insignia texto="VALOR" color={C.lima} fondo={C.limaTenue} />
+                          ) : null}
+                        </View>
+                        <Txt
+                          v="cuerpoFuerte"
+                          color={o.valor ? C.lima : C.texto}
+                          style={{ width: 52, textAlign: 'center' }}
+                        >
+                          {(o.probModelo * 100).toFixed(0)}%
+                        </Txt>
+                        <Txt v="cuerpoFuerte" style={{ width: 52, textAlign: 'center' }}>
+                          {o.cuota.toFixed(2)}
+                        </Txt>
+                      </View>
+                    </View>
+                  ))}
+                </Tarjeta>
+              );
+            })()}
             <Tarjeta style={{ overflow: 'hidden' }}>
               <View
                 style={{

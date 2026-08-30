@@ -1741,6 +1741,87 @@ export function* picksDeCompeticionPorTrozos(
   return entregados.slice(0, tope);
 }
 
+export interface Opcion1x2 {
+  nombre: string;
+  cuota: number;
+  /** Probabilidad del modelo (0-1). En las de valor, la ajustada del pick. */
+  probModelo: number;
+  /** Ventaja sobre el precio, en puntos. */
+  ventaja: number;
+  /** Si el modelo la recomienda: tiene ventaja de sobra sobre la cuota. */
+  valor: boolean;
+}
+
+/**
+ * Las seis opciones del 1X2 de un partido, PARA ENSEÑAR —no para el feed—.
+ *
+ * El feed solo publica lo que tiene ventaja (casi siempre la doble oportunidad
+ * del equipo infravalorado), y por eso da la impresión de que solo existe ese
+ * mercado. Esto devuelve las seis: gana local, empate, gana visitante, las dos
+ * dobles oportunidades y "gana uno de los dos". Cada una con su probabilidad y
+ * su cuota, y marcada la que el modelo recomienda.
+ *
+ * La probabilidad de las que NO tienen valor es la que implica el propio precio
+ * quitándole el margen de la casa —la estimación honesta del mercado—; la de
+ * las que sí, la del modelo, que es justo la que las hace valor.
+ */
+export function desglose1x2(competicionId: string, partidoId: string, casaId: string): Opcion1x2[] {
+  const t = temporada(competicionId);
+  const partido = t.porPartido.get(partidoId);
+  if (!partido) return [];
+  const local = t.porEquipo.get(partido.localId);
+  const visitante = t.porEquipo.get(partido.visitanteId);
+  if (!local || !visitante) return [];
+  const c = partido.cuotas;
+  if (!c || !(c.local > 1 && c.empate > 1 && c.visitante > 1)) return [];
+
+  const impl = (x: number) => 1 / x;
+  // La suma de los tres básicos lleva el margen de la casa; se normaliza con
+  // ella para que las probabilidades enseñadas sumen 100%.
+  const suma = impl(c.local) + impl(c.empate) + impl(c.visitante);
+  const norm = (p: number) => p / suma;
+
+  const base = [
+    { nombre: `Gana ${local.nombre}`, cuota: c.local, prob: norm(impl(c.local)) },
+    { nombre: 'Empate', cuota: c.empate, prob: norm(impl(c.empate)) },
+    { nombre: `Gana ${visitante.nombre}`, cuota: c.visitante, prob: norm(impl(c.visitante)) },
+    {
+      nombre: `${local.nombre} gana o empata`,
+      cuota: dobleOportunidad(c.local, c.empate),
+      prob: norm(impl(c.local) + impl(c.empate)),
+    },
+    {
+      nombre: `${visitante.nombre} gana o empata`,
+      cuota: dobleOportunidad(c.visitante, c.empate),
+      prob: norm(impl(c.visitante) + impl(c.empate)),
+    },
+    {
+      nombre: 'Gana uno de los dos (sin empate)',
+      cuota: dobleOportunidad(c.local, c.visitante),
+      prob: norm(impl(c.local) + impl(c.visitante)),
+    },
+  ];
+
+  // Las que el motor recomienda traen su probabilidad ajustada y su ventaja.
+  const recomendados = new Map<string, Pick>();
+  for (const p of picksDePartido(competicionId, partidoId, casaId, new Set(['*']))) {
+    if (p.metrica === '1x2') recomendados.set(p.mercado, p);
+  }
+
+  return base
+    .filter((o) => o.cuota > 1)
+    .map((o) => {
+      const rec = recomendados.get(o.nombre);
+      return {
+        nombre: o.nombre,
+        cuota: o.cuota,
+        probModelo: rec ? rec.probabilidad : o.prob,
+        ventaja: rec ? rec.ventaja : Number(((o.prob - impl(o.cuota)) * 100).toFixed(1)),
+        valor: !!rec,
+      };
+    });
+}
+
 /** Los picks que mas ha guardado la comunidad. */
 export function picksComunidad(competicionId: string, casaId: string, limite = 40): Pick[] {
   const todos = picksDeCompeticion(competicionId, casaId, 200);
