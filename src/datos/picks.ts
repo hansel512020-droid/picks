@@ -1753,13 +1753,14 @@ export interface Opcion1x2 {
 }
 
 /**
- * Las seis opciones del 1X2 de un partido, PARA ENSEÑAR —no para el feed—.
+ * Las opciones del 1X2 de un partido, PARA ENSEÑAR —no para el feed—.
  *
  * El feed solo publica lo que tiene ventaja (casi siempre la doble oportunidad
  * del equipo infravalorado), y por eso da la impresión de que solo existe ese
- * mercado. Esto devuelve las seis: gana local, empate, gana visitante, las dos
- * dobles oportunidades y "gana uno de los dos". Cada una con su probabilidad y
- * su cuota, y marcada la que el modelo recomienda.
+ * mercado. Esto devuelve las cinco que sí ofrecen las casas: gana local,
+ * empate, gana visitante y las dos dobles oportunidades ("gana uno de los dos
+ * sin empate" no la ofrece casi nadie, así que fuera). Cada una con su
+ * probabilidad y su cuota, y marcada la que el modelo recomienda.
  *
  * La probabilidad de las que NO tienen valor es la que implica el propio precio
  * quitándole el margen de la casa —la estimación honesta del mercado—; la de
@@ -1794,11 +1795,6 @@ export function desglose1x2(competicionId: string, partidoId: string, casaId: st
       nombre: `${visitante.nombre} gana o empata`,
       cuota: dobleOportunidad(c.visitante, c.empate),
       prob: norm(impl(c.visitante) + impl(c.empate)),
-    },
-    {
-      nombre: 'Gana uno de los dos (sin empate)',
-      cuota: dobleOportunidad(c.local, c.visitante),
-      prob: norm(impl(c.local) + impl(c.visitante)),
     },
   ];
 
