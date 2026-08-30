@@ -48,6 +48,17 @@ export function ProveedorComunidad({ children }: { children: ReactNode }) {
   // Lo que está esperando a pedirse y lo que ya se pidió alguna vez.
   const pendientes = useRef<Set<string>>(new Set());
   const pedidos = useRef<Set<string>>(new Set());
+  /*
+   * Los picks que el propio usuario acaba de guardar en esta sesión.
+   *
+   * El recuento del servidor tarda un instante en reflejar un guardado recién
+   * hecho, y una recarga periódica que llegue en ese hueco devolvía la cifra
+   * vieja y pisaba el +1 que ya se había mostrado: el 🔥 subía y volvía a bajar,
+   * o parecía no subir hasta recargar. Para lo que es MÍO, la recarga nunca
+   * baja por debajo de lo que ya tengo; cuando el servidor se pone al día, la
+   * cifra coincide y no hay conflicto.
+   */
+  const mios = useRef<Set<string>>(new Set());
   const temporizador = useRef<ReturnType<typeof setTimeout> | null>(null);
 
   const vaciaCola = useCallback(async () => {
@@ -58,8 +69,12 @@ export function ProveedorComunidad({ children }: { children: ReactNode }) {
     setCuentas((prev) => {
       const salida = { ...prev };
       // Un pick que nadie ha guardado no viene en la respuesta: es un cero,
-      // no un "no se sabe".
-      for (const id of ids) salida[id] = nuevos[id] ?? 0;
+      // no un "no se sabe". Pero lo que el usuario acaba de guardar no baja por
+      // debajo de lo que ya se le enseñó, aunque el servidor aún no lo cuente.
+      for (const id of ids) {
+        const servidor = nuevos[id] ?? 0;
+        salida[id] = mios.current.has(id) ? Math.max(servidor, prev[id] ?? 0) : servidor;
+      }
       return salida;
     });
   }, []);
@@ -109,7 +124,10 @@ export function ProveedorComunidad({ children }: { children: ReactNode }) {
       const nuevos = await contadores(ids);
       setCuentas((prev) => {
         const salida = { ...prev };
-        for (const id of ids) salida[id] = nuevos[id] ?? 0;
+        for (const id of ids) {
+          const servidor = nuevos[id] ?? 0;
+          salida[id] = mios.current.has(id) ? Math.max(servidor, prev[id] ?? 0) : servidor;
+        }
         return salida;
       });
     }, CADA_REFRESCO);
@@ -119,6 +137,8 @@ export function ProveedorComunidad({ children }: { children: ReactNode }) {
 
   const suma = useCallback((pickId: string, competicionId: string) => {
     if (!COMUNIDAD_ACTIVA) return;
+    // Es mío: que ninguna recarga lo baje por debajo de esto.
+    mios.current.add(pickId);
     // Sube al momento y luego se confirma: la app no espera al servidor.
     setCuentas((prev) => ({ ...prev, [pickId]: (prev[pickId] ?? 0) + 1 }));
     anotaGuardado(pickId, competicionId, sesion?.id).then((bien) => {
@@ -128,6 +148,8 @@ export function ProveedorComunidad({ children }: { children: ReactNode }) {
 
   const resta = useCallback((pickId: string) => {
     if (!COMUNIDAD_ACTIVA) return;
+    // Deja de ser mío: la recarga ya puede bajarlo.
+    mios.current.delete(pickId);
     setCuentas((prev) => ({ ...prev, [pickId]: Math.max(0, (prev[pickId] ?? 1) - 1) }));
     borraGuardado(pickId, sesion?.id).then((bien) => {
       if (!bien) setCuentas((prev) => ({ ...prev, [pickId]: (prev[pickId] ?? 0) + 1 }));
