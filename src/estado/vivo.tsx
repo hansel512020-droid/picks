@@ -125,6 +125,9 @@ export function ProveedorVivo({ children }: { children: ReactNode }) {
   // Picks "nulo" de partidos ya terminados que ya se comprobaron contra el acta
   // de ESPN: no hace falta volver a pedirla si el jugador sigue sin aparecer.
   const nulosComprobados = useRef<Set<string>>(new Set());
+  // Picks pendientes de partidos que terminaron hace días —ya no están en el
+  // directo de hoy—: se resuelven contra ESPN una sola vez.
+  const pasadosComprobados = useRef<Set<string>>(new Set());
   const permiso = useRef(false);
   // La última versión de `tieneAcceso`, para leerla dentro del barrido sin
   // rehacer el reloj cada vez que cambian los derechos.
@@ -238,10 +241,21 @@ export function ProveedorVivo({ children }: { children: ReactNode }) {
       const enDirecto =
         [...mapa.values()].find((x) => x.idEspn === partido.idEspn) ??
         mapa.get(claveDelPartido(local.nombre, visitante.nombre));
+      /*
+       * Un partido que terminó hace días ya no está en el directo de hoy, así
+       * que `enDirecto` viene vacío. Si su hora pasó de sobra, se da por
+       * terminado y se resuelve igual contra ESPN: sin esto, un pick de
+       * jugador o de estadística de un partido de anteayer se quedaba
+       * "pendiente" para siempre, porque el archivo no traía su acta y el
+       * directo no lo miraba.
+       */
+      const finalizadoPasado =
+        !enDirecto && new Date(partido.fecha).getTime() < Date.now() - 3 * 3600_000;
       const seguible =
         enDirecto?.estado === 'finalizado' ||
         enDirecto?.estado === 'en_curso' ||
-        enDirecto?.estado === 'descanso';
+        enDirecto?.estado === 'descanso' ||
+        finalizadoPasado;
       if (!seguible) continue;
 
       // Un "nulo" de un partido ya terminado se comprueba UNA vez contra el
@@ -252,6 +266,11 @@ export function ProveedorVivo({ children }: { children: ReactNode }) {
         if (nulosComprobados.current.has(g.pickId)) continue;
         nulosComprobados.current.add(g.pickId);
       }
+      // Un pendiente de un partido ya pasado: una sola comprobación contra ESPN.
+      if (finalizadoPasado) {
+        if (pasadosComprobados.current.has(g.pickId)) continue;
+        pasadosComprobados.current.add(g.pickId);
+      }
 
       const slug = slugDe(g.competicionId);
       if (!slug) continue;
@@ -259,8 +278,9 @@ export function ProveedorVivo({ children }: { children: ReactNode }) {
       if (!resumen) continue;
 
       // Aunque no se pueda cerrar, se guarda cómo va: el historial lo enseña.
+      // Solo con directo: un partido pasado no tiene minuto que enseñar.
       const marcha = progresoDelPick(g, resumen);
-      if (marcha && !acabadoAhora(enDirecto)) {
+      if (marcha && enDirecto && !acabadoAhora(enDirecto)) {
         setProgreso((prev) =>
           new Map(prev).set(g.pickId, {
             ...marcha,
@@ -276,6 +296,11 @@ export function ProveedorVivo({ children }: { children: ReactNode }) {
 
       // El resultado se guarda siempre, se haya avisado o no.
       setResueltos((prev) => new Map(prev).set(g.pickId, { resultado, valorReal }));
+
+      // Un partido pasado (no está en el directo de hoy) se resuelve en
+      // silencio: se guarda el resultado, pero no se avisa de algo que terminó
+      // hace días. Y el aviso de abajo usa datos del directo que aquí no hay.
+      if (!enDirecto) continue;
 
       // Si ya venía "nulo" del archivo y ESPN lo confirma, no hay novedad: se
       // cachea, pero no se avisa —el usuario no esperaba nada de un pick que ya
