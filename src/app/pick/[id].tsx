@@ -176,7 +176,23 @@ function Serie({
    */
   sentido: 'mas' | 'menos' | 'si' | 'no';
 }) {
-  const maximo = Math.max(linea * 1.6, ...valores, 1);
+  /*
+   * La escala no se fija con el valor más alto, sino con el grueso de los datos.
+   *
+   * Con `max(...valores)` un solo partido disparatado —seis remates cuando la
+   * línea es 0,5— achataba todas las demás barras a rayitas y hundía la línea
+   * del mercado al fondo: el gráfico se veía roto y no se entendía nada. Ahora
+   * la escala sale del percentil 80, así que un pico aislado se queda al tope
+   * (clamp al 100%) sin arrastrar al resto, y la línea queda siempre a media
+   * altura, legible. El `linea * 1.8` es el mínimo: si casi nadie pasa la línea,
+   * que al menos se vea dónde está.
+   */
+  const ordenados = [...valores].filter((v) => Number.isFinite(v)).sort((a, b) => a - b);
+  const grueso = ordenados.length
+    ? ordenados[Math.min(ordenados.length - 1, Math.floor(ordenados.length * 0.8))]
+    : 0;
+  const maximo = Math.max(linea * 1.8, grueso, 1);
+  const alto = (v: number) => Math.min(100, Math.max(6, (v / maximo) * 100));
   const acierta = (v: number) => (sentido === 'menos' || sentido === 'no' ? v < linea : v > linea);
   return (
     <View style={{ gap: E.sm }}>
@@ -185,20 +201,20 @@ function Serie({
           <View key={i} style={{ flex: 1, height: '100%', justifyContent: 'flex-end' }}>
             <View
               style={{
-                height: `${Math.max(4, (v / maximo) * 100)}%`,
+                height: `${alto(v)}%`,
                 borderRadius: 3,
                 backgroundColor: acierta(v) ? C.acierto : C.neutro,
               }}
             />
           </View>
         ))}
-        {/* La linea del mercado, a la altura que le toca. */}
+        {/* La linea del mercado, a la altura que le toca (nunca fuera del alto). */}
         <View
           style={{
             position: 'absolute',
             left: 0,
             right: 0,
-            bottom: `${(linea / maximo) * 100}%`,
+            bottom: `${Math.min(100, (linea / maximo) * 100)}%`,
             height: 1,
             backgroundColor: C.lima,
             opacity: 0.8,
