@@ -1,6 +1,6 @@
 import { router } from 'expo-router';
 import { useMemo, useState } from 'react';
-import { ActivityIndicator, FlatList, Text, View } from 'react-native';
+import { ActivityIndicator, FlatList, Text, useWindowDimensions, View } from 'react-native';
 import { useSafeAreaInsets } from 'react-native-safe-area-context';
 import { AvisoCobroFallido, AvisoPagoEnProceso } from '@/componentes/avisos';
 import { useAvisos } from '@/estado/avisos';
@@ -239,9 +239,20 @@ export default function Inicio() {
    * con los de más aciertos arriba. El número es un techo de seguridad para que
    * la lista no crezca sin límite, no un recorte de lo que se ve.
    */
+  /*
+   * En móvil se acota cuántos partidos analiza la portada.
+   *
+   * "Todas" son los partidos de hoy de cincuenta y dos competiciones, y un
+   * teléfono no puede con todos de golpe: se queda "Analizando…" varios
+   * segundos. Con la pantalla estrecha se analizan los ~40 más cercanos —los de
+   * hoy y mañana, que es lo que se apuesta— y la portada abre al momento. En el
+   * PC no hay tope: le sobra músculo y así no se pierde nada.
+   */
+  const { width } = useWindowDimensions();
+  const topePartidos = width < 820 ? 40 : undefined;
   const picks = useCalculoProgresivo(
-    () => picksDeCompeticionPorTrozos(competicionId, ajustes.casaId, 2000, libres),
-    [competicionId, ajustes.casaId, libres],
+    () => picksDeCompeticionPorTrozos(competicionId, ajustes.casaId, 2000, libres, 3, topePartidos),
+    [competicionId, ajustes.casaId, libres, topePartidos],
   );
 
   /** Partidos que entran en el filtro del carrusel (un grupo o un equipo). */

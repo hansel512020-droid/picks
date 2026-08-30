@@ -1534,6 +1534,17 @@ export function* picksDeCompeticionPorTrozos(
    * al navegador cuesta mas que el propio calculo.
    */
   porTrozo = 3,
+  /*
+   * Cuántos partidos se analizan como mucho.
+   *
+   * En un PC da igual, pero en el móvil "Todas" son los partidos de HOY de
+   * cincuenta y dos competiciones —cien o más— y analizarlos todos de golpe
+   * antes de enseñar nada (el bloque `deAhora`) congela el teléfono varios
+   * segundos. Con un tope bajo se analizan los más cercanos y basta: la portada
+   * abre con los mejores picks de hoy y mañana, que es lo que se mira. Sin tope
+   * (el PC) se analiza todo.
+   */
+  topePartidos?: number,
 ): Generator<Pick[], Pick[], void> {
   /*
    * Se miran los cuarenta partidos más cercanos, no los catorce de antes.
@@ -1573,7 +1584,9 @@ export function* picksDeCompeticionPorTrozos(
   const abiertos = partidosAbiertos(competicionId);
   const hasta = Date.now() + DIAS_DE_PORTADA * 86400000;
   const proximos = abiertos.filter((p) => new Date(p.fecha).getTime() <= hasta);
-  const partidos = proximos.length >= MINIMO_PARTIDOS ? proximos : abiertos.slice(0, MINIMO_PARTIDOS);
+  const ventana = proximos.length >= MINIMO_PARTIDOS ? proximos : abiertos.slice(0, MINIMO_PARTIDOS);
+  // El tope, si viene, se queda con los más cercanos (la lista ya va por fecha).
+  const partidos = topePartidos ? ventana.slice(0, topePartidos) : ventana;
   const t = temporada(competicionId);
   const todos: Pick[] = [];
 
