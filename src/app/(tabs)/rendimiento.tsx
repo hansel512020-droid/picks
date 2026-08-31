@@ -138,8 +138,14 @@ function FilaGuardado({ g, onQuitar }: { g: PickGuardado; onQuitar: () => void }
         minute: '2-digit',
       })
     : '';
+  /*
+   * Un pick de jugador que sale anulado es que el jugador no jugó —no apareció
+   * en el acta—, y la casa lo devuelve igual. Se dice con todas las letras en
+   * vez de dejar un "—" seco que no explica nada.
+   */
+  const noJugo = g.resultado === 'nulo' && g.sujeto === 'jugador';
   const contexto = delPartido
-    ? `${g.sujeto === 'partido' ? '' : `${delPartido.enfrentamiento} · `}${cuando}`
+    ? `${g.sujeto === 'partido' ? '' : `${delPartido.enfrentamiento} · `}${cuando}${noJugo ? ' · No jugó' : ''}`
     : g.contexto;
 
   /*
