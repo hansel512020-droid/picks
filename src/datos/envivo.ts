@@ -23,6 +23,12 @@ const LIGAS: Record<string, string> = {
   croacia: 'cro.1', serbia: 'srb.1', ucrania: 'ukr.1',
   champions: 'uefa.champions', europaleague: 'uefa.europa',
   conference: 'uefa.europa.conf',
+  // La fase previa es una competición aparte en la app (con su indicador en la
+  // ruleta), así que necesita su propio slug: sin esto, un pick de un partido
+  // de previa no se resolvía nunca en vivo porque el barrido no le encontraba
+  // liga y lo saltaba. Copa do Brasil, lo mismo (ESPN la escribe con 'z').
+  championsprevia: 'uefa.champions_qual', europaprevia: 'uefa.europa_qual',
+  conferenceprevia: 'uefa.europa.conf_qual', copadobrasil: 'bra.copa_do_brazil',
   libertadores: 'conmebol.libertadores',
   sudamericana: 'conmebol.sudamericana', concachampions: 'concacaf.champions',
   copadelrey: 'esp.copa_del_rey', facup: 'eng.fa', carabao: 'eng.league_cup',
