@@ -288,9 +288,18 @@ function argumentos() {
     // desactivarlo del todo para importar solo con ESPN, como antes.
     sofascore: SOFASCORE,
     sinSofascore: false,
-    // La descarga de SofaScore por red es la fuente principal de
-    // estadisticas: entra sola salvo que se pida --sin-sofascore.
-    sofascoreRed: true,
+    /*
+     * La descarga de SofaScore por red va APAGADA por defecto.
+     *
+     * Estaba en `true` y colgó el bot diez horas: sin `sofascore_raw.json`
+     * local, intentaba la red de SofaScore —que imita Chrome para saltarse el
+     * 403— en cada liga, SofaScore la bloqueaba y la importación se quedaba
+     * esperando una respuesta que no llegaba nunca, con el cerrojo puesto y sin
+     * publicar nada. Ahora es opt-in: se activa con `--sofascore-red` si de
+     * verdad se quiere y se asume el riesgo. Sin ella, se importa con ESPN, que
+     * es fiable y no se cuelga.
+     */
+    sofascoreRed: false,
     /*
      * De cuantos partidos se baja el detalle de SofaScore.
      *
