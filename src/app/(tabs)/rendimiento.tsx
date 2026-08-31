@@ -297,10 +297,19 @@ export default function Rendimiento() {
 
   // Un pick que ESPN ya ha resuelto no espera a la próxima importación para
   // aparecer aquí como ganado o perdido.
+  //
+  // Se pisa tanto lo "pendiente" como lo "nulo", igual que hace el barrido en
+  // vivo. El archivo marca "nulo" a un jugador que no encuentra en el acta que
+  // guardó, pero esa acta viene RECORTADA (`adelgaza()` borra a quien tiene
+  // menos de seis partidos), así que da por "no jugó" a gente que sí jugó. ESPN
+  // tiene el acta entera; si allí aparece, el pick se cierra de verdad. Solo se
+  // respetan sin tocar los ganado/perdido del archivo, que son firmes. Sin
+  // esto, un pick de jugador se quedaba clavado en "—" aunque el barrido ya lo
+  // hubiera resuelto: el resultado en vivo se calculaba y se tiraba aquí.
   const guardados = useMemo(
     () =>
       crudos.map((g) => {
-        if (g.resultado !== 'pendiente') return g;
+        if (g.resultado === 'ganado' || g.resultado === 'perdido') return g;
         const v = enVivo.get(g.pickId);
         return v ? { ...g, resultado: v.resultado, valorReal: v.valorReal } : g;
       }),

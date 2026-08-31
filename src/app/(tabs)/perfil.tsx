@@ -180,7 +180,10 @@ export default function Perfil() {
     () =>
       calculaRendimiento(
         guardados.map((g) => {
-          if (g.resultado !== 'pendiente') return g;
+          // También se pisa el "nulo": el archivo lo marca cuando no encuentra
+          // al jugador en su acta recortada, pero ESPN tiene el acta entera y
+          // puede cerrarlo de verdad. Solo ganado/perdido del archivo son firmes.
+          if (g.resultado === 'ganado' || g.resultado === 'perdido') return g;
           const v = resueltos.get(g.pickId);
           return v ? { ...g, resultado: v.resultado, valorReal: v.valorReal } : g;
         }),
