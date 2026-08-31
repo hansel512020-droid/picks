@@ -49,6 +49,16 @@ interface Resumen {
   porEquipo: Map<string, Record<string, number>>;
   /** Lineas de jugador, por nombre de jugador. */
   porJugador: Map<string, Record<string, number>>;
+  /**
+   * Si cada jugador del acta llegó a pisar el campo. Un suplente que no entró
+   * aparece en la convocatoria con las estadisticas a cero, y sin esto un pick
+   * suyo se cerraba como perdido —cero remates es menos de 1.5— cuando en
+   * realidad no jugó y hay que anularlo. `true` = jugó (titular o suplente que
+   * entró); `false` = estuvo en el banco pero no salió.
+   */
+  jugoDe: Map<string, boolean>;
+  /** Si entró de suplente (jugó, pero no era titular). Por nombre. */
+  suplenteDe: Map<string, boolean>;
 }
 
 /** Pide el detalle de un partido concreto a ESPN. */
@@ -76,13 +86,16 @@ export async function resumenDelPartido(slug: string, idEspn: string): Promise<R
     }
 
     const porJugador = new Map<string, Record<string, number>>();
+    const jugoDe = new Map<string, boolean>();
+    const suplenteDe = new Map<string, boolean>();
     for (const bloque of j.rosters ?? []) {
       for (const entrada of bloque.roster ?? []) {
         const nombre = entrada.athlete?.displayName;
         if (!nombre) continue;
         const s = (n: string) =>
           num((entrada.stats ?? []).find((x: any) => x.name === n)?.displayValue);
-        porJugador.set(limpio(nombre), {
+        const clave = limpio(nombre);
+        porJugador.set(clave, {
           goles: s('totalGoals'),
           asistencias: s('goalAssists'),
           remates: s('totalShots'),
@@ -92,6 +105,16 @@ export async function resumenDelPartido(slug: string, idEspn: string): Promise<R
           amarillas: s('yellowCards'),
           paradas: s('saves'),
         });
+        /*
+         * ¿Llegó a jugar? ESPN marca `starter` al titular y cuenta
+         * `appearances`/`subIns` a quien salta al campo. Un suplente no usado se
+         * queda con todo a cero: `starter` falso, cero apariciones y cero
+         * entradas. Así se distingue "jugó y no remató" (pick perdido) de "no
+         * jugó" (pick anulado).
+         */
+        const jugo = entrada.starter === true || s('appearances') >= 1 || s('subIns') >= 1;
+        jugoDe.set(clave, jugo);
+        suplenteDe.set(clave, jugo && entrada.starter !== true);
       }
     }
 
@@ -103,6 +126,8 @@ export async function resumenDelPartido(slug: string, idEspn: string): Promise<R
       nombreVisitante: visitante?.team?.displayName ?? '',
       porEquipo,
       porJugador,
+      jugoDe,
+      suplenteDe,
     };
   } catch {
     return null;
@@ -260,10 +285,20 @@ export function compruebaPick(
   const { metrica, linea, sentido } = troceaPick(guardado.pickId, guardado.partidoId);
   if (!metrica || Number.isNaN(linea)) return { resultado: 'pendiente' };
 
-  // Un jugador que no aparece en el acta no jugo: el pick se anula. Solo
-  // aplica a los picks de jugador; un equipo siempre esta en el acta.
-  if (guardado.sujeto === 'jugador' && !resumen.porJugador.has(limpio(guardado.titulo))) {
-    return { resultado: 'nulo' };
+  /*
+   * Un jugador que no jugó anula el pick: o no está en el acta —no convocado—,
+   * o está pero se quedó en el banco sin entrar. En los dos casos no hay nada
+   * que medir, así que ni ganado ni perdido: anulado.
+   *
+   * Un suplente que SÍ entró no cae aquí: aunque no rematara, su pick cuenta,
+   * porque jugó. Antes se le daba por perdido por tener las estadísticas a cero
+   * igual que a un suplente no usado, y no es lo mismo: uno jugó y el otro no.
+   */
+  if (guardado.sujeto === 'jugador') {
+    const clave = limpio(guardado.titulo);
+    if (!resumen.porJugador.has(clave) || resumen.jugoDe.get(clave) === false) {
+      return { resultado: 'nulo' };
+    }
   }
 
   const valor = valorDe(guardado, resumen, metrica);

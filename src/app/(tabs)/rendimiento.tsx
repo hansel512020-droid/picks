@@ -43,7 +43,9 @@ function Estado({ resultado }: { resultado: ResultadoPick }) {
     ganado: { icono: 'check' as const, color: C.verde, fondo: C.verdeTenue },
     perdido: { icono: 'cruz' as const, color: C.rojo, fondo: C.rojoTenue },
     pendiente: { icono: 'menos' as const, color: C.texto3, fondo: C.carta2 },
-    nulo: { icono: 'menos' as const, color: C.texto3, fondo: C.carta2 },
+    // El anulado va en ámbar, no en gris: gris se confunde con "pendiente", y
+    // un pick que no se juega tiene que distinguirse de uno que aún puede caer.
+    nulo: { icono: 'menos' as const, color: C.ambar, fondo: C.ambarTenue },
   };
   const { icono, color, fondo } = mapa[resultado];
   return (
@@ -146,8 +148,10 @@ function FilaGuardado({ g, onQuitar }: { g: PickGuardado; onQuitar: () => void }
    * siempre un jugador que no jugó.
    */
   const noJugo = g.resultado === 'nulo';
+  // El "No jugó" ya no va aquí de refilón: sale abajo como etiqueta ámbar, que
+  // antes se perdía en el gris del contexto y no se veía.
   const contexto = delPartido
-    ? `${g.sujeto === 'partido' ? '' : `${delPartido.enfrentamiento} · `}${cuando}${noJugo ? ' · No jugó' : ''}`
+    ? `${g.sujeto === 'partido' ? '' : `${delPartido.enfrentamiento} · `}${cuando}`
     : g.contexto;
 
   /*
@@ -156,9 +160,21 @@ function FilaGuardado({ g, onQuitar }: { g: PickGuardado; onQuitar: () => void }
    * pick a medias no es ninguna de las dos cosas.
    */
   const borde =
-    g.resultado === 'ganado' ? C.verde : g.resultado === 'perdido' ? C.rojo : undefined;
+    g.resultado === 'ganado'
+      ? C.verde
+      : g.resultado === 'perdido'
+        ? C.rojo
+        : g.resultado === 'nulo'
+          ? C.ambar
+          : undefined;
   const fondo =
-    g.resultado === 'ganado' ? '#111A14' : g.resultado === 'perdido' ? '#1A1315' : undefined;
+    g.resultado === 'ganado'
+      ? '#111A14'
+      : g.resultado === 'perdido'
+        ? '#1A1315'
+        : g.resultado === 'nulo'
+          ? '#1C1710'
+          : undefined;
 
   return (
     <Tarjeta
@@ -264,6 +280,29 @@ function FilaGuardado({ g, onQuitar }: { g: PickGuardado; onQuitar: () => void }
             {contexto}
             {g.valorReal !== undefined ? ` · resultado: ${g.valorReal}` : ''}
           </Txt>
+          {/* Anulado: se dice claro y en ámbar. Un jugador que no entró al
+              partido no gana ni pierde el pick —no hay nada que medir—, y eso
+              tiene que verse de un vistazo, no escondido en el gris de arriba. */}
+          {noJugo ? (
+            <View
+              style={{
+                alignSelf: 'flex-start',
+                marginTop: 4,
+                flexDirection: 'row',
+                alignItems: 'center',
+                gap: 5,
+                backgroundColor: C.ambarTenue,
+                paddingHorizontal: 8,
+                paddingVertical: 3,
+                borderRadius: 999,
+              }}
+            >
+              <View style={{ width: 5, height: 5, borderRadius: 3, backgroundColor: C.ambar }} />
+              <Txt v="etiqueta" color={C.ambar}>
+                NO JUGÓ · PICK ANULADO
+              </Txt>
+            </View>
+          ) : null}
         </View>
         <Estado resultado={g.resultado} />
       </Pulsable>
