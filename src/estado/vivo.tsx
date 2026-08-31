@@ -226,10 +226,17 @@ export function ProveedorVivo({ children }: { children: ReactNode }) {
 
       const t = temporada(g.competicionId);
       const partido = t.porPartido.get(g.partidoId);
-      if (!partido?.idEspn) continue;
-      const local = t.porEquipo.get(partido.localId);
-      const visitante = t.porEquipo.get(partido.visitanteId);
-      if (!local || !visitante) continue;
+      /*
+       * El idEspn: del partido si está en los datos; si no, del propio
+       * identificador guardado, que es `comp-e<idEspn>`. Así se resuelve también
+       * un pick cuyo partido ya se cayó del archivo por viejo —que era justo por
+       * qué se quedaban "pendientes" para siempre: el barrido no lo encontraba y
+       * lo saltaba—.
+       */
+      const idEspn = partido?.idEspn ?? g.partidoId.match(/-e(\d+)$/)?.[1];
+      if (!idEspn) continue;
+      const local = partido ? t.porEquipo.get(partido.localId) : undefined;
+      const visitante = partido ? t.porEquipo.get(partido.visitanteId) : undefined;
 
       /*
        * Se mira tanto lo acabado como lo que se esta jugando. Un "mas de 1.5
@@ -239,18 +246,19 @@ export function ProveedorVivo({ children }: { children: ReactNode }) {
        */
       // Por el identificador de ESPN: la pareja de equipos se repite en la vuelta.
       const enDirecto =
-        [...mapa.values()].find((x) => x.idEspn === partido.idEspn) ??
-        mapa.get(claveDelPartido(local.nombre, visitante.nombre));
+        [...mapa.values()].find((x) => x.idEspn === idEspn) ??
+        (local && visitante ? mapa.get(claveDelPartido(local.nombre, visitante.nombre)) : undefined);
       /*
-       * Un partido que terminó hace días ya no está en el directo de hoy, así
-       * que `enDirecto` viene vacío. Si su hora pasó de sobra, se da por
-       * terminado y se resuelve igual contra ESPN: sin esto, un pick de
-       * jugador o de estadística de un partido de anteayer se quedaba
-       * "pendiente" para siempre, porque el archivo no traía su acta y el
-       * directo no lo miraba.
+       * Un partido que terminó hace días ya no está en el directo de hoy —o ni
+       * siquiera está ya en los datos—, así que `enDirecto` viene vacío. Si su
+       * hora pasó de sobra, o el partido ya no está (solo se cae cuando
+       * envejeció), se da por terminado y se resuelve igual contra ESPN: sin
+       * esto, un pick de un partido de hace días se quedaba "pendiente" para
+       * siempre.
        */
       const finalizadoPasado =
-        !enDirecto && new Date(partido.fecha).getTime() < Date.now() - 3 * 3600_000;
+        !enDirecto &&
+        (!partido || new Date(partido.fecha).getTime() < Date.now() - 3 * 3600_000);
       const seguible =
         enDirecto?.estado === 'finalizado' ||
         enDirecto?.estado === 'en_curso' ||
@@ -274,7 +282,7 @@ export function ProveedorVivo({ children }: { children: ReactNode }) {
 
       const slug = slugDe(g.competicionId);
       if (!slug) continue;
-      const resumen = await resumenDelPartido(slug, partido.idEspn);
+      const resumen = await resumenDelPartido(slug, idEspn);
       if (!resumen) continue;
 
       // Aunque no se pueda cerrar, se guarda cómo va: el historial lo enseña.
