@@ -67,6 +67,47 @@ async function guardaCompra(fila: Record<string, unknown>): Promise<boolean> {
   return r.ok;
 }
 
+/**
+ * Que la URL de retorno sea de las nuestras.
+ *
+ * `vuelveA` lo pone el navegador —el dominio puede cambiar, por eso lo manda la
+ * app y no está fijo aquí—, pero eso también significa que un cliente podría
+ * mandar cualquier cosa. Sin esta comprobación, esta función crearía un cobro
+ * de Golden que, al terminar, rebota al usuario a un dominio ajeno: base para un
+ * fraude con aspecto de "pago verificado". Se valida por host, no por prefijo de
+ * texto, para que `https://goldenpicks.vercel.app.evil.com` no cuele.
+ *
+ * Se permiten: el dominio de producción, los previews de Vercel (*.vercel.app),
+ * y localhost para desarrollo. Para un dominio propio a futuro, se añaden hosts
+ * separados por comas en el secreto DOMINIOS_RETORNO, sin tocar el código.
+ */
+function retornoValido(vuelveA: unknown): boolean {
+  if (typeof vuelveA !== 'string' || !vuelveA) return false;
+  let u: URL;
+  try {
+    u = new URL(vuelveA);
+  } catch {
+    return false;
+  }
+
+  const host = u.hostname.toLowerCase();
+  const esLocal = host === 'localhost' || host === '127.0.0.1';
+  // Fuera de desarrollo, solo https: un retorno por http es degradable.
+  if (u.protocol !== 'https:' && !esLocal) return false;
+
+  const extra = (Deno.env.get('DOMINIOS_RETORNO') ?? '')
+    .split(',')
+    .map((h) => h.trim().toLowerCase())
+    .filter(Boolean);
+
+  return (
+    host === 'goldenpicks.vercel.app' ||
+    host.endsWith('.vercel.app') ||
+    esLocal ||
+    extra.includes(host)
+  );
+}
+
 Deno.serve(async (peticion) => {
   if (peticion.method === 'OPTIONS') return new Response('ok', { headers: CORS });
 
@@ -78,6 +119,13 @@ Deno.serve(async (peticion) => {
     const { plan, vuelveA } = await peticion.json();
     const elegido = PLANES_PAYPHONE[String(plan)];
     if (!elegido) return responde({ error: 'Plan desconocido' }, 400);
+
+    // La URL de retorno la elige el navegador: se comprueba que sea nuestra
+    // antes de dársela a Payphone (ver `retornoValido`).
+    if (!retornoValido(vuelveA)) {
+      console.log('RECHAZADO: URL de retorno ajena:', vuelveA);
+      return responde({ error: 'URL de retorno no válida' }, 400);
+    }
 
     const cabeceras = cabecerasPayphone();
     // .trim() por lo mismo que el token: un salto de línea pegado al copiarlo

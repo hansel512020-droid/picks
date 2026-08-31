@@ -51,9 +51,13 @@ export const PLANES_PAYPHONE: Record<
  */
 export function referenciaNueva(): string {
   const letras = 'ABCDEFGHJKLMNPQRSTUVWXYZ23456789';
+  // Aleatoriedad criptográfica en vez de Math.random(): la referencia no es un
+  // secreto —la propiedad y el importe se verifican aparte—, pero con un origen
+  // impredecible no hay forma de adivinar la referencia pendiente de otro.
+  const bytes = crypto.getRandomValues(new Uint8Array(10));
   let salida = 'GP';
-  for (let i = 0; i < 10; i++) {
-    salida += letras[Math.floor(Math.random() * letras.length)];
+  for (let i = 0; i < bytes.length; i++) {
+    salida += letras[bytes[i] % letras.length];
   }
   return salida;
 }
