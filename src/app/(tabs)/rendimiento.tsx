@@ -139,11 +139,13 @@ function FilaGuardado({ g, onQuitar }: { g: PickGuardado; onQuitar: () => void }
       })
     : '';
   /*
-   * Un pick de jugador que sale anulado es que el jugador no jugó —no apareció
-   * en el acta—, y la casa lo devuelve igual. Se dice con todas las letras en
-   * vez de dejar un "—" seco que no explica nada.
+   * Un pick anulado es que el jugador no jugó —no apareció en el acta—, y la
+   * casa lo devuelve igual. Se dice con todas las letras en vez de dejar un "—"
+   * seco que no explica nada. No se exige `sujeto === 'jugador'`: los picks
+   * guardados hace tiempo no llevan ese campo, y un "nulo" es, en la práctica,
+   * siempre un jugador que no jugó.
    */
-  const noJugo = g.resultado === 'nulo' && g.sujeto === 'jugador';
+  const noJugo = g.resultado === 'nulo';
   const contexto = delPartido
     ? `${g.sujeto === 'partido' ? '' : `${delPartido.enfrentamiento} · `}${cuando}${noJugo ? ' · No jugó' : ''}`
     : g.contexto;
