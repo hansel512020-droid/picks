@@ -679,6 +679,27 @@ export function picksDePartido(
     // Con menos de 6 partidos no hay muestra suficiente para afirmar nada.
     if (historial.length < 6) continue;
     if (jug.rol === 'suplente') continue;
+    /*
+     * Probable titular: que venga jugando de verdad.
+     *
+     * Un pick de alguien que acaba en el banquillo se anula cuando no salta al
+     * campo —no aparece en el acta—, y el rendimiento se llenaba de "—" de
+     * jugadores que ni jugaron. Se mira si fue titular (25+ min) en al menos la
+     * mitad de los últimos cinco partidos de su equipo: si no viene jugando, no
+     * se ofrece un pick suyo que probablemente habrá que anular.
+     */
+    const ultimosDelEquipo = (t.partidosPorEquipo.get(jug.equipoId) ?? [])
+      .filter((p) => p.estado === 'finalizado' && p.fecha < partido.fecha)
+      .sort((a, b) => b.fecha.localeCompare(a.fecha))
+      .slice(0, 5);
+    if (ultimosDelEquipo.length >= 3) {
+      const titularEn = ultimosDelEquipo.filter((p) =>
+        (t.registrosPorPartido.get(p.id) ?? []).some(
+          (r) => r.jugadorId === jug.id && r.minutos >= 25,
+        ),
+      ).length;
+      if (titularEn * 2 < ultimosDelEquipo.length) continue;
+    }
 
     for (const met of METRICAS_JUGADOR) {
       if (met.posiciones && !met.posiciones.includes(jug.posicion)) continue;
