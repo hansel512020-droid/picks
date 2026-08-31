@@ -10,7 +10,7 @@ import {
 } from 'react';
 import { CASA_POR_DEFECTO } from '@/datos/casas';
 import { competicionesVisibles } from '@/datos/competiciones';
-import { competicionVisible } from '@/datos/importado';
+import { claveEquipo, competicionVisible } from '@/datos/importado';
 import { temporada } from '@/datos/motor';
 import { METRICAS_EQUIPO, METRICAS_JUGADOR } from '@/datos/picks';
 import type { Pick, PickGuardado, ResultadoPick } from '@/datos/tipos';
@@ -223,9 +223,23 @@ function resuelve(guardado: PickGuardado): { resultado: ResultadoPick; valorReal
      * se había bajado el detalle. Se queda pendiente hasta que llegue.
      */
     if (!hayRegistros) return { resultado: 'pendiente' };
-    const reg = (t.registrosPorPartido.get(guardado.partidoId) ?? []).find(
-      (r) => r.jugadorId === sujetoId,
-    );
+    const delPartido = t.registrosPorPartido.get(guardado.partidoId) ?? [];
+    /*
+     * Se busca por id y, si no, por NOMBRE.
+     *
+     * El id de un jugador puede cambiar de una descarga a otra —el archivo se
+     * rehace entero cada vez—, y entonces el `sujetoId` guardado con el pick ya
+     * no señala a nadie: el jugador SÍ está en el acta, pero bajo otro id, y el
+     * pick salía "anulado" (—) como si no hubiera jugado. Cuando el id no
+     * encaja, se localiza por el nombre del pick, que no cambia.
+     */
+    const reg =
+      delPartido.find((r) => r.jugadorId === sujetoId) ??
+      (() => {
+        const clave = claveEquipo(guardado.titulo);
+        const jug = t.jugadores.find((j) => claveEquipo(j.nombre) === clave);
+        return jug ? delPartido.find((r) => r.jugadorId === jug.id) : undefined;
+      })();
     // Con acta y sin él en ella, es que no jugó: el pick se anula, que es lo
     // que hacen las casas con las props.
     if (!reg) return { resultado: 'nulo' };
