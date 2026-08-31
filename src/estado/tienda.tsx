@@ -10,7 +10,7 @@ import {
 } from 'react';
 import { CASA_POR_DEFECTO } from '@/datos/casas';
 import { competicionesVisibles } from '@/datos/competiciones';
-import { claveEquipo, competicionVisible } from '@/datos/importado';
+import { claveEquipo, competicionVisible, cuandoLlegueMasDato } from '@/datos/importado';
 import { temporada } from '@/datos/motor';
 import { METRICAS_EQUIPO, METRICAS_JUGADOR } from '@/datos/picks';
 import type { Pick, PickGuardado, ResultadoPick } from '@/datos/tipos';
@@ -365,6 +365,19 @@ export function ProveedorTienda({ children }: { children: ReactNode }) {
    * El resultado guardado no manda: manda lo que se puede demostrar ahora. Si
    * ya no se puede afirmar, vuelve a pendiente, que es la verdad.
    */
+  /*
+   * Se re-resuelven también cuando llegan más datos.
+   *
+   * Antes esto solo dependía de `estado.guardados`, así que los resultados se
+   * calculaban UNA vez —al arrancar, con el núcleo cargado pero sin el detalle
+   * por jugador— y no se volvían a mirar. Cuando el detalle entraba en segundo
+   * plano con los registros, los picks de jugador ya no se reevaluaban y se
+   * quedaban "pendiente" o "—" para siempre. `genDatos` sube cada vez que llega
+   * dato nuevo y fuerza la reevaluación con lo que ya haya en memoria.
+   */
+  const [genDatos, setGenDatos] = useState(0);
+  useEffect(() => cuandoLlegueMasDato(() => setGenDatos((n) => n + 1)), []);
+
   const guardados = useMemo(
     () =>
       estado.guardados.map((g) => {
@@ -373,7 +386,8 @@ export function ProveedorTienda({ children }: { children: ReactNode }) {
           ? g
           : { ...g, resultado, valorReal };
       }),
-    [estado.guardados],
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+    [estado.guardados, genDatos],
   );
 
   const guardar = useCallback((pick: Pick) => {

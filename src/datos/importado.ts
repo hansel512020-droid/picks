@@ -121,6 +121,9 @@ export function aplicaDatos(nuevo: unknown): void {
   CACHE.clear();
   HISTORIALES.clear();
   for (const rehacer of alCambiar) rehacer();
+  // También repinta: quien resuelve los picks guardados o calcula la portada
+  // necesita rehacerlo con los datos nuevos, no solo tirar sus cachés.
+  for (const repinta of alLlegarMas) repinta();
 }
 
 /** Cuántas competiciones trae lo que hay cargado. Para comprobar que llegó. */
