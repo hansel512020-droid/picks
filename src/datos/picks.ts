@@ -669,15 +669,32 @@ export function picksDePartido(
   );
 
   for (const jug of plantel) {
-    // Solo cuentan los partidos en los que tuvo minutos de verdad: una linea
-    // de remates no dice nada si el jugador entro en el 88.
-    const historial = (t.registrosPorJugador.get(jug.id) ?? []).filter(
-      // Y nada posterior: sin esto, medir el modelo contra el pasado usaria
-      // partidos que en ese momento no se habian jugado.
-      (r) => r.partidoId !== partidoId && r.minutos >= 25 && r.fecha < partido.fecha,
+    // Nada posterior a este partido: medir el modelo contra el pasado no puede
+    // usar partidos que en ese momento no se habían jugado.
+    const registros = (t.registrosPorJugador.get(jug.id) ?? []).filter(
+      (r) => r.partidoId !== partidoId && r.fecha < partido.fecha,
     );
-    // Con menos de 6 partidos no hay muestra suficiente para afirmar nada.
+    /*
+     * La línea se mide SOLO con los partidos que jugó de titular. "25 minutos
+     * los juega cualquiera": una media de remates sacada de cameos de suplente
+     * no dice nada de lo que hará arrancando. Y pedir 6 titularidades deja
+     * fuera, de paso, al que casi nunca sale de inicio.
+     */
+    const historial = registros.filter((r) => r.titular === true);
+    // Con menos de 6 titularidades no hay muestra suficiente —ni es un titular.
     if (historial.length < 6) continue;
+    /*
+     * Y tiene que ser titular casi siempre. De sus últimas apariciones, la
+     * mayoría de inicio: así el pick no cae en un jugador de rotación que suele
+     * entrar del banco y acaba anulado por no llegar a jugar de titular. Sobre
+     * los partidos que jugó, no sobre el calendario —a quien no se convoca ni
+     * le sale registro—, pero basta para separar al fijo del rotación.
+     */
+    const recientes = [...registros].sort((a, b) => (a.fecha < b.fecha ? 1 : -1)).slice(0, 10);
+    const tasaTitular = recientes.length
+      ? recientes.filter((r) => r.titular).length / recientes.length
+      : 0;
+    if (tasaTitular < 0.6) continue;
     if (jug.rol === 'suplente') continue;
 
     for (const met of METRICAS_JUGADOR) {
