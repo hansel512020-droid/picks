@@ -152,6 +152,23 @@ jobs:
             }
           "
 
+      # El cache de descargas, guardado de una ejecución a la siguiente.
+      #
+      # Un partido ya terminado no cambia, así que su acta se baja UNA vez y de
+      # ahí en adelante se lee de aquí, sin tocar la red (ver http.js y el flag
+      # `soloCacheSiExiste`). Sin esto, cada pasada en un runner limpio volvía a
+      # descargar temporadas ya cerradas; con esto, el bot solo pide de red lo
+      # nuevo —la temporada en curso y lo que viene—. La clave lleva el id de la
+      # ejecución para guardar siempre una versión nueva, y `restore-keys`
+      # recupera la más reciente: así el cache se va acumulando.
+      - name: Cache de descargas (no rebajar temporadas ya cerradas)
+        uses: actions/cache@v4
+        with:
+          path: .cache-datos
+          key: datos-cache-${{ github.run_id }}
+          restore-keys: |
+            datos-cache-
+
       - name: Importar resultados y estadísticas
         env:
           APIFOOTBALL_KEY: ${{ secrets.APIFOOTBALL_KEY }}
@@ -159,6 +176,9 @@ jobs:
           COMPLETA: ${{ github.event.schedule == '0 1 * * *' || inputs.completa }}
         run: |
           set -euo pipefail
+          # Por si una ejecución anterior se cortó y dejó el cerrojo dentro del
+          # cache restaurado: se quita, que si no el importador se niega a correr.
+          rm -f .cache-datos/importando.lock
           # La lista vive en un archivo pequeño del repositorio. El de datos
           # pesa 70 MB, ya no se versiona y en un checkout limpio no existe:
           # lo crea el propio importador unas líneas más abajo.

@@ -801,7 +801,10 @@ async function importaCompeticion(id, opciones, catalogo, clave, sofa) {
       process.stdout.write(`  ESPN (detalle de ${recientes.length} partidos)… `);
       let hechos = 0;
       for (const p of recientes) {
-        const d = await espn.detalle(slugEspn, p.idEspn, dirCache, opciones.forzar);
+        // Si el partido ya terminó y su acta está en cache, se lee del disco
+        // sin tocar la red: una temporada cerrada no se vuelve a descargar.
+        const yaCerrado = p.estado === 'finalizado';
+        const d = await espn.detalle(slugEspn, p.idEspn, dirCache, opciones.forzar, yaCerrado);
         if (d) {
           detallesEspn.push({ idEspn: p.idEspn, detalle: d });
           hechos++;

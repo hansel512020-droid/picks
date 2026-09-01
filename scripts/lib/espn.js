@@ -272,10 +272,14 @@ async function cuotas(slug, idEspn, dirCache, forzar) {
  * Detalle de un partido: estadisticas por equipo y linea de cada jugador.
  * Cuesta una peticion por partido, asi que quien llame decide cuantos pide.
  */
-async function detalle(slug, idEspn, dirCache, forzar) {
+async function detalle(slug, idEspn, dirCache, forzar, soloCacheSiExiste = false) {
   let datos;
   try {
-    ({ datos } = await bajaJSON(`${RAIZ}/${slug}/summary?event=${idEspn}`, dirCache, { forzar }));
+    ({ datos } = await bajaJSON(`${RAIZ}/${slug}/summary?event=${idEspn}`, dirCache, {
+      forzar,
+      // Un partido terminado ya cacheado no se vuelve a pedir a la red.
+      soloCacheSiExiste,
+    }));
   } catch {
     return null;
   }

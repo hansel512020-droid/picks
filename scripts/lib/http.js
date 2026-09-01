@@ -21,11 +21,22 @@ function nombreCache(url) {
  * Descarga texto con cache condicional.
  * @returns {Promise<{texto: string, delCache: boolean}>}
  */
-async function bajaTexto(url, dirCache, { forzar = false, cabeceras = {} } = {}) {
+async function bajaTexto(url, dirCache, { forzar = false, cabeceras = {}, soloCacheSiExiste = false } = {}) {
   aseguraDirectorio(dirCache);
   const base = path.join(dirCache, nombreCache(url));
   const rutaCuerpo = `${base}.txt`;
   const rutaMeta = `${base}.json`;
+
+  /*
+   * Un partido ya terminado no vuelve a cambiar: si su acta está en cache, se
+   * usa tal cual, SIN tocar la red. Con el cache persistido entre ejecuciones,
+   * eso significa que una temporada ya cerrada se descarga una sola vez y nunca
+   * más; el bot solo pide de red lo nuevo (la temporada en curso y lo que
+   * viene). Sin conexión ni petición condicional: cero red.
+   */
+  if (soloCacheSiExiste && !forzar && fs.existsSync(rutaCuerpo)) {
+    return { texto: fs.readFileSync(rutaCuerpo, 'utf8'), delCache: true };
+  }
 
   let meta = {};
   if (!forzar && fs.existsSync(rutaMeta)) {
