@@ -10,9 +10,16 @@
 #   APIFOOTBALL_KEY             la clave de API-Football, para las ligas que la
 #                               piden (sudamericanas, copas nacionales…)
 #   SUPABASE_URL                https://xxxx.supabase.co
-#   SUPABASE_SERVICE_ROLE_KEY   la clave de servicio del proyecto. Es la única
-#                               que puede escribir en Storage, y por eso vive
-#                               aquí y NUNCA en la app.
+#   SUPABASE_ACCESS_TOKEN       token personal de Supabase (sb_secret NO: es un
+#                               `sbp_…`). Se crea en
+#                               https://supabase.com/dashboard/account/tokens
+#                               y es lo que usa la CLI para escribir en Storage.
+#
+#   Antes se usaba SUPABASE_SERVICE_ROLE_KEY por API, pero el proyecto pasó al
+#   sistema de claves nuevo: las `service_role` (eyJ…) están desactivadas y
+#   Storage rechaza las `sb_secret_…` porque intenta leerlas como un JWT
+#   ("Invalid Compact JWS"). La única vía que funciona es la CLI, y la CLI se
+#   autentica con el access token, no con la clave de servicio.
 
 name: Datos
 
@@ -70,64 +77,39 @@ jobs:
       #
       # Nunca imprime el valor. Solo si está y cuántos caracteres tiene, que
       # basta para detectar el error clásico: pegar la clave a medias.
-      - name: Comprobar las claves antes de empezar
+      - name: Comprobar el acceso antes de empezar
         env:
-          SUPABASE_URL: ${{ secrets.SUPABASE_URL }}
-          SUPABASE_SERVICE_ROLE_KEY: ${{ secrets.SUPABASE_SERVICE_ROLE_KEY }}
+          SUPABASE_ACCESS_TOKEN: ${{ secrets.SUPABASE_ACCESS_TOKEN }}
         run: |
           set -uo pipefail
-          FALTA=0
-          if [ -z "${SUPABASE_URL:-}" ]; then
-            echo "::error::Falta SUPABASE_URL"; FALTA=1
-          else
-            echo "SUPABASE_URL presente (${#SUPABASE_URL} caracteres)"
-          fi
-          if [ -z "${SUPABASE_SERVICE_ROLE_KEY:-}" ]; then
-            echo "::error::Falta SUPABASE_SERVICE_ROLE_KEY"; FALTA=1
-          else
-            echo "SUPABASE_SERVICE_ROLE_KEY presente (${#SUPABASE_SERVICE_ROLE_KEY} caracteres)"
-            # Qué clase de clave es, sin enseñarla. La pública y la secreta
-            # miden casi lo mismo y viven en la misma página, así que confundir
-            # una con otra es el error fácil: el prefijo las distingue.
-            case "$SUPABASE_SERVICE_ROLE_KEY" in
-              sb_secret_*)
-                echo "  tipo: clave secreta — correcta" ;;
-              sb_publishable_*|eyJ*anon*)
-                echo "::error::Es la clave PÚBLICA. Hace falta la secreta (sb_secret_...)"
-                FALTA=1 ;;
-              eyJ*)
-                echo "  tipo: JWT antiguo (service_role) — debería valer" ;;
-              *)
-                echo "  tipo: no reconocido. ¿Seguro que es de este proyecto?" ;;
-            esac
-          fi
-          if [ "$FALTA" = "1" ]; then
-            echo "Settings -> Secrets and variables -> Actions -> Repository secrets"
+          # Descubrir al final que falta el token significa esperar toda la
+          # importación para que te lo digan. Se comprueba lo primero. Nunca se
+          # imprime el valor: solo si está y cuántos caracteres tiene.
+          if [ -z "${SUPABASE_ACCESS_TOKEN:-}" ]; then
+            echo "::error::Falta el secreto SUPABASE_ACCESS_TOKEN (token personal sbp_...)."
+            echo "Créalo en https://supabase.com/dashboard/account/tokens"
+            echo "y ponlo en Settings -> Secrets and variables -> Actions."
             exit 1
           fi
-
-          # Y que la clave sirva de verdad, no solo que exista. Se prueba
-          # escribiendo un archivo minúsculo, que es exactamente lo que hará el
-          # trabajo al final: preguntar por el almacén contesta cosas raras
-          # según el tipo de clave, escribir no admite interpretaciones.
-          #
-          # Van las dos cabeceras a propósito. La pasarela de Supabase enruta
-          # por `apikey` y autoriza por `Authorization`; con una sola devuelve
-          # 400 aunque la clave sea perfecta, y se busca el fallo donde no está.
-          CODIGO=$(curl -sS -o /tmp/r.txt -w '%{http_code}' \
-            -X POST "$SUPABASE_URL/storage/v1/object/datos/_comprobacion.txt" \
-            -H "apikey: $SUPABASE_SERVICE_ROLE_KEY" \
-            -H "Authorization: Bearer $SUPABASE_SERVICE_ROLE_KEY" \
-            -H "Content-Type: text/plain" \
-            -H "x-upsert: true" \
-            --data-binary "ok")
-          echo "Supabase responde $CODIGO al escribir"
+          echo "SUPABASE_ACCESS_TOKEN presente (${#SUPABASE_ACCESS_TOKEN} caracteres)"
+          case "$SUPABASE_ACCESS_TOKEN" in
+            sbp_*) echo "  tipo: token personal — correcto" ;;
+            sb_secret_*|sb_publishable_*|eyJ*)
+              echo "::error::Eso es una CLAVE de API, no un access token. Hace falta un sbp_..."
+              exit 1 ;;
+            *) echo "  tipo: no reconocido, pero se prueba igual" ;;
+          esac
+          # Y que el token sirva de verdad: la API de gestión responde 200 si es
+          # válido. Es la misma credencial con la que la CLI subirá al final.
+          CODIGO=$(curl -sS -o /dev/null -w '%{http_code}' \
+            https://api.supabase.com/v1/projects \
+            -H "Authorization: Bearer $SUPABASE_ACCESS_TOKEN")
+          echo "API de gestión responde $CODIGO"
           if [ "$CODIGO" != "200" ]; then
-            echo "::error::La clave no puede escribir en Supabase (HTTP $CODIGO)"
-            cat /tmp/r.txt
+            echo "::error::El access token no es válido o no tiene permiso (HTTP $CODIGO)."
             exit 1
           fi
-          echo "Claves correctas. Adelante con la importación."
+          echo "Acceso correcto. Adelante con la importación."
 
       - uses: actions/checkout@v4
 
@@ -144,6 +126,12 @@ jobs:
       # install` sí resuelve el binario correcto para la maquina donde corre,
       # sea cual sea el lockfile de partida.
       - run: npm install
+
+      # La CLI de Supabase es la que sube a Storage (ver el paso de subida y el
+      # comentario de scripts/publicar-datos.js). Se fija a la versión probada
+      # en local; el binario es Go estático, así que corre igual en Alpine.
+      - name: Instalar la CLI de Supabase
+        run: npm install -g supabase@2.116.0
 
       # Temporal, se quita en cuanto se confirme si musl funciona.
       - name: Diagnostico curl-cffi-node
@@ -195,28 +183,13 @@ jobs:
 
       - name: Subir los datos a Supabase
         env:
-          SUPABASE_URL: ${{ secrets.SUPABASE_URL }}
-          SUPABASE_SERVICE_ROLE_KEY: ${{ secrets.SUPABASE_SERVICE_ROLE_KEY }}
+          # La CLI se autentica con el token; no toca la service_role.
+          SUPABASE_ACCESS_TOKEN: ${{ secrets.SUPABASE_ACCESS_TOKEN }}
+          # El script lee el URL solo como respaldo; el proyecto ya viene
+          # enlazado en el checkout (supabase/.temp/ está versionado).
+          EXPO_PUBLIC_SUPABASE_URL: ${{ secrets.SUPABASE_URL }}
         run: |
           set -euo pipefail
-
-          # Antes de nada, decir en voz alta qué falta. Sin esto, un secreto sin
-          # poner se manifiesta como un curl que revienta en dos segundos con un
-          # error críptico, y se pierde la tarde buscando en el sitio
-          # equivocado. Nunca se imprime el valor: solo si está o no está.
-          FALTA=0
-          if [ -z "${SUPABASE_URL:-}" ]; then
-            echo "::error::Falta el secreto SUPABASE_URL"
-            FALTA=1
-          fi
-          if [ -z "${SUPABASE_SERVICE_ROLE_KEY:-}" ]; then
-            echo "::error::Falta el secreto SUPABASE_SERVICE_ROLE_KEY"
-            FALTA=1
-          fi
-          if [ "$FALTA" = "1" ]; then
-            echo "Ponlos en Settings -> Secrets and variables -> Actions."
-            exit 1
-          fi
 
           if [ ! -s src/datos/importado.json ]; then
             echo "::error::El importador no dejó src/datos/importado.json"
@@ -224,75 +197,27 @@ jobs:
             exit 1
           fi
 
-          # Comprimido primero: el JSON baja de ~70 MB a ~4, un 94% menos. Es lo
-          # que se descarga la app, y en un móvil con datos esa diferencia es la
-          # que decide si la app abre o el usuario se cansa y la cierra.
-          gzip -9 -c src/datos/importado.json > importado.json.gz
-
-          echo "sin comprimir: $(du -h src/datos/importado.json | cut -f1)"
-          echo "comprimido:    $(du -h importado.json.gz | cut -f1)"
-
-          subir() {
-            # `x-upsert` debería sustituir el archivo anterior en vez de fallar
-            # por existir. Debería: según la clave y las reglas del almacén, a
-            # veces no basta y hay que pedir la actualización explícitamente.
-            CODIGO=$(curl -sS -o /tmp/respuesta.txt -w '%{http_code}' \
-              -X POST "$SUPABASE_URL/storage/v1/object/datos/$2" \
-              -H "apikey: $SUPABASE_SERVICE_ROLE_KEY" \
-              -H "Authorization: Bearer $SUPABASE_SERVICE_ROLE_KEY" \
-              -H "Content-Type: $3" \
-              -H "x-upsert: true" \
-              --data-binary @"$1")
-            echo "  $2 -> POST $CODIGO"
-
-            if [ "$CODIGO" != "200" ]; then
-              echo "  respuesta: $(cat /tmp/respuesta.txt)"
-              # PUT es "actualiza el que ya está". Crear y actualizar son
-              # permisos distintos, y el archivo se sube todos los días: a
-              # partir del segundo, siempre existe.
-              echo "  reintento con PUT..."
-              CODIGO=$(curl -sS -o /tmp/respuesta.txt -w '%{http_code}' \
-                -X PUT "$SUPABASE_URL/storage/v1/object/datos/$2" \
-                -H "apikey: $SUPABASE_SERVICE_ROLE_KEY" \
-                -H "Authorization: Bearer $SUPABASE_SERVICE_ROLE_KEY" \
-                -H "Content-Type: $3" \
-                --data-binary @"$1")
-              echo "  $2 -> PUT $CODIGO"
-            fi
-
-            if [ "$CODIGO" != "200" ]; then
-              echo "::error::No se pudo subir $2 (HTTP $CODIGO)"
-              cat /tmp/respuesta.txt
-              exit 1
-            fi
-          }
-
-          subir importado.json.gz importado.json.gz application/gzip
+          # La subida va por la CLI, no por la API. El proyecto pasó al sistema
+          # de claves nuevo: las service_role (eyJ…) están desactivadas y
+          # Storage rechaza las sb_secret_… porque las lee como un JWT. La CLI,
+          # con el access token y el proyecto ya enlazado (supabase/.temp/ está
+          # en el repo), sí escribe. El script comprime, parte los datos en
+          # núcleo + detalle y sube los tres archivos que usa la app.
+          node scripts/publicar-datos.js
 
           # El catálogo de escudos y caras, si esta pasada lo ha regenerado.
-          #
-          # Se subía nada: el paso de arriba resolvía caras nuevas cada
-          # madrugada, terminaba, y la máquina se apagaba con ellas dentro. Las
-          # imágenes solo crecían si alguien ejecutaba el script en su ordenador
-          # y hacía commit, así que llevaban 1.858 caras para 38.000 jugadores.
-          #
-          # Va suelto y sin comprimir porque son unos cientos de kB de puras
-          # direcciones, y porque cambia mucho menos que los resultados.
+          # Va suelto y sin comprimir: son unos cientos de kB de direcciones, y
+          # cambia mucho menos que los resultados.
           if [ -s src/datos/logos.json ]; then
-            subir src/datos/logos.json logos.json application/json
+            echo "Subiendo logos.json…"
+            supabase storage rm ss:///datos/logos.json --experimental --yes || true
+            supabase storage cp src/datos/logos.json ss:///datos/logos.json \
+              --content-type application/json \
+              --cache-control "public, max-age=300" \
+              --experimental --yes
           else
-            echo "  (sin catálogo de imágenes en esta pasada)"
+            echo "(sin catálogo de imágenes en esta pasada)"
           fi
-
-          # El archivo sin comprimir NO se sube. Son 74 MB y Supabase rechaza
-          # todo lo que pase de 50: devuelve 413 y tumba el trabajo entero
-          # cuando el comprimido, que es el que de verdad usa la app, ya había
-          # subido bien.
-          #
-          # Tampoco se pierde nada. Ningún cliente debería bajarse 74 MB
-          # pudiendo bajar 4, y quien no sepa descomprimir se queda con los
-          # datos que vienen dentro de la app: viejos, pero suficientes para
-          # que abra y se vea algo.
 
       - name: Comprobar que se sirve
         env:
