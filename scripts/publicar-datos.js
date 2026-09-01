@@ -158,15 +158,37 @@ async function main() {
   const datos = JSON.parse(crudo);
   const nucleo = { ...datos, competiciones: {} };
   const detalle = { actualizado: datos.actualizado, competiciones: {} };
+  let totalRegistros = 0;
   for (const [id, c] of Object.entries(datos.competiciones ?? {})) {
     nucleo.competiciones[id] = { ...c, jugadores: [], registros: [] };
     detalle.competiciones[id] = { jugadores: c.jugadores ?? [], registros: c.registros ?? [] };
+    totalRegistros += c.registros?.length ?? 0;
   }
   const gzNucleo = zlib.gzipSync(Buffer.from(JSON.stringify(nucleo)), { level: 9 });
-  const gzDetalle = zlib.gzipSync(Buffer.from(JSON.stringify(detalle)), { level: 9 });
   const nucleoGz = path.join(RAIZ, 'src', 'datos', 'nucleo.json.gz');
-  const detalleGz = path.join(RAIZ, 'src', 'datos', 'detalle.json.gz');
   fs.writeFileSync(nucleoGz, gzNucleo);
+
+  /*
+   * La pasada ligera no trae actas (`--detalles 0`), así que no hay jugadores
+   * ni registros: solo resultados, calendario y cuotas frescos. Si en ese caso
+   * subiéramos el detalle, sería un archivo vacío que borraría del todo los
+   * picks de jugador hasta la siguiente pasada completa de madrugada. Por eso,
+   * sin registros, se sube SOLO el núcleo y se conserva el detalle publicado.
+   *
+   * El núcleo no lleva registros de todos modos, así que se actualiza igual: la
+   * app enseña los resultados nuevos al momento y mantiene los jugadores de la
+   * última pasada completa.
+   */
+  if (totalRegistros === 0) {
+    console.log(`Núcleo: ${(gzNucleo.length / 1024 / 1024).toFixed(1)} MB · sin actas (pasada ligera)`);
+    console.log('Se actualiza solo el núcleo; el detalle de jugadores se conserva.\n');
+    subeConLaCli(nucleoGz, 'nucleo.json.gz');
+    console.log('\nPublicado (ligero). Resultados y cuotas al día; jugadores intactos.');
+    return;
+  }
+
+  const gzDetalle = zlib.gzipSync(Buffer.from(JSON.stringify(detalle)), { level: 9 });
+  const detalleGz = path.join(RAIZ, 'src', 'datos', 'detalle.json.gz');
   fs.writeFileSync(detalleGz, gzDetalle);
   console.log(`Núcleo:     ${(gzNucleo.length / 1024 / 1024).toFixed(1)} MB · Detalle: ${(gzDetalle.length / 1024 / 1024).toFixed(1)} MB`);
   console.log('');

@@ -791,7 +791,12 @@ async function importaCompeticion(id, opciones, catalogo, clave, sofa) {
 
     // El detalle (estadisticas y jugadores) cuesta una peticion por partido,
     // asi que solo se piden los mas recientes: el modelo mira los ultimos 10.
-    const recientes = historial.slice(-opciones.detalles);
+    //
+    // Con 0 no se pide ninguno —es la pasada ligera, solo resultados y cuotas—.
+    // OJO: `slice(-0)` es `slice(0)`, que devuelve el array ENTERO, no vacío:
+    // por eso `--detalles 0` bajaba el acta de todos los partidos, tardaba
+    // horas y llenaba el disco del runner. Hay que cortar en seco cuando es 0.
+    const recientes = opciones.detalles > 0 ? historial.slice(-opciones.detalles) : [];
     if (recientes.length) {
       process.stdout.write(`  ESPN (detalle de ${recientes.length} partidos)… `);
       let hechos = 0;
