@@ -36,6 +36,20 @@ import { useCalculo } from '@/utiles/carga';
 type Vista = 'cuotas' | 'insights' | 'duelo';
 type Pestana = 'picks' | 'formaciones' | 'lesiones';
 
+/**
+ * Solo para la cabecera: el nombre corto de datos ("Santos") se confunde con
+ * el de un homonimo (Santos Laguna), asi que aqui se enseña el mas completo
+ * de uso comun. No toca `nombre`, que sigue mandando en la busqueda de
+ * escudos, en las cuotas y en todo lo demas.
+ */
+const NOMBRE_CABECERA: Record<string, string> = {
+  Santos: 'Santos FC',
+};
+
+function nombreCabecera(nombre: string): string {
+  return NOMBRE_CABECERA[nombre] ?? nombre;
+}
+
 export default function PantallaPartido() {
   const { id, comp } = useLocalSearchParams<{ id: string; comp: string }>();
   const { ajustes } = useTienda();
@@ -310,7 +324,7 @@ export default function PantallaPartido() {
                     se lee de quién es el partido.
                   */}
                   <Txt v="cuerpoFuerte" numberOfLines={2} style={{ textAlign: 'center' }}>
-                    {e.nombre}
+                    {nombreCabecera(e.nombre)}
                   </Txt>
                   {pos > 0 ? (
                     <Txt v="mini" color={C.texto3}>
