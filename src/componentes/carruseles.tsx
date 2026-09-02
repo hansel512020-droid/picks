@@ -120,6 +120,7 @@ export function CarruselCompeticion({
             >
               <Escudo
                 nombre={e.nombre}
+                id={e.id}
                 corto={e.corto}
                 color={e.color}
                 tam={38}

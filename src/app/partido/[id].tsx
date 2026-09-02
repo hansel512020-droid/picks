@@ -297,6 +297,7 @@ export default function PantallaPartido() {
                   >
                     <Escudo
                       nombre={e.nombre}
+                      id={e.id}
                       bandera={e.bandera}
                       corto={e.corto}
                       color={e.color}
