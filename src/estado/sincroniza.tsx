@@ -63,7 +63,7 @@ function aFila(g: PickGuardado): Record<string, unknown> {
 
 export function Sincroniza() {
   const { sesion } = useSesion();
-  const { guardados, restaura } = useTienda();
+  const { guardados, restaura, cargado } = useTienda();
 
   const bajado = useRef<string | null>(null);
   // Lo último que se subió de cada pick, para no repetir la misma llamada.
@@ -71,7 +71,16 @@ export function Sincroniza() {
 
   // ------------------------------------------------------------- al entrar
   useEffect(() => {
-    if (!sesion || bajado.current === sesion.id) return;
+    /*
+     * `cargado` marca que ya se leyó del teléfono lo que hubiera guardado en
+     * `AsyncStorage`. Sin esperarlo, esta carga de la nube y la del teléfono
+     * corrían a la vez, y si la del teléfono terminaba después —tarda variable,
+     * hay más lecturas de AsyncStorage compitiendo al abrir la app— pisaba con
+     * la lista local (vacía o incompleta en un teléfono nuevo) la que se
+     * acababa de mezclar con la cuenta. Resultado: al entrar con la misma
+     * cuenta en otro aparato, algunos picks de la nube no aparecían.
+     */
+    if (!cargado || !sesion || bajado.current === sesion.id) return;
     bajado.current = sesion.id;
 
     (async () => {
@@ -100,7 +109,7 @@ export function Sincroniza() {
         return [...porId.values()].sort((a, b) => b.guardadoEn.localeCompare(a.guardadoEn));
       });
     })();
-  }, [sesion, restaura]);
+  }, [sesion, restaura, cargado]);
 
   // Late de fondo para reintentar lo que se quedó sin subir. Un 503 pasajero
   // no debe esperar a que el usuario guarde o quite otro pick para volver a
