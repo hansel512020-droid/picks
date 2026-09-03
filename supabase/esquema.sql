@@ -47,12 +47,14 @@ create or replace view public.conteo_guardados as
 -- ---------------------------------------------------------------- permisos
 alter table public.guardados enable row level security;
 
--- Cualquiera puede sumar su guardado…
+-- Insertar YA NO lo hace la app directo: pasa por la Edge Function
+-- `guardados-suma`, que cuenta intentos por IP antes de dejar escribir. Con
+-- `with check (true)` cualquiera podia inflar el contador inventando un
+-- "dispositivo" nuevo en cada peticion -- la clave primaria (pick_id,
+-- dispositivo) solo frena al mismo aparato repitiendose, no a un script.
+-- El service_role de la funcion salta la RLS, asi que no hace falta una
+-- politica de insert para el: sin ninguna, anon/authenticated quedan fuera.
 drop policy if exists guardados_insertar on public.guardados;
-create policy guardados_insertar
-  on public.guardados for insert
-  to anon, authenticated
-  with check (true);
 
 -- …y deshacerlo, pero SOLO lo suyo.
 --
@@ -92,7 +94,22 @@ create policy guardados_leer
 alter view public.conteo_guardados set (security_invoker = false);
 
 grant select on public.conteo_guardados to anon, authenticated;
-grant insert, delete on public.guardados to anon, authenticated;
+grant delete on public.guardados to anon, authenticated;
+-- Por si esta script corre sobre una base donde ya se habia concedido: quita
+-- el insert directo que le dio la version anterior de este archivo.
+revoke insert on public.guardados from anon, authenticated;
+
+-- Cuenta de intentos por IP para el limite de `guardados-suma`. Solo la lee y
+-- la escribe esa funcion, con su clave de servicio: RLS activo y sin ninguna
+-- politica la deja cerrada del todo a la app.
+create table if not exists public.guardados_intentos (
+  ip      text        not null,
+  creado  timestamptz not null default now()
+);
+
+create index if not exists guardados_intentos_ip_idx on public.guardados_intentos (ip, creado desc);
+
+alter table public.guardados_intentos enable row level security;
 
 -- ============================================================================
 --  Picks guardados de cada usuario

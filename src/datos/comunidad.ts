@@ -102,20 +102,15 @@ export async function masGuardados(
 /**
  * Suma un guardado. Repetir no cuenta dos veces: la clave es pick + móvil.
  *
- * ── Por qué no se usa `resolution=ignore-duplicates` ──────────────────────
- * Parecía lo natural —"si ya está, no hagas nada"— y era justo lo que impedía
- * que esto funcionara **nunca**. Ese `Prefer` hace que PostgREST ejecute un
- * `ON CONFLICT DO NOTHING`, y para saber si hay conflicto Postgres tiene que
- * leer la fila que ya existe. Pero la política de lectura de `guardados` es
- * `using (false)` a propósito, para que nadie pueda sacar los identificadores
- * de los demás móviles. Resultado: cada guardado se rechazaba con un
- * "new row violates row-level security policy", la app se lo tragaba en
- * silencio y la tabla llevaba vacía desde el primer día. Por eso no aparecía
- * ni un solo contador en ninguna tarjeta.
+ * ── Por qué pasa por una Edge Function y no inserta directo ───────────────
+ * Insertar directo con la clave pública funcionaba, pero cualquiera podía
+ * mandar miles de "dispositivo" inventados y el número naranja de la tarjeta
+ * dejaba de significar nada. La función `guardados-suma` cuenta intentos por
+ * IP antes de dejar escribir; ver su cabecera para el porqué del límite.
  *
- * Ahora se inserta sin más y el duplicado se resuelve donde toca: un 409 es la
- * clave primaria diciendo que este móvil ya lo tenía guardado, que es
- * exactamente el resultado que se buscaba. Se cuenta como éxito.
+ * Un 409 (o el `ok: false` que devuelve la función ante el mismo caso) es la
+ * clave primaria diciendo que este móvil ya lo tenía guardado — se cuenta
+ * como éxito, no como fallo.
  */
 export async function anotaGuardado(
   pickId: string,
@@ -125,9 +120,9 @@ export async function anotaGuardado(
   if (!COMUNIDAD_ACTIVA) return false;
   const dispositivo = await idDispositivo();
   try {
-    const r = await fetch(`${URL}/rest/v1/guardados`, {
+    const r = await fetch(`${URL}/functions/v1/guardados-suma`, {
       method: 'POST',
-      headers: cabeceras({ Prefer: 'return=minimal' }),
+      headers: cabeceras(),
       /*
        * Con sesión se cuenta por cuenta; sin ella, por móvil.
        *
@@ -136,11 +131,13 @@ export async function anotaGuardado(
        * marcó 2 con un solo usuario. Quien ha entrado con su cuenta cuenta una
        * vez, use el aparato que use.
        */
-      body: JSON.stringify([
-        { pick_id: pickId, competicion: competicionId, dispositivo, usuario_id: usuarioId ?? null },
-      ]),
+      body: JSON.stringify({
+        pick_id: pickId,
+        competicion: competicionId,
+        dispositivo,
+        usuario_id: usuarioId ?? null,
+      }),
     });
-    // 409 = ya estaba guardado por este móvil. No es un fallo.
     return r.ok || r.status === 409;
   } catch {
     return false;
