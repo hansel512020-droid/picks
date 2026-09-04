@@ -583,9 +583,14 @@ export function TarjetaPick({
   useEffect(() => {
     comunidad.pide([pick.id]);
   }, [comunidad, pick.id]);
-  // Sin servidor de comunidad no hay número real que enseñar, así que se
-  // usa el estimado del modelo; con servidor manda el recuento de verdad.
-  const fuego = comunidad.cuenta(pick.id) ?? pick.fuego;
+  /*
+   * Con el recuento real casi siempre en cero al principio -pocos picks
+   * llevan guardados de verdad todavía-, la tarjeta se veía "apagada" casi
+   * siempre. El estimado del modelo hace de piso: se enseña el mayor de los
+   * dos, así que un pick real y popular manda sobre el estimado en cuanto lo
+   * supera, pero uno sin guardados no se queda mudo mientras tanto.
+   */
+  const fuego = Math.max(comunidad.cuenta(pick.id) ?? 0, pick.fuego);
 
   const abrir = () => {
     if (bloqueado) {
