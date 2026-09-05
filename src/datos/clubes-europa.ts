@@ -19,7 +19,7 @@ export const PREMIER: FilaClub[] = [
     David Raya|POR|22|84; Ben White|DEF|4|80; William Saliba|DEF|2|86; Gabriel Magalhães|DEF|6|84;
     Riccardo Calafiori|DEF|33|81; Declan Rice|MED|41|88; Martín Zubimendi|MED|36|83;
     Martin Ødegaard|MED|8|86; Bukayo Saka|DEL|7|87; Gabriel Martinelli|DEL|11|81;
-    Viktor Gyökeres|DEL|14|84; Kai Havertz|DEL|29|83`),
+    Viktor Gyökeres|DEL|14|84; Kai Havertz|DEL|29|83; Christos Tzolis|DEL|24|76`),
   c('che', 'Chelsea', 'CHE', 86, 85, 84, '#034694', 'Stamford Bridge', 'Londres', `
     Robert Sánchez|POR|1|78; Reece James|DEF|24|81; Levi Colwill|DEF|6|81; Wesley Fofana|DEF|29|79;
     Marc Cucurella|DEF|3|81; Moisés Caicedo|MED|25|86; Enzo Fernández|MED|8|85;
@@ -566,7 +566,7 @@ export const OTROS_EUROPA: FilaClub[] = [
   c('cbr', 'Club Brujas', 'CLB', 76, 76, 74, '#0B2A6B', 'Jan Breydelstadion', 'Brujas', `
     Simon Mignolet|POR|22|77; Kyriani Sabbe|DEF|2|73; Brandon Mechele|DEF|44|74;
     Joel Ordóñez|DEF|4|76; Bjorn Meijer|DEF|3|74; Hans Vanaken|MED|20|77;
-    Raphael Onyedika|MED|8|76; Ardon Jashari|MED|6|76; Christos Tzolis|DEL|11|78;
+    Raphael Onyedika|MED|8|76; Ardon Jashari|MED|6|76;
     Ferran Jutglà|DEL|9|76; Chemsdine Talbi|DEL|7|73`),
   c('ola', 'Olympiacos', 'OLY', 75, 74, 74, '#E30613', 'Karaiskakis', 'El Pireo', `
     Konstantinos Tzolakis|POR|1|74; Rodinei|DEF|2|74; Panagiotis Retsos|DEF|3|74;
