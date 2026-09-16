@@ -14,7 +14,14 @@ function aseguraDirectorio(dir) {
 }
 
 function nombreCache(url) {
-  return crypto.createHash('sha1').update(url).digest('hex').slice(0, 16);
+  /*
+   * ESPN se pide ahora por site.web.api (ver espn.js), pero las actas ya
+   * guardadas se bajaron de site.api y son el mismo contenido. El nombre se
+   * calcula con el dominio viejo para que esas copias sigan valiendo y no haya
+   * que volver a bajar miles de partidos.
+   */
+  const clave = url.replace('://site.web.api.espn.com/', '://site.api.espn.com/');
+  return crypto.createHash('sha1').update(clave).digest('hex').slice(0, 16);
 }
 
 /**
