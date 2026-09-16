@@ -50,7 +50,46 @@ on:
         default: false
 
 jobs:
+  # ── ¿Le toca a GitHub? ──────────────────────────────────────────────────────
+  #
+  # Los datos buenos los publica el PC (scripts/refrescar.cmd), que puede usar
+  # SofaScore: xG real y las ligas que ESPN no tiene. Desde GitHub SofaScore no
+  # funciona, así que lo que sube este robot es más pobre. Por eso solo publica
+  # si el PC lleva más de 12 horas sin hacerlo (apagado, sin conexión…): es el
+  # respaldo, no el titular. Lanzado a mano, importa siempre.
+  turno:
+    runs-on: ubuntu-latest
+    outputs:
+      saltar: ${{ steps.mira.outputs.saltar }}
+    steps:
+      - id: mira
+        env:
+          SUPABASE_URL: ${{ secrets.SUPABASE_URL }}
+          EVENTO: ${{ github.event_name }}
+        run: |
+          if [ "$EVENTO" != "schedule" ]; then
+            echo "Lanzado a mano: se importa siempre."
+            echo "saltar=false" >> "$GITHUB_OUTPUT"
+            exit 0
+          fi
+          if ! curl -sSf "$SUPABASE_URL/storage/v1/object/public/datos/nucleo.json.gz" -o /tmp/nucleo.gz; then
+            echo "No se pudo leer el núcleo publicado: se importa por si acaso."
+            echo "saltar=false" >> "$GITHUB_OUTPUT"
+            exit 0
+          fi
+          node -e "
+            const fs = require('fs');
+            const j = JSON.parse(require('zlib').gunzipSync(fs.readFileSync('/tmp/nucleo.gz')));
+            const horas = (Date.now() - Date.parse(j.actualizado)) / 3600000;
+            const saltar = j.origen === 'pc' && horas < 12;
+            console.log('Último publicado por:', j.origen ?? 'desconocido', '· hace', horas.toFixed(1), 'h');
+            console.log(saltar ? 'El PC está al día: GitHub no pisa sus datos.' : 'Adelante: GitHub publica.');
+            fs.appendFileSync(process.env.GITHUB_OUTPUT, 'saltar=' + saltar + '\n');
+          "
+
   importar:
+    needs: turno
+    if: needs.turno.outputs.saltar != 'true'
     runs-on: ubuntu-latest
     # Alpine, no la imagen normal de Ubuntu: usa musl en vez de glibc, y ahí
     # el binario nativo de curl-cffi-node para SofaScore sí carga. Con glibc
