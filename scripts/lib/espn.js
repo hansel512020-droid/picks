@@ -20,7 +20,12 @@
 
 const { bajaJSON } = require('./http');
 
-const RAIZ = 'https://site.api.espn.com/apis/site/v2/sports/soccer';
+/*
+ * `site.web.api`, no `site.api`: desde septiembre de 2026 `site.api` responde
+ * 403 a cualquier cliente que no se presente como curl —el importador incluido—,
+ * y el bot se quedaba sin un solo partido. `site.web.api` sirve lo mismo.
+ */
+const RAIZ = 'https://site.web.api.espn.com/apis/site/v2/sports/soccer';
 
 /** Competicion de la app -> identificador de ESPN. */
 const LIGAS = {
@@ -139,20 +144,29 @@ function estadoDe(estado) {
 }
 
 /**
- * Calendario de una competicion entre dos fechas. ESPN acepta rangos, asi que
- * una temporada entera son tres o cuatro peticiones en vez de trescientas.
+ * Calendario de una competicion entre dos fechas, pedido por años naturales.
+ *
+ * Antes se pedian rangos (`dates=20260101-20260331`), pero ESPN dejo de
+ * aceptarlos: responden 400 "Failed to get events endpoint". El año entero
+ * (`dates=2026`) si funciona y trae todos los partidos; el mes tambien, pero
+ * se deja fuera los que caen en el borde por el cambio de huso horario. Asi que
+ * se pide año a año y se recorta a [desde, hasta].
+ *
+ * Se añade un dia a cada lado porque ESPN agrupa por la fecha de Estados
+ * Unidos: un partido del 1 de enero a las 00:30 UTC es del 31 de diciembre alli.
  */
 async function calendario(slug, desde, hasta, dirCache, forzar) {
   const partidos = [];
-  const TRAMO = 90 * 86400000;
+  const vistos = new Set();
+  const DIA = 86400000;
+  const primerAño = new Date(desde.getTime() - DIA).getUTCFullYear();
+  const ultimoAño = new Date(hasta.getTime() + DIA).getUTCFullYear();
 
-  for (let ini = desde.getTime(); ini <= hasta.getTime(); ini += TRAMO + 86400000) {
-    const fin = new Date(Math.min(ini + TRAMO, hasta.getTime()));
-    const rango = `${aFecha(new Date(ini))}-${aFecha(fin)}`;
+  for (let año = primerAño; año <= ultimoAño; año++) {
     let datos;
     try {
       ({ datos } = await bajaJSON(
-        `${RAIZ}/${slug}/scoreboard?dates=${rango}&limit=400`,
+        `${RAIZ}/${slug}/scoreboard?dates=${año}&limit=1000`,
         dirCache,
         { forzar },
       ));
@@ -161,6 +175,10 @@ async function calendario(slug, desde, hasta, dirCache, forzar) {
     }
 
     for (const evento of datos?.events ?? []) {
+      const cuando = Date.parse(evento.date);
+      if (!(cuando >= desde.getTime() && cuando <= hasta.getTime())) continue;
+      if (vistos.has(evento.id)) continue;
+      vistos.add(evento.id);
       const c = evento.competitions?.[0];
       if (!c) continue;
       const local = c.competitors?.find((x) => x.homeAway === 'home');
