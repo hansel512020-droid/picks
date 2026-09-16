@@ -130,6 +130,20 @@ async function main() {
   }
 
   const crudo = fs.readFileSync(ARCHIVO);
+  const datos = JSON.parse(crudo);
+
+  /*
+   * Si la importación no trajo nada, no se sube nada. Pasó en septiembre de
+   * 2026: ESPN cambió su API, el importador guardó "0 competiciones" sin dar
+   * error, y la subida habría reemplazado el núcleo publicado por uno vacío,
+   * dejando la app sin un solo partido. Mejor datos de ayer que ningún dato.
+   */
+  if (!Object.keys(datos.competiciones ?? {}).length) {
+    console.error('La importación no trajo ninguna competición: no se publica nada.');
+    console.error('Los datos que ya están en Supabase se quedan como están.');
+    process.exit(1);
+  }
+
   const comprimido = zlib.gzipSync(crudo, { level: 9 });
   // La CLI sube un archivo, no un montón de bytes, así que el comprimido se
   // deja junto al original. Está en .gitignore: es un resultado, no una fuente.
@@ -155,7 +169,6 @@ async function main() {
    * núcleo tira de él, como hasta ahora. No se recorta ningún dato: es el mismo,
    * repartido en dos.
    */
-  const datos = JSON.parse(crudo);
   const nucleo = { ...datos, competiciones: {} };
   const detalle = { actualizado: datos.actualizado, competiciones: {} };
   let totalRegistros = 0;
