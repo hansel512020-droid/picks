@@ -60,6 +60,10 @@ REM el entorno o en .env.local.
 node scripts\publicar-datos.js >> scripts\refrescar.log 2>&1
 echo Publicar: %ERRORLEVEL% >> scripts\refrescar.log
 
+REM Una vez por semana, borra de .cache-datos lo que ya no se usa. Sin esto la
+REM cache llego a 8 GB. Ver scripts\limpiar-cache.js.
+node scripts\limpiar-cache.js >> scripts\refrescar.log 2>&1
+
 REM Copia de seguridad de lo que no se puede regenerar: quien pago, hasta
 REM cuando tiene acceso y que guardo. El plan gratuito de Supabase no hace
 REM copias, asi que si una fila se pierde no hay a donde volver.
