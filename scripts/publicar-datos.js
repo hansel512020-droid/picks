@@ -169,7 +169,13 @@ async function main() {
    * núcleo tira de él, como hasta ahora. No se recorta ningún dato: es el mismo,
    * repartido en dos.
    */
-  const nucleo = { ...datos, competiciones: {} };
+  /*
+   * Quién publica. El PC (con SofaScore) y GitHub (solo ESPN) suben al mismo
+   * sitio; datos.yml lee esta marca del núcleo publicado y, si el PC ha subido
+   * hace poco, GitHub no pisa sus datos más completos.
+   */
+  const origen = process.env.GITHUB_ACTIONS === 'true' ? 'github' : 'pc';
+  const nucleo = { ...datos, origen, competiciones: {} };
   const detalle = { actualizado: datos.actualizado, competiciones: {} };
   let totalRegistros = 0;
   for (const [id, c] of Object.entries(datos.competiciones ?? {})) {

@@ -8,9 +8,13 @@ REM ejecutar a mano haciendo doble clic.
 REM
 REM Baja las dos fuentes, no solo ESPN: ESPN pone el calendario, el estado en
 REM vivo y las cuotas, y SofaScore pone las estadisticas —xG medido y la linea
-REM completa de cada jugador—, que es de donde salen los pronosticos. No hace
-REM falta ninguna bandera para eso: SofaScore entra sola salvo que se le pase
-REM --sin-sofascore.
+REM completa de cada jugador—, que es de donde salen los pronosticos.
+REM
+REM SofaScore por red va con --sofascore-red a proposito. En importar.js paso a
+REM ser opcional el 31 de agosto de 2026 (un bloqueo colgo el bot diez horas), y
+REM como este archivo no se toco, el bot siguio corriendo solo con ESPN sin que
+REM nadie lo notara. Aqui si se quiere: es el PC el que publica los datos
+REM completos, y GitHub solo le cubre si este PC lleva horas sin publicar.
 REM
 REM El registro de cada pasada queda en scripts\refrescar.log.
 REM
@@ -47,7 +51,7 @@ REM no se le nombra ninguna liga. Se pone a proposito: asi el .cmd dice cual es
 REM el catalogo que refresca sin que haya que ir a leer argumentos() en
 REM importar.js, y si algun dia se le anade un --liga delante, sigue entrando
 REM el catalogo entero y no una sola competicion.
-node --max-old-space-size=4096 scripts\importar.js --refrescar --importantes --detalles 90 >> scripts\refrescar.log 2>&1
+node --max-old-space-size=4096 scripts\importar.js --refrescar --importantes --detalles 90 --sofascore-red >> scripts\refrescar.log 2>&1
 echo Importar: %ERRORLEVEL% >> scripts\refrescar.log
 
 REM Sube el archivo recortado a Supabase Storage para que los telefonos
