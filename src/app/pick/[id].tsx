@@ -223,18 +223,22 @@ function Serie({
   const dia = (f?: string) => (f ? `${f.slice(8, 10)}/${f.slice(5, 7)}` : '');
 
   return (
-    <View style={{ gap: E.sm }}>
-      <View style={{ height: 104, flexDirection: 'row', alignItems: 'flex-end', gap: 3 }}>
+    <View style={{ gap: 4 }}>
+      <View style={{ height: 76, flexDirection: 'row', alignItems: 'flex-end', gap: 2 }}>
         {vistos.map((p, i) => (
-          <View key={i} style={{ flex: 1, height: '100%', justifyContent: 'flex-end', gap: 2 }}>
+          <View key={i} style={{ flex: 1, height: '100%', justifyContent: 'flex-end' }}>
             {/* El número encima: la barra dice la forma, el número dice el dato. */}
-            <Txt v="mini" color={acierta(p.valor) ? C.acierto : C.texto3} style={{ textAlign: 'center' }}>
+            <Txt
+              v="mini"
+              color={acierta(p.valor) ? C.acierto : C.texto3}
+              style={{ textAlign: 'center', fontSize: 10, lineHeight: 12 }}
+            >
               {coma(p.valor)}
             </Txt>
             <View
               style={{
                 height: `${alto(p.valor)}%`,
-                borderRadius: 3,
+                borderRadius: 2,
                 backgroundColor: acierta(p.valor) ? C.acierto : C.neutro,
               }}
             />
@@ -255,9 +259,9 @@ function Serie({
       </View>
 
       {/* Debajo de cada barra: contra quién fue y qué día. */}
-      <View style={{ flexDirection: 'row', gap: 3 }}>
+      <View style={{ flexDirection: 'row', gap: 2 }}>
         {vistos.map((p, i) => (
-          <View key={i} style={{ flex: 1, alignItems: 'center', gap: 2 }}>
+          <View key={i} style={{ flex: 1, alignItems: 'center', gap: 1 }}>
             {p.rival ? (
               <Escudo
                 nombre={p.rival.nombre}
@@ -265,26 +269,21 @@ function Serie({
                 bandera={p.rival.bandera}
                 corto={p.rival.corto}
                 color={p.rival.color}
-                tam={18}
+                tam={15}
               />
             ) : (
-              <View style={{ width: 18, height: 18 }} />
+              <View style={{ width: 15, height: 15 }} />
             )}
-            <Txt v="mini" color={C.texto3} style={{ fontSize: 9 }}>
+            <Txt v="mini" color={C.texto3} style={{ fontSize: 8, lineHeight: 10 }}>
               {dia(p.fecha)}
             </Txt>
           </View>
         ))}
       </View>
 
-      <View style={{ flexDirection: 'row', justifyContent: 'space-between' }}>
-        <Txt v="mini" color={C.texto3}>
-          últimos {vistos.length} partidos
-        </Txt>
-        <Txt v="mini" color={C.lima}>
-          línea {coma(linea)}
-        </Txt>
-      </View>
+      <Txt v="mini" color={C.texto3} style={{ textAlign: 'center' }}>
+        últimos {vistos.length} partidos · línea <Txt v="mini" color={C.lima}>{coma(linea)}</Txt>
+      </Txt>
     </View>
   );
 }
