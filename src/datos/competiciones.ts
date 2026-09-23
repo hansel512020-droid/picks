@@ -26,7 +26,7 @@ type Fila = [
 
 const FILAS: Fila[] = [
   ['mundial', 'Copa Mundial de la FIFA', 'Mundial', 'FIFA', '🏆', 'seleccion', 92, 2.7],
-  ['champions', 'UEFA Champions League', 'Champions', 'UEFA', '🌟', 'continental', 94, 3.0, true],
+  ['champions', 'UEFA Champions League', 'Champions', 'UEFA', '🌟', 'continental', 94, 3.0],
   /*
    * Las fases previas son competiciones aparte en ESPN, con su propio
    * calendario, y sin ellas la app no enseñaba los partidos por los que un
@@ -34,8 +34,8 @@ const FILAS: Fila[] = [
    * que simplemente no existían.
    */
   ['championsprevia', 'UEFA Champions League · Fase previa', 'Champions previa', 'UEFA', '🌟', 'continental', 78, 2.9],
-  ['premier', 'Premier League', 'Premier', 'Inglaterra', '🏴󠁧󠁢󠁥󠁮󠁧󠁿', 'liga', 92, 2.85, true],
-  ['laliga', 'LaLiga EA Sports', 'LaLiga', 'España', '🇪🇸', 'liga', 89, 2.55, true],
+  ['premier', 'Premier League', 'Premier', 'Inglaterra', '🏴󠁧󠁢󠁥󠁮󠁧󠁿', 'liga', 92, 2.85],
+  ['laliga', 'LaLiga EA Sports', 'LaLiga', 'España', '🇪🇸', 'liga', 89, 2.55],
   ['laliga2', 'LaLiga Hypermotion', 'LaLiga 2', 'España', '🇪🇸', 'liga', 67, 2.25],
   ['seriea', 'Serie A', 'Serie A', 'Italia', '🇮🇹', 'liga', 88, 2.75],
   ['serieb', 'Serie B', 'Serie B', 'Italia', '🇮🇹', 'liga', 66, 2.4],
@@ -47,11 +47,11 @@ const FILAS: Fila[] = [
   ['europaprevia', 'UEFA Europa League · Fase previa', 'Europa previa', 'UEFA', '🥈', 'continental', 70, 2.85],
   ['conference', 'UEFA Conference League', 'Conference', 'UEFA', '🥉', 'continental', 74, 3.0],
   ['conferenceprevia', 'UEFA Conference League · Fase previa', 'Conference previa', 'UEFA', '🥉', 'continental', 64, 2.95],
-  ['ligamx', 'Liga MX', 'Liga MX', 'México', '🇲🇽', 'liga', 76, 2.75, true],
+  ['ligamx', 'Liga MX', 'Liga MX', 'México', '🇲🇽', 'liga', 76, 2.75],
   ['expansionmx', 'Liga de Expansión MX', 'Expansión MX', 'México', '🇲🇽', 'liga', 63, 2.7],
   ['libertadores', 'CONMEBOL Libertadores', 'Libertadores', 'CONMEBOL', '🏅', 'continental', 80, 2.5],
   ['sudamericana', 'CONMEBOL Sudamericana', 'Sudamericana', 'CONMEBOL', '🎖️', 'continental', 73, 2.6],
-  ['brasileirao', 'Brasileirão Série A', 'Brasileirão', 'Brasil', '🇧🇷', 'liga', 79, 2.45, true],
+  ['brasileirao', 'Brasileirão Série A', 'Brasileirão', 'Brasil', '🇧🇷', 'liga', 79, 2.45],
   ['brasileiraob', 'Brasileirão Série B', 'Brasileirão B', 'Brasil', '🇧🇷', 'liga', 67, 2.35],
   ['copadobrasil', 'Copa do Brasil', 'Copa do Brasil', 'Brasil', '🇧🇷', 'copa', 77, 2.4],
   ['argentina', 'Liga Profesional Argentina', 'Liga Argentina', 'Argentina', '🇦🇷', 'liga', 76, 2.3],

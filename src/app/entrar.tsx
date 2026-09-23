@@ -3,7 +3,7 @@ import { useState } from 'react';
 import { ActivityIndicator, Platform, TextInput, View } from 'react-native';
 import { useSafeAreaInsets } from 'react-native-safe-area-context';
 import { Boton, Insignia, Pulsable, Tarjeta, Txt } from '@/componentes/base';
-import { Icono } from '@/componentes/iconos';
+import { Icono, LogoApple, LogoGoogle } from '@/componentes/iconos';
 import { Logo } from '@/componentes/marca';
 import {
   confirmaCodigo,
@@ -144,7 +144,15 @@ function BotonProveedor({
         <ActivityIndicator color={C.texto2} />
       ) : (
         <>
-          <Icono nombre={icono} tam={18} color={C.texto} />
+          {/* El logo de cada proveedor, no un icono cualquiera: es lo que la
+              gente reconoce, y Google lo exige en su botón. */}
+          {proveedor === 'google' ? (
+            <LogoGoogle tam={18} />
+          ) : proveedor === 'apple' ? (
+            <LogoApple tam={18} />
+          ) : (
+            <Icono nombre={icono} tam={18} color={C.texto} />
+          )}
           <Txt v="cuerpoFuerte">{texto}</Txt>
         </>
       )}
@@ -343,15 +351,21 @@ export default function Entrar() {
           <Pulsable
             key={m}
             onPress={() => { setModo(m); setAviso(null); }}
+            /*
+             * La opción activa, en verde lleno y con el texto oscuro encima.
+             * Antes era gris sobre gris y no se veía cuál de las dos estaba
+             * puesta: la gente escribía el correo creyendo que entraba y
+             * acababa creando otra cuenta.
+             */
             style={{
               flex: 1,
               paddingVertical: 9,
               borderRadius: R.sm,
               alignItems: 'center',
-              backgroundColor: modo === m ? C.carta : 'transparent',
+              backgroundColor: modo === m ? C.lima : 'transparent',
             }}
           >
-            <Txt v="pequenoFuerte" color={modo === m ? C.texto : C.texto3}>
+            <Txt v="pequenoFuerte" color={modo === m ? C.fondo : C.texto3}>
               {m === 'crear' ? 'Crear cuenta' : 'Ya tengo cuenta'}
             </Txt>
           </Pulsable>

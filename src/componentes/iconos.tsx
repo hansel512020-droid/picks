@@ -2,6 +2,48 @@ import Svg, { Circle, Path, Rect } from 'react-native-svg';
 import { C } from '@/tema';
 
 /**
+ * La G de Google, con sus cuatro colores.
+ *
+ * No es decoración: Google exige su propio logo en el botón de "Continuar con
+ * Google", y además es lo que la gente reconoce de un vistazo. Con un icono
+ * genérico, el botón parecía uno más de la pantalla.
+ */
+export function LogoGoogle({ tam = 18 }: { tam?: number }) {
+  return (
+    <Svg width={tam} height={tam} viewBox="0 0 24 24">
+      <Path
+        fill="#4285F4"
+        d="M23.64 12.2045c0-.6381-.0573-1.2518-.1636-1.8409H12v3.4814h6.5218c-.2809 1.5136-1.1345 2.7959-2.4163 3.6545v3.0409h3.9136c2.2909-2.1091 3.6109-5.2145 3.6109-8.3359z"
+      />
+      <Path
+        fill="#34A853"
+        d="M12 24c3.24 0 5.9564-1.0745 7.9418-2.9091l-3.9136-3.0409c-1.0745.72-2.4491 1.1454-4.0282 1.1454-3.0955 0-5.7164-2.0891-6.6518-4.8955H1.2873v3.1418C3.2618 21.2727 7.3091 24 12 24z"
+      />
+      <Path
+        fill="#FBBC05"
+        d="M5.3482 14.3c-.24-.72-.3764-1.4864-.3764-2.3s.1364-1.58.3764-2.3V6.5582H1.2873C.4636 8.1927 0 10.0418 0 12s.4636 3.8073 1.2873 5.4418L5.3482 14.3z"
+      />
+      <Path
+        fill="#EA4335"
+        d="M12 4.7727c1.7455 0 3.3127.6 4.5436 1.7782l3.4073-3.4073C17.9527 1.1918 15.2364 0 12 0 7.3091 0 3.2618 2.7273 1.2873 6.5582L5.3482 9.7c.9354-2.8064 3.5564-4.9273 6.6518-4.9273z"
+      />
+    </Svg>
+  );
+}
+
+/** La manzana de Apple, para el botón de "Continuar con Apple". */
+export function LogoApple({ tam = 18, color = C.texto }: { tam?: number; color?: string }) {
+  return (
+    <Svg width={tam} height={tam} viewBox="0 0 24 24">
+      <Path
+        fill={color}
+        d="M16.365 1.43c0 1.14-.42 2.2-1.26 3.03-.99.99-2.19 1.56-3.24 1.47-.12-1.11.45-2.28 1.2-3.03.84-.87 2.31-1.5 3.3-1.47zm3.6 16.02c-.6 1.38-.9 2.01-1.68 3.24-1.08 1.71-2.61 3.84-4.5 3.855-1.68.015-2.115-1.095-4.395-1.08-2.28.015-2.76 1.095-4.44 1.08-1.89-.015-3.33-1.935-4.41-3.645C-2.07 16.5-1.5 9.75 2.13 7.44c1.29-.825 2.67-1.29 3.945-1.29 1.29 0 2.1.72 3.99.72 1.83 0 2.28-.72 3.78-.72 1.14 0 2.34.315 3.42 1.11-3 1.665-2.52 5.97.69 7.29z"
+      />
+    </Svg>
+  );
+}
+
+/**
  * Juego de iconos de la app. Todos comparten caja de 24 y se dibujan con el
  * color que se les pase, para que valgan igual en la barra de pestanas que
  * dentro de una tarjeta.
