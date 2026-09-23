@@ -147,9 +147,9 @@ function BotonProveedor({
           {/* El logo de cada proveedor, no un icono cualquiera: es lo que la
               gente reconoce, y Google lo exige en su botón. */}
           {proveedor === 'google' ? (
-            <LogoGoogle tam={18} />
+            <LogoGoogle tam={22} />
           ) : proveedor === 'apple' ? (
-            <LogoApple tam={18} />
+            <LogoApple tam={22} />
           ) : (
             <Icono nombre={icono} tam={18} color={C.texto} />
           )}

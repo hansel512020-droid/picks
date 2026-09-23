@@ -269,10 +269,10 @@ function Serie({
                 bandera={p.rival.bandera}
                 corto={p.rival.corto}
                 color={p.rival.color}
-                tam={15}
+                tam={22}
               />
             ) : (
-              <View style={{ width: 15, height: 15 }} />
+              <View style={{ width: 22, height: 22 }} />
             )}
             <Txt v="mini" color={C.texto3} style={{ fontSize: 8, lineHeight: 10 }}>
               {dia(p.fecha)}
