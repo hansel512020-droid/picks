@@ -1,5 +1,5 @@
 import { Aleatorio } from '@/utiles/aleatorio';
-import { competicion } from './competiciones';
+import { competicion, TODAS } from './competiciones';
 import { cuandoCambienLosDatos, equiposImportados, partidosDelEquipoEnTodas } from './importado';
 import { normalSobre, precioDe, probMercadoEquipo, probMercadoJugador } from './mercado';
 import { temporada } from './motor';
@@ -289,17 +289,50 @@ function evalua(valores: number[], linea: number, sentido: 'mas' | 'menos') {
     aciertosL10: racha.filter(Boolean).length,
     aciertosL20: valores.slice(0, 20).filter(acierta).length,
     muestraL20: Math.min(20, valores.length),
+    // La muestra larga, para el modo de ventana ampliada. No se enseña: solo
+    // entra en la probabilidad cuando hay bastantes partidos detrás.
+    aciertosL40: valores.slice(0, 40).filter(acierta).length,
+    muestraL40: Math.min(40, valores.length),
     media: valores.slice(0, 10).reduce((a, b) => a + b, 0) / Math.max(1, Math.min(10, valores.length)),
   };
+}
+
+/**
+ * Ventana ampliada, para medirla contra la de siempre.
+ *
+ * El modelo mira los últimos 10 y 20 partidos. La pregunta es si mirar también
+ * los 40 da mejores picks —más muestra, menos ruido— o peores —la forma de hace
+ * un año no dice nada—. No se decide opinando: se enciende esto, se corre el
+ * backtest y se compara el retorno. `scripts/backtest.ts --modo 1`.
+ */
+let VENTANA_LARGA = false;
+export function usaVentanaLarga(valor: boolean): void {
+  VENTANA_LARGA = valor;
+  CACHE.clear();
+  FACTORES.clear();
 }
 
 /**
  * Probabilidad del modelo: mezcla la tasa reciente con la de la muestra larga
  * y la empuja hacia el 50% cuando hay pocos partidos (encogimiento bayesiano).
  */
-function probabilidad(aciertosL10: number, aciertosL20: number, muestra: number): number {
+function probabilidad(
+  aciertosL10: number,
+  aciertosL20: number,
+  muestra: number,
+  aciertosL40 = 0,
+  muestraL40 = 0,
+): number {
   const corto = aciertosL10 / 10;
   const largo = aciertosL20 / Math.max(1, muestra);
+
+  if (VENTANA_LARGA && muestraL40 >= 25) {
+    const muyLargo = aciertosL40 / muestraL40;
+    const cruda = corto * 0.45 + largo * 0.35 + muyLargo * 0.2;
+    const peso = Math.min(1, muestraL40 / 30);
+    return Math.min(0.94, Math.max(0.06, 0.5 + (cruda - 0.5) * (0.55 + 0.45 * peso)));
+  }
+
   const cruda = corto * 0.62 + largo * 0.38;
   const peso = Math.min(1, muestra / 16);
   return Math.min(0.94, Math.max(0.06, 0.5 + (cruda - 0.5) * (0.55 + 0.45 * peso)));
@@ -705,7 +738,7 @@ export function picksDePartido(
           const ev = evalua(valores, l, sentido);
           // Solo interesa lo que se repite: 7 de 10 o mejor.
           if (ev.aciertosL10 < 7) continue;
-          const prob = probabilidad(ev.aciertosL10, ev.aciertosL20, ev.muestraL20);
+          const prob = probabilidad(ev.aciertosL10, ev.aciertosL20, ev.muestraL20, ev.aciertosL40, ev.muestraL40);
           const id = `${partidoId}-${jug.id}-${met.clave}-${l}-${sentido}`;
           // El precio lo pone el mercado mirando al puesto, no a este jugador.
           const pMercado = probMercadoJugador(met.clave, l, jug.posicion, jug.nivel, mediaLarga);
@@ -887,7 +920,7 @@ export function picksDePartido(
            * el pick llega a publicarse.
            */
           const prob = probabilidadAjustada(
-            probabilidad(ev.aciertosL10, ev.aciertosL20, ev.muestraL20),
+            probabilidad(ev.aciertosL10, ev.aciertosL20, ev.muestraL20, ev.aciertosL40, ev.muestraL40),
             tasaEnContexto(valores, pesos, l, sentido),
             factorDelRival(rival, met, mediaCompeticion, partido.fecha),
             sentido,
@@ -1016,7 +1049,7 @@ export function picksDePartido(
        * media de competicion, porque el margen ya es la diferencia entre los
        * dos— asi que va en 1 y el ajuste lo hace entero el contexto.
        */
-      const base = probabilidad(ev.aciertosL10, ev.aciertosL20, ev.muestraL20);
+      const base = probabilidad(ev.aciertosL10, ev.aciertosL20, ev.muestraL20, ev.aciertosL40, ev.muestraL40);
       const enContexto = tasaEnContexto(margenes, pesosH, -h, 'mas');
       /*
        * Cuanto manda el contexto sobre el conteo crudo.
@@ -1137,7 +1170,7 @@ export function picksDePartido(
         for (const sentido of ['mas', 'menos'] as const) {
           const ev = evalua(valores, l, sentido);
           if (ev.aciertosL10 < 7) continue;
-          const prob = probabilidad(ev.aciertosL10, ev.aciertosL20, ev.muestraL20);
+          const prob = probabilidad(ev.aciertosL10, ev.aciertosL20, ev.muestraL20, ev.aciertosL40, ev.muestraL40);
           const id = `${partidoId}-partido-${met.clave}-${l}-${sentido}`;
           const mediaPropia = valores.reduce((a, b) => a + b, 0) / Math.max(1, valores.length);
           const pMercado = probMercadoEquipo(met.clave, l, mediaCompeticion, mediaPropia);
@@ -1819,6 +1852,56 @@ export function desglose1x2(competicionId: string, partidoId: string, casaId: st
         valor: !!rec,
       };
     });
+}
+
+/**
+ * El pick gratis del día: uno solo, abierto para todo el mundo.
+ *
+ * Es el escaparate. Se enseña sin cuenta y sin pagar, se comparte por WhatsApp
+ * y al día siguiente se ve si entró; lo demás está bajo llave. Por eso tiene
+ * que ser EL MISMO para todos: si cada visita viera un pick distinto, el enlace
+ * que alguien manda no llevaría a lo que él vio.
+ *
+ * Se elige sin azar: de los partidos de hoy, el pick recomendado con más
+ * ventaja, y a igualdad de ventaja el de identificador menor. Mismo día, mismos
+ * datos, mismo pick.
+ */
+const PICK_DEL_DIA = new Map<string, Pick | null>();
+cuandoCambienLosDatos(() => PICK_DEL_DIA.clear());
+
+export function pickDelDia(casaId = 'medio'): Pick | null {
+  const hoy = new Date();
+  const clave = `${hoy.toDateString()}|${casaId}`;
+  const guardado = PICK_DEL_DIA.get(clave);
+  if (guardado !== undefined) return guardado;
+
+  // Con el comodín: el pick del día puede salir de cualquier competición, y el
+  // candado se lo quita luego la propia app por ser este.
+  const todos = picksDeCompeticion(TODAS, casaId, 80, new Set(['*']));
+  const finDeHoy = new Date(hoy.getFullYear(), hoy.getMonth(), hoy.getDate(), 23, 59, 59).getTime();
+  const deHoy = todos.filter((p) => {
+    const cuando = Date.parse(p.cuando ?? '');
+    return Number.isFinite(cuando) && cuando >= Date.now() && cuando <= finDeHoy;
+  });
+
+  // Si hoy no se juega nada —un lunes de parón—, se coge el mejor de lo que
+  // venga: mejor un pick de mañana que una pantalla vacía.
+  const candidatos = deHoy.length ? deHoy : todos;
+  const elegido =
+    [...candidatos].sort(
+      (a, b) =>
+        Number(b.recomendado) - Number(a.recomendado) ||
+        b.ventaja - a.ventaja ||
+        a.id.localeCompare(b.id),
+    )[0] ?? null;
+
+  PICK_DEL_DIA.set(clave, elegido);
+  return elegido;
+}
+
+/** Si este pick es el gratis de hoy, y por tanto se ve sin cuenta ni plan. */
+export function esPickDelDia(pickId: string, casaId = 'medio'): boolean {
+  return pickDelDia(casaId)?.id === pickId;
 }
 
 /**

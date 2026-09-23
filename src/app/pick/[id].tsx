@@ -9,9 +9,15 @@ import { Escudo, LogoCompeticion } from '@/componentes/imagen';
 import { CabeceraAtras, FilaDato } from '@/componentes/navegacion';
 import { Avatar, BarraL10, FilaMercado, TarjetaPick } from '@/componentes/pick';
 import { competicion } from '@/datos/competiciones';
-import { partidosDelEquipoEnTodas } from '@/datos/importado';
+import { equiposImportados, partidosDelEquipoEnTodas } from '@/datos/importado';
 import { temporada } from '@/datos/motor';
-import { coma, METRICAS_EQUIPO, METRICAS_JUGADOR, picksDePartido } from '@/datos/picks';
+import {
+  coma,
+  esPickDelDia,
+  METRICAS_EQUIPO,
+  METRICAS_JUGADOR,
+  picksDePartido,
+} from '@/datos/picks';
 import { useComunidad } from '@/estado/comunidad';
 import { useDerechos } from '@/estado/derechos';
 import { useTienda } from '@/estado/tienda';
@@ -158,13 +164,27 @@ function ElPartido({
   );
 }
 
-/** Barras de la metrica partido a partido, con la linea del mercado marcada. */
+/** Un partido de la serie: cuánto hizo, contra quién y cuándo. */
+export interface PuntoSerie {
+  valor: number;
+  rival?: { nombre: string; id?: string; bandera?: string; corto?: string; color?: string };
+  fecha?: string;
+}
+
+/**
+ * Barras de la metrica partido a partido, con la linea del mercado marcada.
+ *
+ * Cada barra lleva debajo el dia y el escudo del rival. Sin eso, diez barras
+ * verdes son diez barras verdes: no se sabe si la racha se hizo contra los tres
+ * ultimos de la tabla o contra el lider, que es justo lo que decide si uno se
+ * fia del pick. Con el escudo, el grafico se lee solo.
+ */
 function Serie({
-  valores,
+  puntos,
   linea,
   sentido,
 }: {
-  valores: number[];
+  puntos: PuntoSerie[];
   linea: number;
   /*
    * Hacia donde acierta el pick.
@@ -187,6 +207,12 @@ function Serie({
    * altura, legible. El `linea * 1.8` es el mínimo: si casi nadie pasa la línea,
    * que al menos se vea dónde está.
    */
+  /*
+   * Diez, no veinte. Con veinte barras el escudo del rival sale a ocho píxeles
+   * y no se reconoce ninguno, que es justo para lo que está ahí.
+   */
+  const vistos = puntos.slice(-10);
+  const valores = vistos.map((p) => p.valor);
   const ordenados = [...valores].filter((v) => Number.isFinite(v)).sort((a, b) => a - b);
   const grueso = ordenados.length
     ? ordenados[Math.min(ordenados.length - 1, Math.floor(ordenados.length * 0.8))]
@@ -194,16 +220,22 @@ function Serie({
   const maximo = Math.max(linea * 1.8, grueso, 1);
   const alto = (v: number) => Math.min(100, Math.max(6, (v / maximo) * 100));
   const acierta = (v: number) => (sentido === 'menos' || sentido === 'no' ? v < linea : v > linea);
+  const dia = (f?: string) => (f ? `${f.slice(8, 10)}/${f.slice(5, 7)}` : '');
+
   return (
     <View style={{ gap: E.sm }}>
-      <View style={{ height: 96, flexDirection: 'row', alignItems: 'flex-end', gap: 3 }}>
-        {valores.map((v, i) => (
-          <View key={i} style={{ flex: 1, height: '100%', justifyContent: 'flex-end' }}>
+      <View style={{ height: 104, flexDirection: 'row', alignItems: 'flex-end', gap: 3 }}>
+        {vistos.map((p, i) => (
+          <View key={i} style={{ flex: 1, height: '100%', justifyContent: 'flex-end', gap: 2 }}>
+            {/* El número encima: la barra dice la forma, el número dice el dato. */}
+            <Txt v="mini" color={acierta(p.valor) ? C.acierto : C.texto3} style={{ textAlign: 'center' }}>
+              {coma(p.valor)}
+            </Txt>
             <View
               style={{
-                height: `${alto(v)}%`,
+                height: `${alto(p.valor)}%`,
                 borderRadius: 3,
-                backgroundColor: acierta(v) ? C.acierto : C.neutro,
+                backgroundColor: acierta(p.valor) ? C.acierto : C.neutro,
               }}
             />
           </View>
@@ -221,15 +253,36 @@ function Serie({
           }}
         />
       </View>
+
+      {/* Debajo de cada barra: contra quién fue y qué día. */}
+      <View style={{ flexDirection: 'row', gap: 3 }}>
+        {vistos.map((p, i) => (
+          <View key={i} style={{ flex: 1, alignItems: 'center', gap: 2 }}>
+            {p.rival ? (
+              <Escudo
+                nombre={p.rival.nombre}
+                id={p.rival.id}
+                bandera={p.rival.bandera}
+                corto={p.rival.corto}
+                color={p.rival.color}
+                tam={18}
+              />
+            ) : (
+              <View style={{ width: 18, height: 18 }} />
+            )}
+            <Txt v="mini" color={C.texto3} style={{ fontSize: 9 }}>
+              {dia(p.fecha)}
+            </Txt>
+          </View>
+        ))}
+      </View>
+
       <View style={{ flexDirection: 'row', justifyContent: 'space-between' }}>
         <Txt v="mini" color={C.texto3}>
-          hace {valores.length} partidos
+          últimos {vistos.length} partidos
         </Txt>
         <Txt v="mini" color={C.lima}>
           línea {coma(linea)}
-        </Txt>
-        <Txt v="mini" color={C.texto3}>
-          último
         </Txt>
       </View>
     </View>
@@ -291,7 +344,11 @@ export default function PantallaPick() {
 
    */
 
-  const bloqueado = !!pick?.pro && !tieneAcceso(pick.competicionId);
+  // El pick del día se abre entero, sea de la liga que sea: es el gratis de hoy.
+  const bloqueado =
+    !!pick?.pro &&
+    !tieneAcceso(pick.competicionId) &&
+    !esPickDelDia(pick.id, ajustes.casaId);
 
   const contexto = useCalculo(() => {
     if (!pick) return undefined;
@@ -304,7 +361,26 @@ export default function PantallaPick() {
       const regs = (t.registrosPorJugador.get(pick.sujetoId) ?? []).filter(
         (r) => r.minutos >= 25 && r.partidoId !== pick.partidoId,
       );
-      const serie = regs.slice(0, 20).map(metJugador.extractor).reverse();
+      /*
+       * El rival de cada partido, para el escudo del gráfico. Se busca en el
+       * índice global y no en `t.porEquipo`: el historial cruza competiciones
+       * —una copa, una continental— y ahí el rival tiene otro identificador.
+       */
+      const deTodas = new Map(equiposImportados().map((e) => [e.id, e]));
+      const conRival = (rivalId: string | undefined) => {
+        const r = rivalId ? (t.porEquipo.get(rivalId) ?? deTodas.get(rivalId)) : undefined;
+        return r
+          ? { nombre: r.nombre, id: r.id, bandera: r.bandera, corto: r.corto, color: r.color }
+          : undefined;
+      };
+      const serie: PuntoSerie[] = regs
+        .slice(0, 20)
+        .map((r) => ({
+          valor: metJugador.extractor(r),
+          fecha: r.fecha,
+          rival: conRival(r.rivalId),
+        }))
+        .reverse();
       const tasa = (lista: typeof regs) =>
         lista.length
           ? (lista.filter((r) =>
@@ -370,10 +446,22 @@ export default function PantallaPick() {
         lista.length
           ? (lista.filter((p) => acierta(valor(p))).length / lista.length) * 100
           : 0;
+      const deTodasEq = new Map(equiposImportados().map((e) => [e.id, e]));
+      const rivalDe = (p: (typeof suyos)[number]) => {
+        const rivalId = p.esLocal ? p.visitanteId : p.localId;
+        const r = t.porEquipo.get(rivalId) ?? deTodasEq.get(rivalId);
+        return r
+          ? { nombre: r.nombre, id: r.id, bandera: r.bandera, corto: r.corto, color: r.color }
+          : undefined;
+      };
       return {
         tipo: 'equipo' as const,
         equipo,
-        serie: suyos.slice(-20).map(valor),
+        serie: suyos.slice(-20).map((p) => ({
+          valor: valor(p),
+          fecha: p.fecha,
+          rival: rivalDe(p),
+        })) as PuntoSerie[],
         cortes: [
           { etiqueta: 'Toda la temporada', valor: tasa(suyos), n: suyos.length },
           {
@@ -620,7 +708,7 @@ ${enlace}`;
           <View style={{ paddingHorizontal: E.lg, gap: E.sm }}>
             <Txt v="subtitulo">Partido a partido</Txt>
             <Tarjeta style={{ padding: E.md, gap: E.md }}>
-              <Serie valores={contexto.serie} linea={pick.linea} sentido={pick.sentido} />
+              <Serie puntos={contexto.serie} linea={pick.linea} sentido={pick.sentido} />
               <Separador />
               <FilaDato etiqueta="Media de la temporada" valor={coma(contexto.mediaGeneral, 2)} />
               <FilaDato etiqueta="Media en los últimos 10" valor={coma(pick.media, 2)} destacado />

@@ -20,6 +20,7 @@ import {
   METRICAS_JUGADOR,
   METRICAS_PARTIDO,
   picksDePartido,
+  usaVentanaLarga,
 } from '../src/datos/picks';
 import type { Partido, Pick, RegistroJugador } from '../src/datos/tipos';
 import { readFileSync } from 'node:fs';
@@ -31,6 +32,19 @@ function opcion(nombre: string): string | null {
   const i = process.argv.indexOf(`--${nombre}`);
   return i > 0 ? (process.argv[i + 1] ?? null) : null;
 }
+
+/*
+ * `--modo 1` mide la ventana ampliada (últimos 10, 20 y 40) contra la de
+ * siempre (10 y 20). Sirve para responder con números a "¿y si el motor mirara
+ * más partidos?" en vez de opinando.
+ */
+if (opcion('modo') === '1') {
+  usaVentanaLarga(true);
+  console.log('MODO: ventana ampliada (10 / 20 / 40)\n');
+}
+
+/** `--ver 35`: lista los picks con esa ventaja o más, uno por línea. */
+const VER = opcion('ver') !== null ? Number(opcion('ver')) : null;
 
 const LIGAS = opcion('ligas')?.split(',').map((s) => s.trim());
 const TOPE = Number(opcion('partidos') ?? 400);
@@ -188,6 +202,18 @@ function main(): void {
         const v = porVentaja.get(tramo) ?? vacia();
         suma(v, gano, pick.cuota);
         porVentaja.set(tramo, v);
+
+        // `--ver 35` escupe uno a uno los picks por encima de esa ventaja, con
+        // su partido y si entró. Para poder mirar con los ojos si el tramo que
+        // más rinde son picks de verdad o un artefacto de cuatro mercados raros.
+        if (VER !== null && pick.ventaja >= VER) {
+          const eq = (id: string) => t.equipos.find((e) => e.id === id)?.nombre ?? id;
+          console.log(
+            `${partido.fecha.slice(0, 10)} ${eq(partido.localId)} ${partido.golesLocal}-${partido.golesVisitante} ${eq(partido.visitanteId)}` +
+              ` · ${pick.titulo} · ${pick.mercado} @${pick.cuota}` +
+              ` · ventaja ${pick.ventaja}% · ${gano ? 'ENTRÓ' : 'falló'}`,
+          );
+        }
       }
     }
   }

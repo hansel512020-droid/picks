@@ -5,6 +5,7 @@ import { useEffect, useState } from 'react';
 import { Platform, Text, View } from 'react-native';
 import { casa as buscaCasa } from '@/datos/casas';
 import { competicion } from '@/datos/competiciones';
+import { esPickDelDia } from '@/datos/picks';
 import type { Pick, SujetoPick } from '@/datos/tipos';
 import { useComunidad } from '@/estado/comunidad';
 import { useDerechos } from '@/estado/derechos';
@@ -563,7 +564,7 @@ export function TarjetaPick({
   onPress?: () => void;
   sinRacha?: boolean;
 }) {
-  const { estaGuardado, guardar, quitar } = useTienda();
+  const { ajustes, estaGuardado, guardar, quitar } = useTienda();
   const { tieneAcceso } = useDerechos();
   const comunidad = useComunidad();
   const guardado = estaGuardado(pick.id);
@@ -573,7 +574,12 @@ export function TarjetaPick({
    * local: bastaba con haberlo activado una vez —o con editarlo desde la
    * consola del navegador— para abrir la app entera sin pagar.
    */
-  const bloqueado = !!pick.pro && !tieneAcceso(pick.competicionId);
+  /*
+   * El pick del día se ve siempre, aunque su liga sea de pago: es el gratis de
+   * hoy y el que se comparte fuera. Ver `pickDelDia` en picks.ts.
+   */
+  const bloqueado =
+    !!pick.pro && !tieneAcceso(pick.competicionId) && !esPickDelDia(pick.id, ajustes.casaId);
 
   // Si el partido se está jugando ahora, la tarjeta lo dice.
   const enVivo = usePartidoDelPick(pick);

@@ -394,6 +394,42 @@ export default function Inicio() {
             */}
             <AvisoPagoEnProceso />
 
+            {/*
+              El pick gratis del día.
+
+              Va arriba del todo y en verde porque es lo único abierto para
+              quien no paga: el que entra sin plan tiene que ver enseguida que
+              hay algo suyo aquí, no una lista de candados. Y para el que sí
+              paga no estorba: es una línea.
+            */}
+            <Pulsable
+              onPress={() => router.push('/gratis')}
+              style={{
+                marginHorizontal: E.lg,
+                padding: E.md,
+                borderRadius: R.lg,
+                borderWidth: 1,
+                borderColor: C.limaBorde,
+                backgroundColor: C.limaTenue,
+                flexDirection: 'row',
+                alignItems: 'center',
+                gap: E.md,
+              }}
+            >
+              <Txt v="titulo" style={{ fontSize: 20 }}>
+                🎁
+              </Txt>
+              <View style={{ flex: 1 }}>
+                <Txt v="cuerpoFuerte" color={C.lima}>
+                  Pick gratis de hoy
+                </Txt>
+                <Txt v="mini" color={C.texto3}>
+                  El de más confianza, abierto para todos
+                </Txt>
+              </View>
+              <Icono nombre="flechaDerecha" tam={14} color={C.lima} />
+            </Pulsable>
+
             {/* ------------------------------------------------- carrusel */}
             {/* Arriba, lo que se juega a continuación en todas las
                 competiciones; debajo, el filtro de la competición activa. */}
