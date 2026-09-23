@@ -82,12 +82,12 @@ function ordena(
       return copia.sort((a, b) => porDia(a, b) || b.cuota - a.cuota);
     case 'fuego':
       /*
-       * Por los guardados de VERDAD, no por el numero que inventa el
-       * generador. Si no hay contador real, `cuenta` devuelve indefinido y se
-       * cae al numero de siempre.
+       * Por los guardados de VERDAD y nada mas. El numero inventado que hacia
+       * de respaldo ya no existe: sin guardados reales, este orden se decide
+       * por la ventaja, que al menos dice algo del pick.
        */
       return copia.sort(
-        (a, b) => porDia(a, b) || (cuenta(b) ?? b.fuego) - (cuenta(a) ?? a.fuego),
+        (a, b) => porDia(a, b) || (cuenta(b) ?? 0) - (cuenta(a) ?? 0) || b.ventaja - a.ventaja,
       );
     default:
       // El generador ya entrega por cercania y calidad: no se toca.

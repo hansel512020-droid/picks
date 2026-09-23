@@ -62,3 +62,9 @@ supabase/.temp/
 # Copias de seguridad: llevan datos de personas —quién pagó, qué compró— y el
 # repositorio es público. Nunca deben subirse.
 respaldos/
+
+# Artefactos que sube el bot: se regeneran en cada pasada.
+src/datos/nucleo.json.gz
+src/datos/detalle.json.gz
+# Registro de las pasadas manuales.
+scripts/refrescar-manual.log

@@ -483,8 +483,23 @@ ${enlace}`;
                   {pick.contexto}
                 </Txt>
               </View>
-              {/* El estimado hace de piso mientras el recuento real crece: ver pick.tsx. */}
-              <Fuego n={Math.max(comunidad.cuenta(pick.id) ?? 0, pick.fuego)} />
+              {/* Guardados de verdad, y pulsable para guardar: ver pick.tsx. */}
+              <Pulsable
+                onPress={() => {
+                  if (bloqueado) {
+                    router.push('/pro');
+                  } else if (guardado) {
+                    quitar(pick.id);
+                    comunidad.resta(pick.id);
+                  } else {
+                    guardar(pick);
+                    comunidad.suma(pick.id, pick.competicionId);
+                  }
+                }}
+                hitSlop={6}
+              >
+                <Fuego n={comunidad.cuenta(pick.id) ?? 0} />
+              </Pulsable>
             </View>
 
             {bloqueado ? (

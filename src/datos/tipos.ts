@@ -279,8 +279,6 @@ export interface Pick {
   probabilidad: number;
   /** Ventaja sobre la probabilidad implicita de la cuota, en puntos. */
   ventaja: number;
-  /** Cuanta gente guardo el pick. */
-  fuego: number;
   /** Bandera o foto que va a la izquierda. */
   imagen: string;
   esBandera: boolean;

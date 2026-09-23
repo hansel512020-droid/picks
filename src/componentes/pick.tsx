@@ -579,18 +579,36 @@ export function TarjetaPick({
   const enVivo = usePartidoDelPick(pick);
   const jugando = seJuegaAhora(enVivo?.estado);
 
-  // Con servidor detrás el número es real; sin él, el que estima el modelo.
   useEffect(() => {
     comunidad.pide([pick.id]);
   }, [comunidad, pick.id]);
   /*
-   * Con el recuento real casi siempre en cero al principio -pocos picks
-   * llevan guardados de verdad todavía-, la tarjeta se veía "apagada" casi
-   * siempre. El estimado del modelo hace de piso: se enseña el mayor de los
-   * dos, así que un pick real y popular manda sobre el estimado en cuanto lo
-   * supera, pero uno sin guardados no se queda mudo mientras tanto.
+   * Guardados de verdad y solo eso.
+   *
+   * Antes el generador inventaba un número —una fórmula con azar dentro— y se
+   * enseñaba el mayor de los dos "para que la tarjeta no se viera apagada". El
+   * efecto real era otro: como casi ningún pick tenía guardados, lo que veía
+   * todo el mundo era siempre el inventado, y nunca se movía por mucho que la
+   * gente guardara. Eso es prueba social falsa, y encima se nota: un contador
+   * que no cambia delata que no cuenta nada.
+   *
+   * Ahora la llama sale cuando alguien ha guardado de verdad. Al principio se
+   * verá en pocas tarjetas; las que la lleven dirán la verdad.
    */
-  const fuego = Math.max(comunidad.cuenta(pick.id) ?? 0, pick.fuego);
+  const fuego = comunidad.cuenta(pick.id) ?? 0;
+
+  const alternarGuardado = () => {
+    vibra();
+    if (bloqueado) {
+      router.push('/pro');
+    } else if (guardado) {
+      quitar(pick.id);
+      comunidad.resta(pick.id);
+    } else {
+      guardar(pick);
+      comunidad.suma(pick.id, pick.competicionId);
+    }
+  };
 
   const abrir = () => {
     if (bloqueado) {
@@ -727,22 +745,17 @@ export function TarjetaPick({
           nada cuando no hay guardados, así que no ensucia las tarjetas vacías.
         */}
         <View style={{ flexDirection: 'row', alignItems: 'center', gap: 5 }}>
-          <Fuego n={fuego} />
+          {/*
+            La llama guarda y desguarda, igual que el marcador de la derecha:
+            es lo que la gente intenta hacer al verla, y antes no hacía nada.
+          */}
+          <Pulsable onPress={alternarGuardado} hitSlop={6}>
+            <Fuego n={fuego} />
+          </Pulsable>
           {bloqueado ? <Insignia texto="PRO" color={C.lima} fondo={C.limaTenue} /> : null}
         </View>
         <Pulsable
-          onPress={() => {
-            vibra();
-            if (bloqueado) {
-              router.push('/pro');
-            } else if (guardado) {
-              quitar(pick.id);
-              comunidad.resta(pick.id);
-            } else {
-              guardar(pick);
-              comunidad.suma(pick.id, pick.competicionId);
-            }
-          }}
+          onPress={alternarGuardado}
           hitSlop={8}
           style={{
             width: 30,

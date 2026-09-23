@@ -46,14 +46,11 @@ export default function Comunidad() {
    * contador real detrás, aquí se enseña lo que hay: si nadie ha guardado nada
    * todavía, cero. Un cero honesto vale más que un número inventado.
    *
-   * `cuenta` devuelve indefinido cuando no hay servidor detrás, y solo entonces
-   * se cae al número del generador.
+   * `cuenta` devuelve indefinido cuando no hay servidor detrás; entonces no hay
+   * nada que contar y es cero, no un número inventado.
    */
   const comunidad = useComunidad();
-  const guardadosDe = useCallback(
-    (p: Pick) => comunidad.cuenta(p.id) ?? p.fuego,
-    [comunidad],
-  );
+  const guardadosDe = useCallback((p: Pick) => comunidad.cuenta(p.id) ?? 0, [comunidad]);
 
   const visibles = useMemo(
     () =>

@@ -305,15 +305,6 @@ function probabilidad(aciertosL10: number, aciertosL20: number, muestra: number)
   return Math.min(0.94, Math.max(0.06, 0.5 + (cruda - 0.5) * (0.55 + 0.45 * peso)));
 }
 
-/** Cuanta gente guardo el pick. Sube con la ventaja y con el nombre del sujeto. */
-function fuegoDe(id: string, ventaja: number, fama: number): number {
-  const rnd = new Aleatorio(`${id}-fuego`);
-  const base = ventaja * 0.85 + Math.max(0, fama - 72) * 1.3;
-  const n = Math.round(base * rnd.rango(0.35, 1.35));
-  // Un dato que falta nunca debe acabar en un "NaN" en pantalla.
-  return Number.isFinite(n) ? Math.max(0, n) : 0;
-}
-
 /**
  * Un pick solo merece salir si el precio es apostable y la ventaja es real.
  * Sin este filtro la lista se llena de "menos de 0.5 tarjetas" a cuota 1.06.
@@ -762,7 +753,6 @@ export function picksDePartido(
             media: ev.media,
             probabilidad: prob,
             ventaja,
-            fuego: fuegoDe(id, ventaja, jug.nivel),
             imagen: jug.bandera,
             esBandera: true,
             nombres: [jug.nombre],
@@ -941,7 +931,6 @@ export function picksDePartido(
             media: ev.media,
             probabilidad: prob,
             ventaja,
-            fuego: fuegoDe(id, ventaja, equipo.fuerza),
             imagen: equipo.bandera,
             esBandera: true,
             nombres: [equipo.nombre],
@@ -1104,7 +1093,6 @@ export function picksDePartido(
         media: ev.media,
         probabilidad: prob,
         ventaja,
-        fuego: fuegoDe(id, ventaja, equipo.fuerza),
         imagen: equipo.bandera,
         esBandera: true,
         nombres: [equipo.nombre],
@@ -1184,7 +1172,6 @@ export function picksDePartido(
             media: ev.media,
             probabilidad: prob,
             ventaja,
-            fuego: fuegoDe(id, ventaja, Math.max(local.fuerza, visitante.fuerza)),
             imagen: `${local.bandera}${visitante.bandera}`,
             esBandera: true,
             nombres: [local.nombre, visitante.nombre],
@@ -1361,7 +1348,6 @@ export function picksDePartido(
         media: ajustada * 100,
         probabilidad: ajustada,
         ventaja,
-        fuego: fuegoDe(id, ventaja, Math.max(local.fuerza, visitante.fuerza)),
         imagen: `${local.bandera}${visitante.bandera}`,
         esBandera: true,
         nombres: [local.nombre, visitante.nombre],
@@ -1835,10 +1821,17 @@ export function desglose1x2(competicionId: string, partidoId: string, casaId: st
     });
 }
 
-/** Los picks que mas ha guardado la comunidad. */
+/**
+ * Los candidatos que se le ofrecen a la pantalla de comunidad.
+ *
+ * Aqui no se sabe cuantos guardados reales tiene cada uno —eso vive en el
+ * servidor y lo pide la pantalla—, asi que se entregan ordenados por ventaja y
+ * alli se reordenan por guardados. Antes se ordenaban por un numero de
+ * guardados inventado por el generador, que ya no existe.
+ */
 export function picksComunidad(competicionId: string, casaId: string, limite = 40): Pick[] {
   const todos = picksDeCompeticion(competicionId, casaId, 200);
-  return [...todos].sort((a, b) => b.fuego - a.fuego).slice(0, limite);
+  return [...todos].sort((a, b) => b.ventaja - a.ventaja).slice(0, limite);
 }
 
 export { fechaCorta };
