@@ -215,8 +215,9 @@ export default function Inicio() {
   const [menuOrden, setMenuOrden] = useState(false);
   const [todasFamilias, setTodasFamilias] = useState(false);
 
-  // Lo que el usuario tiene comprado: decide qué picks van con candado.
-  const { libres } = useDerechos();
+  // Lo que el usuario tiene comprado: decide qué picks van con candado, y si
+  // hace falta enseñarle el pick gratis (a quien ya paga no le dice nada).
+  const { libres, pro } = useDerechos();
   // Los guardados de verdad, para poder ordenar por "Más guardados" sin
   // recurrir al número que inventa el generador.
   const comunidad = useComunidad();
@@ -395,40 +396,43 @@ export default function Inicio() {
             <AvisoPagoEnProceso />
 
             {/*
-              El pick gratis del día.
+              El pick gratis del día, solo para quien no tiene plan.
 
               Va arriba del todo y en verde porque es lo único abierto para
               quien no paga: el que entra sin plan tiene que ver enseguida que
-              hay algo suyo aquí, no una lista de candados. Y para el que sí
-              paga no estorba: es una línea.
+              hay algo suyo aquí, no una lista de candados. A quien ya paga no
+              se le enseña —tiene todos los picks abiertos—, porque un botón que
+              dice "gratis" en una app que ya pagó solo ocupa sitio.
             */}
-            <Pulsable
-              onPress={() => router.push('/gratis')}
-              style={{
-                marginHorizontal: E.lg,
-                padding: E.md,
-                borderRadius: R.lg,
-                borderWidth: 1,
-                borderColor: C.limaBorde,
-                backgroundColor: C.limaTenue,
-                flexDirection: 'row',
-                alignItems: 'center',
-                gap: E.md,
-              }}
-            >
-              <Txt v="titulo" style={{ fontSize: 20 }}>
-                🎁
-              </Txt>
-              <View style={{ flex: 1 }}>
-                <Txt v="cuerpoFuerte" color={C.lima}>
-                  Pick gratis de hoy
+            {pro ? null : (
+              <Pulsable
+                onPress={() => router.push('/gratis')}
+                style={{
+                  marginHorizontal: E.lg,
+                  padding: E.md,
+                  borderRadius: R.lg,
+                  borderWidth: 1,
+                  borderColor: C.limaBorde,
+                  backgroundColor: C.limaTenue,
+                  flexDirection: 'row',
+                  alignItems: 'center',
+                  gap: E.md,
+                }}
+              >
+                <Txt v="titulo" style={{ fontSize: 20 }}>
+                  🎁
                 </Txt>
-                <Txt v="mini" color={C.texto3}>
-                  El de más confianza, abierto para todos
-                </Txt>
-              </View>
-              <Icono nombre="flechaDerecha" tam={14} color={C.lima} />
-            </Pulsable>
+                <View style={{ flex: 1 }}>
+                  <Txt v="cuerpoFuerte" color={C.lima}>
+                    Pick gratis de hoy
+                  </Txt>
+                  <Txt v="mini" color={C.texto3}>
+                    El de más confianza, abierto para todos
+                  </Txt>
+                </View>
+                <Icono nombre="flechaDerecha" tam={14} color={C.lima} />
+              </Pulsable>
+            )}
 
             {/* ------------------------------------------------- carrusel */}
             {/* Arriba, lo que se juega a continuación en todas las
