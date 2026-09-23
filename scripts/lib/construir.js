@@ -288,6 +288,13 @@ function partidosDeHistorial(competicionId, historial, proximos, equipos) {
       golesLocalDescanso: jugado ? p.golesLocalDescanso : 0,
       golesVisitanteDescanso: jugado ? p.golesVisitanteDescanso : 0,
       jornada: 0,
+      /*
+       * El año de temporada que da la fuente (2026 en la MLS, 2025 en la
+       * Premier 2025-26). Es lo que usa la tabla de clasificacion para saber
+       * que partidos son de la temporada en curso, en vez de adivinarlo por
+       * los huecos del calendario. Ver espn.js.
+       */
+      temporada: p.temporada,
       ronda: p.temporada ? `Temporada ${p.temporada}` : undefined,
       // Solo se escribe en los partidos de eliminatoria previa; el resto lo
       // dejan sin poner para no engordar el archivo con un `false` por partido.
@@ -592,6 +599,9 @@ function desdeEspn(partidos) {
       arbitro: p.arbitro,
       estadio: p.estadio,
       idEspn: p.idEspn,
+      // El año de temporada que marca ESPN. Si se pierde aqui, la tabla de
+      // clasificacion vuelve a adivinar por los huecos del calendario.
+      temporada: p.temporada,
       // Marca de eliminatoria continental (Champions/Europa/Conference), para
       // que la app la distinga con un distintivo de "Fase previa".
       fasePrevia: p.fasePrevia,

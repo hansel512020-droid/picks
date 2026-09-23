@@ -188,6 +188,15 @@ async function calendario(slug, desde, hasta, dirCache, forzar) {
       partidos.push({
         idEspn: evento.id,
         fecha: evento.date,
+        /*
+         * A que temporada pertenece, segun ESPN: 2026 en la MLS, 2025 en la
+         * Premier 2025-26. Sin este dato la app tenia que adivinar donde
+         * empezaba la temporada buscando un hueco largo en el calendario, y
+         * con la MLS se equivocaba: el paron de 53 dias del Mundial parecia un
+         * cambio de temporada y la tabla contaba once partidos en vez de
+         * veintiseis.
+         */
+        temporada: evento.season?.year,
         local: local.team?.displayName ?? local.team?.name,
         visitante: visitante.team?.displayName ?? visitante.team?.name,
         // El escudo viene en la misma respuesta: asi cada equipo importado

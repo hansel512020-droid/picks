@@ -101,6 +101,13 @@ export interface Partido {
   golesVisitante: number;
   golesLocalDescanso: number;
   golesVisitanteDescanso: number;
+  /**
+   * Año de temporada segun la fuente: 2026 en la MLS, 2025 en la Premier
+   * 2025-26. Lo usa la clasificacion para separar temporadas. Falta en los
+   * partidos importados antes de septiembre de 2026 y en los que solo vienen
+   * de SofaScore.
+   */
+  temporada?: number;
   jornada: number;
   ronda?: string;
   /** Eliminatoria previa continental (Champions/Europa/Conference qualifying). */

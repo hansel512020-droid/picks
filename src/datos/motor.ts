@@ -618,29 +618,45 @@ export function posicionesEnLiga(t: Temporada, competicionId: string): Map<strin
    * historial—, y sumar los puntos de todas daba una tabla sin sentido: una
    * Premier con 400 partidos y 23 equipos, no los 380 y 20 de una temporada.
    *
-   * La temporada en curso es el bloque de partidos más reciente. Se corta en el
-   * primer hueco largo yendo hacia atrás: el parón de verano entre una
-   * temporada y la siguiente pasa de cincuenta días, mientras que ni el parón
-   * de invierno ni un paréntesis de selecciones llegan a tanto. Sirve igual
-   * para las ligas de agosto a mayo y para las de año natural (Brasil, MLS,
-   * nórdicas), porque todas tienen su hueco.
+   * Cuál es la temporada en curso lo dice el propio partido: ESPN marca cada
+   * uno con su año (2026 en la MLS, 2025 en la Premier 2025-26) y el importador
+   * lo guarda. Se cuenta solo el año más reciente.
+   *
+   * Antes se adivinaba buscando un hueco de más de cincuenta días en el
+   * calendario, suponiendo que solo el parón entre temporadas dura tanto. Con
+   * la MLS salía mal: el parón del Mundial fue de 53 días, la tabla lo tomó por
+   * un cambio de temporada y contaba once partidos jugados donde había
+   * veintiséis, con los puntos igual de equivocados.
+   *
+   * El hueco sigue como respaldo para lo que no trae el año: las competiciones
+   * que solo vienen de SofaScore y los datos importados antes de esto.
    */
   const DIA = 86400000;
   const finalizados = t.partidos
     .filter((p) => p.competicionId === competicionId && p.estado === 'finalizado')
     .sort((a, b) => b.fecha.localeCompare(a.fecha));
-  let corte: number | null = null;
-  for (let i = 1; i < finalizados.length; i++) {
-    const hueco =
-      new Date(finalizados[i - 1].fecha).getTime() - new Date(finalizados[i].fecha).getTime();
-    if (hueco > 50 * DIA) {
-      corte = new Date(finalizados[i - 1].fecha).getTime();
-      break;
+
+  const conAño = finalizados.filter((p) => typeof p.temporada === 'number');
+  let deLaTemporada: typeof finalizados;
+
+  // La mayoría con año: es fiable. Con cuatro sueltos, mejor el respaldo.
+  if (conAño.length >= finalizados.length * 0.6) {
+    const ultima = Math.max(...conAño.map((p) => p.temporada as number));
+    deLaTemporada = conAño.filter((p) => p.temporada === ultima);
+  } else {
+    let corte: number | null = null;
+    for (let i = 1; i < finalizados.length; i++) {
+      const hueco =
+        new Date(finalizados[i - 1].fecha).getTime() - new Date(finalizados[i].fecha).getTime();
+      if (hueco > 50 * DIA) {
+        corte = new Date(finalizados[i - 1].fecha).getTime();
+        break;
+      }
     }
+    deLaTemporada = finalizados.filter(
+      (p) => corte === null || new Date(p.fecha).getTime() >= corte,
+    );
   }
-  const deLaTemporada = finalizados.filter(
-    (p) => corte === null || new Date(p.fecha).getTime() >= corte,
-  );
 
   // Solo los equipos que han jugado esta temporada: los descendidos el año
   // pasado siguen en los datos, y sin esto salían al fondo de la tabla con
