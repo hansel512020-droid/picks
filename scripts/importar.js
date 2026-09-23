@@ -269,21 +269,35 @@ function argumentos() {
     listar: false,
     estadisticas: false,
     /*
-     * Cuantos partidos jugados se guardan por competicion.
+     * Cuantos partidos jugados se guardan DE CADA EQUIPO.
      *
-     * Con 80 cada equipo se quedaba con cinco o seis partidos de historial
-     * —justo por debajo del minimo para afirmar nada—, y la mitad de los
-     * partidos de la portada salian sin un solo pick. Los partidos pesan poco
-     * comparados con los registros de jugador, asi que subirlos da historial de
-     * sobra sin disparar el tamaño del archivo.
+     * Es lo que decide cuanta historia tiene el modelo para hablar: pide seis
+     * partidos con el dato para publicar un pick, y mira los ultimos diez o
+     * veinte para la racha. Con 35 entra casi una temporada entera de liga mas
+     * lo que llevan de la actual, que es lo que describe a un equipo hoy.
      *
-     * A 400 para que las tres temporadas que ahora se conservan lleguen
-     * enteras: una liga de veinte equipos juega 380 partidos por temporada, y
-     * con 240 se cortaba antes de terminar la anterior.
+     * Por equipo y no por liga: ver el recorte, mas abajo. Con un tope por liga,
+     * cuantos mas equipos tenia, menos historia le quedaba a cada uno.
      */
-    partidos: 400,
-    // De cuantos se bajan estadisticas y jugadores desde ESPN.
+    porEquipo: 35,
+    /*
+     * Techo de seguridad por competicion, ya con el recorte por equipo hecho.
+     *
+     * Una liga de 32 equipos guarda unos 560 partidos, asi que 400 volvia a
+     * cortar justo lo que el recorte por equipo acababa de salvar. Se sube a
+     * 1200: solo salta si una competicion trae un numero absurdo.
+     */
+    partidos: 1200,
+    // De cuantos se bajan estadisticas y jugadores desde ESPN. Es un minimo:
+    // el numero real sale de `actasPorEquipo` x equipos de la liga.
     detalles: 90,
+    /*
+     * Actas por equipo. Doce y no seis: seis es el minimo que el modelo exige
+     * para hablar, y si se apunta justo al minimo, en cuanto un equipo juega
+     * un partido menos que los demas —o a alguno le falta el acta— se queda
+     * sin picks. Con doce hay margen para la racha de los ultimos diez.
+     */
+    actasPorEquipo: 12,
     // El volcado local de SofaScore. Se puede apuntar a otro archivo o
     // desactivarlo del todo para importar solo con ESPN, como antes.
     sofascore: SOFASCORE,
@@ -327,7 +341,9 @@ function argumentos() {
     else if (a[i] === '--refrescar') { o.refrescar = true; if (!o.ligas.length) o.ligas = [...IMPORTANTES]; }
     else if (a[i] === '--listar') o.listar = true;
     else if (a[i] === '--estadisticas') o.estadisticas = true;
-    else if (a[i] === '--partidos') o.partidos = Number(a[++i]) || 320;
+    else if (a[i] === '--partidos') o.partidos = Number(a[++i]) || 1200;
+    else if (a[i] === '--por-equipo') o.porEquipo = Number(a[++i]) || 35;
+    else if (a[i] === '--actas-por-equipo') o.actasPorEquipo = Number(a[++i]) || 12;
     else if (a[i] === '--detalles') o.detalles = Number(a[++i]) || 0;
     else if (a[i] === '--importantes') o.ligas = [...IMPORTANTES];
     else if (a[i] === '--sofascore') o.sofascore = path.resolve(a[++i]);
@@ -789,14 +805,29 @@ async function importaCompeticion(id, opciones, catalogo, clave, sofa) {
       }
     }
 
-    // El detalle (estadisticas y jugadores) cuesta una peticion por partido,
-    // asi que solo se piden los mas recientes: el modelo mira los ultimos 10.
-    //
-    // Con 0 no se pide ninguno —es la pasada ligera, solo resultados y cuotas—.
-    // OJO: `slice(-0)` es `slice(0)`, que devuelve el array ENTERO, no vacío:
-    // por eso `--detalles 0` bajaba el acta de todos los partidos, tardaba
-    // horas y llenaba el disco del runner. Hay que cortar en seco cuando es 0.
-    const recientes = opciones.detalles > 0 ? historial.slice(-opciones.detalles) : [];
+    /*
+     * El detalle (estadisticas y jugadores) cuesta una peticion por partido,
+     * asi que solo se piden los mas recientes: el modelo mira los ultimos 10.
+     *
+     * Con 0 no se pide ninguno —es la pasada ligera, solo resultados y cuotas—.
+     * OJO: `slice(-0)` es `slice(0)`, que devuelve el array ENTERO, no vacío:
+     * por eso `--detalles 0` bajaba el acta de todos los partidos, tardaba
+     * horas y llenaba el disco del runner. Hay que cortar en seco cuando es 0.
+     *
+     * Cuantas, lo decide el tamaño de la liga, no un numero fijo. Con 90 para
+     * todas, una liga de 32 equipos dejaba tres actas por equipo y el modelo
+     * —que pide seis partidos con el dato— no publicaba ni un pick de remates,
+     * corners o tarjetas: la MLS daba UN pick por partido. Contando doce por
+     * equipo, ese mismo partido pasa a diecisiete y aparecen los de jugador.
+     * En una liga de 18 equipos son 216 actas; en una de 32, 384. Un acta ya
+     * descargada no se vuelve a pedir, asi que esto solo pesa la primera vez.
+     */
+    const equiposEnHistorial = new Set(historial.flatMap((p) => [p.local, p.visitante])).size;
+    const cuantasActas =
+      opciones.detalles > 0
+        ? Math.max(opciones.detalles, equiposEnHistorial * opciones.actasPorEquipo)
+        : 0;
+    const recientes = cuantasActas > 0 ? historial.slice(-cuantasActas) : [];
     if (recientes.length) {
       process.stdout.write(`  ESPN (detalle de ${recientes.length} partidos)… `);
       let hechos = 0;
@@ -975,15 +1006,48 @@ async function importaCompeticion(id, opciones, catalogo, clave, sofa) {
     jugadoresEspn = [...new Map(jugadoresEspn.map((j) => [j.id, j])).values()];
   }
 
-  // El modelo mira los ultimos diez o veinte partidos de cada equipo, asi que
-  // guardar tres temporadas enteras solo engorda la app. Se queda con los mas
-  // recientes y con todos los que aun no se han jugado.
-  const tope = opciones.partidos;
-  if (partidos.length > tope) {
-    const jugados = partidos.filter((p) => p.estado === 'finalizado').slice(-tope);
-    const abiertosTodos = partidos.filter((p) => p.estado !== 'finalizado');
-    partidos = [...jugados, ...abiertosTodos].sort((a, b) => a.fecha.localeCompare(b.fecha));
+  /*
+   * El recorte va por EQUIPO, no por competicion.
+   *
+   * Antes se guardaban los ultimos 400 partidos de la liga entera, y eso
+   * repartia historia muy distinta segun cuantos equipos tuviera: en Ecuador
+   * (18 equipos) le tocaban unos 44 a cada uno, y en la MLS (32) solo 25. El
+   * modelo pide 6 partidos con el dato para publicar un pick, asi que las ligas
+   * con muchos equipos se quedaban casi sin picks -la MLS daba uno o dos por
+   * partido, y ninguno de jugador-. Se bajaban tres temporadas de SofaScore y
+   * se tiraban aqui.
+   *
+   * Ahora se conservan los ultimos PARTIDOS_POR_EQUIPO de cada equipo. Un
+   * partido cuenta para los dos, asi que la suma no es equipos x tope: en una
+   * liga de 20 equipos son unos 350 partidos, en una de 32 unos 560. Todas las
+   * ligas quedan con la misma profundidad, tengan los equipos que tengan.
+   *
+   * `--partidos` se queda como techo de seguridad por si una competicion trae
+   * un numero absurdo (torneos con cientos de equipos).
+   */
+  const abiertosTodos = partidos.filter((p) => p.estado !== 'finalizado');
+  const jugadosOrdenados = partidos
+    .filter((p) => p.estado === 'finalizado')
+    .sort((a, b) => a.fecha.localeCompare(b.fecha));
+
+  const cuenta = new Map();
+  const guardados = [];
+  // Del mas reciente al mas viejo: los primeros en entrar son los que importan.
+  for (let i = jugadosOrdenados.length - 1; i >= 0; i--) {
+    const p = jugadosOrdenados[i];
+    const delLocal = cuenta.get(p.localId) ?? 0;
+    const delVisitante = cuenta.get(p.visitanteId) ?? 0;
+    // Basta con que uno de los dos todavia necesite partidos.
+    if (delLocal >= opciones.porEquipo && delVisitante >= opciones.porEquipo) continue;
+    guardados.push(p);
+    cuenta.set(p.localId, delLocal + 1);
+    cuenta.set(p.visitanteId, delVisitante + 1);
   }
+  guardados.reverse();
+
+  const tope = opciones.partidos;
+  const jugados = guardados.length > tope ? guardados.slice(-tope) : guardados;
+  partidos = [...jugados, ...abiertosTodos].sort((a, b) => a.fecha.localeCompare(b.fecha));
   const abiertos = partidos.filter((p) => p.estado !== 'finalizado').length;
   console.log(`  ${equipos.length} equipos · ${partidos.length} partidos · ${abiertos} por jugar`);
 
