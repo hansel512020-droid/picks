@@ -752,6 +752,28 @@ export function TarjetaPick({
         */}
         <View style={{ flexDirection: 'row', alignItems: 'center', gap: 5 }}>
           {/*
+            La confianza del modelo, en la propia tarjeta.
+
+            Estaba solo dentro de la ficha, en una fila de texto, y es EL dato
+            que decide si alguien se fija en un pick o pasa de largo. Aquí se ve
+            sin abrir nada. Verde a partir del 70%, ámbar por debajo: un 55% no
+            merece el mismo color que un 80%.
+          */}
+          {bloqueado ? null : (
+            <View
+              style={{
+                paddingHorizontal: 7,
+                paddingVertical: 3,
+                borderRadius: R.sm,
+                backgroundColor: pick.probabilidad >= 0.7 ? C.acierto + '22' : C.ambarTenue,
+              }}
+            >
+              <Txt v="pequenoFuerte" color={pick.probabilidad >= 0.7 ? C.acierto : C.ambar}>
+                {Math.round(pick.probabilidad * 100)}%
+              </Txt>
+            </View>
+          )}
+          {/*
             La llama guarda y desguarda, igual que el marcador de la derecha:
             es lo que la gente intenta hacer al verla, y antes no hacía nada.
           */}
