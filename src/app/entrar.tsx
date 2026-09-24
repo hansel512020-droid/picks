@@ -223,6 +223,22 @@ export default function Entrar() {
     if (s) entra(s);
   };
 
+  /*
+   * Los términos se abren en otra pestaña, no dentro de la app.
+   *
+   * Quien está creando la cuenta ya tiene medio formulario escrito: si la
+   * lectura se lo lleva a otra pantalla y vuelve, se encuentra las casillas
+   * vacías y empieza de cero. En otra pestaña lee, la cierra y sigue donde
+   * estaba. En el móvil no hay pestañas, así que ahí sí se navega dentro.
+   */
+  const abreAparte = (ruta: string) => {
+    if (Platform.OS === 'web') {
+      window.open(ruta, '_blank', 'noopener,noreferrer');
+      return;
+    }
+    router.push(ruta);
+  };
+
   const envia = async () => {
     setAviso(null);
     if (modo === 'crear') {
@@ -473,11 +489,11 @@ export default function Entrar() {
             </View>
             <Txt v="pequeno" color={C.texto2} style={{ flex: 1 }}>
               He leído y acepto los{' '}
-              <Txt v="pequeno" color={C.lima} onPress={() => router.push('/terminos')}>
+              <Txt v="pequeno" color={C.lima} onPress={() => abreAparte('/terminos')}>
                 Términos de Uso
               </Txt>{' '}
               y la{' '}
-              <Txt v="pequeno" color={C.lima} onPress={() => router.push('/privacidad')}>
+              <Txt v="pequeno" color={C.lima} onPress={() => abreAparte('/privacidad')}>
                 Política de Privacidad
               </Txt>{' '}
               de Golden Picks.
