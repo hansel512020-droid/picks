@@ -68,7 +68,7 @@ function Campo({
   const esClave = tipo === 'clave';
 
   return (
-    <View style={{ gap: 6 }}>
+    <View style={{ gap: 3 }}>
       {etiqueta ? (
         <Txt v="mini" color={C.texto3} style={{ letterSpacing: 0.6 }}>
           {etiqueta.toUpperCase()}
@@ -98,7 +98,7 @@ function Campo({
           style={{
             paddingHorizontal: E.md,
             paddingRight: esClave ? 44 : E.md,
-            paddingVertical: 13,
+            paddingVertical: 11,
             borderRadius: R.md,
             borderWidth: 1,
             borderColor: C.borde,
@@ -176,7 +176,7 @@ function BotonProveedor({
         alignItems: 'center',
         justifyContent: 'center',
         gap: E.sm,
-        paddingVertical: 14,
+        paddingVertical: 12,
         borderRadius: R.md,
         borderWidth: 1,
         borderColor: C.borde,
@@ -372,20 +372,28 @@ export default function Entrar() {
     <ScrollView
       style={{ flex: 1, backgroundColor: C.fondo }}
       contentContainerStyle={{
-        paddingTop: insets.top + E.xl,
+        paddingTop: insets.top + E.md,
         paddingHorizontal: E.lg,
-        gap: E.lg,
+        gap: E.md,
+        /*
+         * En una pantalla ancha el formulario no se estira: se queda en 420 y
+         * centrado. Un campo de correo de mil píxeles de ancho se ve roto, y
+         * esta pantalla se abre igual desde el ordenador que desde el móvil.
+         */
+        maxWidth: 420,
+        width: '100%',
+        alignSelf: 'center',
       }}
       keyboardShouldPersistTaps="handled"
     >
-      <View style={{ alignItems: 'center', gap: E.sm }}>
-        <Logo tam={42} />
-        <Txt v="displayXL" style={{ textAlign: 'center', fontSize: 28 }}>
+      {/* Cabecera corta: el formulario es lo que importa aquí. */}
+      <View style={{ alignItems: 'center', gap: 4 }}>
+        <Logo tam={32} />
+        <Txt v="displayXL" style={{ textAlign: 'center', fontSize: 21 }}>
           {modo === 'crear' ? 'CREA TU CUENTA' : 'ENTRA EN GOLDEN'}
         </Txt>
-        <Txt v="cuerpo" color={C.texto2} style={{ textAlign: 'center' }}>
-          Tu cuenta guarda tus picks, tu rendimiento y las ligas que sigues, y los
-          lleva a cualquier sitio donde entres.
+        <Txt v="pequeno" color={C.texto3} style={{ textAlign: 'center' }}>
+          Tus picks, tu rendimiento y tus ligas, en cualquier sitio donde entres.
         </Txt>
       </View>
 
@@ -423,7 +431,7 @@ export default function Entrar() {
         ))}
       </View>
 
-      <View style={{ gap: E.md }}>
+      <View style={{ gap: E.sm }}>
         {/* El nombre y el teléfono solo al crear la cuenta: para entrar sobran. */}
         {modo === 'crear' ? (
           <Campo
