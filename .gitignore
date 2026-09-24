@@ -68,3 +68,6 @@ src/datos/nucleo.json.gz
 src/datos/detalle.json.gz
 # Registro de las pasadas manuales.
 scripts/refrescar-manual.log
+
+# Perfiles del motor de V8 (node --prof), que son de un rato y pesan mucho.
+isolate-*.log
