@@ -22,11 +22,11 @@ import { SelloCasa, TarjetaPick } from '@/componentes/pick';
 import { alineacionesDelPartido, type OnceEquipo } from '@/datos/alineaciones';
 import { ANTIGUOS_POR_PERFIL, CASAS, casa as casaPorId } from '@/datos/casas';
 import { competicion } from '@/datos/competiciones';
-import { partidosDelEquipoEnTodas } from '@/datos/importado';
+import { equiposImportados, partidosDelEquipoEnTodas } from '@/datos/importado';
 import { extrasDelPartido, type Extras } from '@/datos/penales';
 import { alineacion, lesiones, posicionesEnLiga, temporada } from '@/datos/motor';
-import { desglose1x2, FAMILIAS, picksDePartido } from '@/datos/picks';
-import type { Familia } from '@/datos/tipos';
+import { coma, desglose1x2, FAMILIAS, picksDePartido } from '@/datos/picks';
+import type { Equipo, Familia, Partido } from '@/datos/tipos';
 import { useDerechos } from '@/estado/derechos';
 import { useTienda } from '@/estado/tienda';
 import { usePartidoVivoDe, usePicksVigentes } from '@/estado/vivo';
@@ -937,6 +937,201 @@ function ListaBajas({ competicionId, equipoId }: { competicionId: string; equipo
 }
 
 /** Comparativa cara a cara de los dos equipos sobre sus ultimos partidos. */
+/**
+ * Cara a cara: los partidos que estos dos han jugado entre ellos.
+ *
+ * Es lo primero que mira cualquiera antes de apostar un partido, y hasta ahora
+ * la app no lo enseñaba: la pestaña "Duelo" comparaba las medias de cada uno
+ * por separado, que es otra cosa. Dos equipos con números parecidos pueden
+ * tener un historial mutuo muy desigual —hay rivales que se le atragantan a
+ * uno—, y eso solo se ve aquí.
+ *
+ * Se buscan en TODAS las competiciones, no solo en esta: un Barcelona-Madrid de
+ * Copa cuenta igual que uno de Liga. Y se comparan por nombre porque el mismo
+ * club tiene un identificador distinto en cada competición importada.
+ */
+function CaraACara({
+  competicionId,
+  partidoId,
+  equipoA,
+  equipoB,
+}: {
+  competicionId: string;
+  partidoId: string;
+  equipoA: Equipo;
+  equipoB: Equipo;
+}) {
+  const datos = useCalculo(() => {
+    const sinTildes = (s: string) =>
+      s
+        .normalize('NFD')
+        .replace(/[̀-ͯ]/g, '')
+        .toLowerCase()
+        .trim();
+    const porId = new Map(equiposImportados().map((e) => [e.id, e]));
+    const buscado = sinTildes(equipoB.nombre);
+
+    const suyos = partidosDelEquipoEnTodas(equipoA.nombre, equipoA.bandera)
+      .filter(({ partido }) => partido.estado === 'finalizado' && partido.id !== partidoId)
+      .filter(({ partido, esLocal }) => {
+        const rivalId = esLocal ? partido.visitanteId : partido.localId;
+        const rival = porId.get(rivalId);
+        return rival ? sinTildes(rival.nombre) === buscado : false;
+      })
+      .sort((x, y) => y.partido.fecha.localeCompare(x.partido.fecha))
+      .slice(0, 8);
+
+    let ganaA = 0;
+    let empates = 0;
+    let ganaB = 0;
+    let golesTotales = 0;
+    let masDeDosMedio = 0;
+    let ambosMarcan = 0;
+
+    for (const { partido, esLocal } of suyos) {
+      const suyosGoles = esLocal ? partido.golesLocal : partido.golesVisitante;
+      const delRival = esLocal ? partido.golesVisitante : partido.golesLocal;
+      if (suyosGoles > delRival) ganaA++;
+      else if (suyosGoles < delRival) ganaB++;
+      else empates++;
+      golesTotales += suyosGoles + delRival;
+      if (suyosGoles + delRival > 2.5) masDeDosMedio++;
+      if (suyosGoles > 0 && delRival > 0) ambosMarcan++;
+    }
+
+    return {
+      partidos: suyos,
+      ganaA,
+      empates,
+      ganaB,
+      mediaGoles: suyos.length ? golesTotales / suyos.length : 0,
+      masDeDosMedio,
+      ambosMarcan,
+    };
+  }, [competicionId, partidoId, equipoA.id, equipoB.id]);
+
+  if (!datos) return null;
+
+  if (!datos.partidos.length) {
+    return (
+      <Tarjeta style={{ padding: E.md, gap: 4 }}>
+        <Txt v="cuerpoFuerte">Cara a cara</Txt>
+        <Txt v="pequeno" color={C.texto3}>
+          No se han enfrentado en los partidos que guarda la app. Es normal entre equipos de ligas
+          distintas o recién ascendidos.
+        </Txt>
+      </Tarjeta>
+    );
+  }
+
+  const marcador = (p: Partido, esLocal: boolean) => {
+    const suyos = esLocal ? p.golesLocal : p.golesVisitante;
+    const rival = esLocal ? p.golesVisitante : p.golesLocal;
+    return { suyos, rival, gano: suyos > rival, empate: suyos === rival };
+  };
+
+  return (
+    <Tarjeta style={{ padding: E.md, gap: E.md }}>
+      <View style={{ flexDirection: 'row', alignItems: 'center', justifyContent: 'space-between' }}>
+        <Txt v="cuerpoFuerte">Cara a cara</Txt>
+        <Txt v="mini" color={C.texto3}>
+          ÚLTIMOS {datos.partidos.length} ENFRENTAMIENTOS
+        </Txt>
+      </View>
+
+      {/* El balance, en una línea: ganó uno, empataron, ganó el otro. */}
+      <View style={{ flexDirection: 'row', alignItems: 'center', gap: E.sm }}>
+        <View style={{ alignItems: 'center', flex: 1, gap: 2 }}>
+          <Escudo nombre={equipoA.nombre} id={equipoA.id} bandera={equipoA.bandera} corto={equipoA.corto} color={equipoA.color} tam={26} />
+          <Txt v="titulo" color={datos.ganaA > datos.ganaB ? C.lima : C.texto}>
+            {datos.ganaA}
+          </Txt>
+          <Txt v="mini" color={C.texto3}>
+            gana
+          </Txt>
+        </View>
+        <View style={{ alignItems: 'center', flex: 1, gap: 2 }}>
+          <Txt v="mini" color={C.texto3}>
+            EMPATES
+          </Txt>
+          <Txt v="titulo" color={C.texto2}>
+            {datos.empates}
+          </Txt>
+        </View>
+        <View style={{ alignItems: 'center', flex: 1, gap: 2 }}>
+          <Escudo nombre={equipoB.nombre} id={equipoB.id} bandera={equipoB.bandera} corto={equipoB.corto} color={equipoB.color} tam={26} />
+          <Txt v="titulo" color={datos.ganaB > datos.ganaA ? C.lima : C.texto}>
+            {datos.ganaB}
+          </Txt>
+          <Txt v="mini" color={C.texto3}>
+            gana
+          </Txt>
+        </View>
+      </View>
+
+      <Separador />
+
+      {/* Lo que se puede apostar de un cara a cara: goles y ambos marcan. */}
+      <View style={{ flexDirection: 'row', justifyContent: 'space-between' }}>
+        <View style={{ alignItems: 'center', flex: 1 }}>
+          <Txt v="cuerpoFuerte" color={C.lima}>
+            {coma(datos.mediaGoles, 1)}
+          </Txt>
+          <Txt v="mini" color={C.texto3}>
+            goles de media
+          </Txt>
+        </View>
+        <View style={{ alignItems: 'center', flex: 1 }}>
+          <Txt v="cuerpoFuerte" color={C.lima}>
+            {datos.masDeDosMedio}/{datos.partidos.length}
+          </Txt>
+          <Txt v="mini" color={C.texto3}>
+            más de 2.5
+          </Txt>
+        </View>
+        <View style={{ alignItems: 'center', flex: 1 }}>
+          <Txt v="cuerpoFuerte" color={C.lima}>
+            {datos.ambosMarcan}/{datos.partidos.length}
+          </Txt>
+          <Txt v="mini" color={C.texto3}>
+            ambos marcan
+          </Txt>
+        </View>
+      </View>
+
+      <Separador />
+
+      {/* Y el detalle, partido a partido. */}
+      <View style={{ gap: E.sm }}>
+        {datos.partidos.map(({ partido, esLocal }) => {
+          const m = marcador(partido, esLocal);
+          return (
+            <View
+              key={partido.id}
+              style={{ flexDirection: 'row', alignItems: 'center', gap: E.sm }}
+            >
+              <Txt v="mini" color={C.texto3} style={{ width: 62 }}>
+                {partido.fecha.slice(0, 10).split('-').reverse().slice(0, 2).join('/')}
+                {'  '}
+                {partido.fecha.slice(2, 4)}
+              </Txt>
+              <Txt v="pequeno" color={C.texto3} style={{ flex: 1 }} numberOfLines={1}>
+                {competicion(partido.competicionId).corto} · {esLocal ? 'en casa' : 'fuera'}
+              </Txt>
+              <Txt
+                v="pequenoFuerte"
+                color={m.gano ? C.acierto : m.empate ? C.texto2 : C.rojo}
+              >
+                {m.suyos}-{m.rival}
+              </Txt>
+            </View>
+          );
+        })}
+      </View>
+    </Tarjeta>
+  );
+}
+
 function Duelo({
   competicionId,
   partidoId,
@@ -994,6 +1189,14 @@ function Duelo({
 
   return (
     <View style={{ paddingHorizontal: E.lg, gap: E.md }}>
+      {/* Lo primero, los enfrentamientos entre estos dos. */}
+      <CaraACara
+        competicionId={competicionId}
+        partidoId={partidoId}
+        equipoA={datos.a.equipo}
+        equipoB={datos.b.equipo}
+      />
+
       <View style={{ flexDirection: 'row', alignItems: 'center', justifyContent: 'space-between' }}>
         <Txt v="cuerpoFuerte">{datos.a.equipo.corto}</Txt>
         <Txt v="mini" color={C.texto3}>
