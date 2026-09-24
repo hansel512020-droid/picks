@@ -43,29 +43,46 @@ function useGeneracionDatos(): number {
  * se siente mucho más rápido que verlas todas de golpe tres segundos después,
  * aunque el reloj diga lo contrario.
  */
-export function useCalculoProgresivo<T>(
-  crear: () => Generator<T, T, void>,
+/**
+ * Devuelve dos cosas, y la diferencia importa:
+ *
+ * · `avance`: lo último que ha entregado el generador, con el trabajo a medias.
+ *   Sirve para la barra de carga —cuánto lleva y cuánto queda—.
+ * · `final`: el resultado completo, y solo cuando lo está. Es lo que se pinta:
+ *   así la lista aparece entera de una vez en vez de ir creciendo y saltando
+ *   bajo el dedo mientras alguien la lee.
+ *
+ * Mientras se recalcula (cambio de competición, datos nuevos), `final` conserva
+ * lo anterior: se mantiene en pantalla lo que ya había hasta que lo nuevo está
+ * listo, en vez de borrarlo y dejar un "cargando" encima.
+ */
+export function useCalculoProgresivo<Avance, Final>(
+  crear: () => Generator<Avance, Final, void>,
   deps: unknown[],
-): T | undefined {
-  const [datos, setDatos] = useState<T | undefined>(undefined);
+): { avance: Avance | undefined; final: Final | undefined } {
+  const [avance, setAvance] = useState<Avance | undefined>(undefined);
+  const [final, setFinal] = useState<Final | undefined>(undefined);
   const primera = useRef(true);
   const gen = useGeneracionDatos();
 
   useEffect(() => {
     let vivo = true;
-    if (primera.current) setDatos(undefined);
+    if (primera.current) setFinal(undefined);
+    setAvance(undefined);
     const generador = crear();
 
     const paso = () => {
       if (!vivo) return;
       const { value, done } = generador.next();
       if (!vivo) return;
-      if (value !== undefined) {
+      if (done) {
         primera.current = false;
-        setDatos(value);
+        setFinal(value as Final);
+        return;
       }
+      setAvance(value as Avance);
       // Cero, no dieciséis: solo hace falta ceder el turno, no esperar.
-      if (!done) setTimeout(paso, 0);
+      setTimeout(paso, 0);
     };
     const arranque = setTimeout(paso, 16);
 
@@ -76,7 +93,7 @@ export function useCalculoProgresivo<T>(
     // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [...deps, gen]);
 
-  return datos;
+  return { avance, final };
 }
 
 export function useCalculo<T>(calcula: () => T, deps: unknown[]): T | undefined {

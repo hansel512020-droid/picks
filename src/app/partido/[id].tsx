@@ -1058,7 +1058,9 @@ function CaraACara({
       {/* El balance, en una línea: ganó uno, empataron, ganó el otro. */}
       <View style={{ flexDirection: 'row', alignItems: 'center', gap: E.sm }}>
         <View style={{ alignItems: 'center', flex: 1, gap: 2 }}>
-          <Escudo nombre={equipoA.nombre} id={equipoA.id} bandera={equipoA.bandera} corto={equipoA.corto} color={equipoA.color} tam={26} />
+          {/* Los escudos son lo que identifica cada columna: pequeños no se
+              distinguen y la cifra de al lado no dice de quién es. */}
+          <Escudo nombre={equipoA.nombre} id={equipoA.id} bandera={equipoA.bandera} corto={equipoA.corto} color={equipoA.color} tam={44} />
           <Txt v="titulo" color={datos.ganaA > datos.ganaB ? C.lima : C.texto}>
             {datos.ganaA}
           </Txt>
@@ -1075,7 +1077,7 @@ function CaraACara({
           </Txt>
         </View>
         <View style={{ alignItems: 'center', flex: 1, gap: 2 }}>
-          <Escudo nombre={equipoB.nombre} id={equipoB.id} bandera={equipoB.bandera} corto={equipoB.corto} color={equipoB.color} tam={26} />
+          <Escudo nombre={equipoB.nombre} id={equipoB.id} bandera={equipoB.bandera} corto={equipoB.corto} color={equipoB.color} tam={44} />
           <Txt v="titulo" color={datos.ganaB > datos.ganaA ? C.lima : C.texto}>
             {datos.ganaB}
           </Txt>
@@ -1170,11 +1172,12 @@ function CaraACara({
                   bandera={f.local.bandera}
                   corto={f.local.corto}
                   color={f.local.color}
-                  tam={20}
+                  tam={30}
                 />
               </View>
 
-              <Txt v="pequenoFuerte" color={C.texto}>
+              {/* El marcador, del tamaño de los escudos que lo rodean. */}
+              <Txt v="cuerpoFuerte" color={C.texto}>
                 {f.golesLocal}-{f.golesVisitante}
               </Txt>
 
@@ -1187,7 +1190,7 @@ function CaraACara({
                   bandera={f.visitante.bandera}
                   corto={f.visitante.corto}
                   color={f.visitante.color}
-                  tam={20}
+                  tam={30}
                 />
                 <Txt v="pequeno" color={ganoVisita ? C.texto : C.texto3} numberOfLines={1}>
                   {f.visitante.corto}

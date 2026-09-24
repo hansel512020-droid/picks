@@ -275,23 +275,34 @@ function argumentos() {
      * partidos con el dato para publicar un pick, y mira los ultimos diez o
      * veinte para la racha.
      *
-     * Setenta y no 35: con 35 entraba una sola temporada, y eso dejaba el cara
-     * a cara en dos enfrentamientos —en una liga te cruzas una o dos veces por
-     * temporada con cada rival—, que no dice nada. Con 70 entran dos
-     * temporadas y el historial mutuo pasa a cuatro o cinco partidos.
+     * Ciento diez, que es toda la ventana que se descarga (1150 dias, tres
+     * temporadas). Antes 35, luego 70.
+     *
+     * Con 35 entraba una sola temporada y el cara a cara se quedaba en dos
+     * enfrentamientos. Comprobado contra ESPN con Seattle-Real Salt Lake: en la
+     * ventana que baja el bot se han visto CINCO veces (mayo 2024, mayo 2024,
+     * marzo 2025, octubre 2025 y marzo 2026) y la app solo guardaba los dos
+     * ultimos. En una liga como la MLS te cruzas una o dos veces por temporada
+     * con cada rival, asi que para tener historial mutuo hace falta guardar
+     * varias temporadas enteras.
+     *
+     * Con 110 ya no recorta: lo que limita es lo que se descarga, no lo que se
+     * guarda, que es como tiene que ser.
      *
      * Por equipo y no por liga: ver el recorte, mas abajo. Con un tope por liga,
      * cuantos mas equipos tenia, menos historia le quedaba a cada uno.
      */
-    porEquipo: 70,
+    porEquipo: 110,
     /*
      * Techo de seguridad por competicion, ya con el recorte por equipo hecho.
      *
      * Una liga de 32 equipos guarda unos 560 partidos, asi que 400 volvia a
-     * cortar justo lo que el recorte por equipo acababa de salvar. Se sube a
-     * 1200: solo salta si una competicion trae un numero absurdo.
+     * cortar justo lo que el recorte por equipo acababa de salvar. Con 110 por
+     * equipo esa misma liga se va a unos 1760, asi que 1200 volveria a cortar:
+     * el techo sube a 2500 y sigue siendo lo que es, una red de seguridad por
+     * si una competicion trae un numero absurdo.
      */
-    partidos: 1200,
+    partidos: 2500,
     // De cuantos se bajan estadisticas y jugadores desde ESPN. Es un minimo:
     // el numero real sale de `actasPorEquipo` x equipos de la liga.
     detalles: 90,

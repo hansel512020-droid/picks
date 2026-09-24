@@ -1550,6 +1550,22 @@ export function picksDeCompeticion(
  * mucho más rápido que verlos todos de golpe al final aunque el reloj diga lo
  * contrario.
  */
+/**
+ * Lo que entrega cada trozo: los picks que ya hay y por dónde va el análisis.
+ *
+ * El recuento no es decorativo. Con "Todas" son cien partidos y varios segundos
+ * de cálculo, y una pantalla que solo dice "analizando" mientras tanto no se
+ * distingue de una app colgada: lo que hace que la espera se aguante es ver el
+ * número subir.
+ */
+export interface AvancePortada {
+  picks: Pick[];
+  /** Partidos ya analizados. */
+  hechos: number;
+  /** Partidos que se van a analizar en total. */
+  total: number;
+}
+
 export function* picksDeCompeticionPorTrozos(
   competicionId: string,
   casaId: string,
@@ -1581,7 +1597,7 @@ export function* picksDeCompeticionPorTrozos(
    * (el PC) se analiza todo.
    */
   topePartidos?: number,
-): Generator<Pick[], Pick[], void> {
+): Generator<AvancePortada, Pick[], void> {
   /*
    * Se miran los cuarenta partidos más cercanos, no los catorce de antes.
    * Según van terminando los de hoy, sus picks se retiran de la portada; con
@@ -1742,7 +1758,13 @@ export function* picksDeCompeticionPorTrozos(
   }
   acumula();
   const tope = Math.max(limite, MINIMO_PORTADA);
-  if (entregados.length) yield entregados.slice(0, tope);
+  /*
+   * Se entrega siempre, aunque todavia no haya ni un pick: esta primera entrega
+   * es la que le dice a la pantalla cuantos partidos hay por delante, y sin ella
+   * la barra de carga no tendria de donde sacar el total.
+   */
+  let hechos = deAhora.length;
+  yield { picks: entregados.slice(0, tope), hechos, total: partidos.length };
 
   let desdeElUltimoTrozo = 0;
   for (const p of masTarde) {
@@ -1758,10 +1780,11 @@ export function* picksDeCompeticionPorTrozos(
      * donde el navegador recupera el control para atender toques y repintar.
      */
     desdeElUltimoTrozo++;
+    hechos++;
     if (desdeElUltimoTrozo >= porTrozo) {
       desdeElUltimoTrozo = 0;
       acumula();
-      yield entregados.slice(0, tope);
+      yield { picks: entregados.slice(0, tope), hechos, total: partidos.length };
     }
   }
   /*

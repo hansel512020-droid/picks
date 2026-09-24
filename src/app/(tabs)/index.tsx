@@ -1,6 +1,6 @@
 import { router } from 'expo-router';
 import { useMemo, useState } from 'react';
-import { ActivityIndicator, FlatList, Text, useWindowDimensions, View } from 'react-native';
+import { FlatList, Text, useWindowDimensions, View } from 'react-native';
 import { useSafeAreaInsets } from 'react-native-safe-area-context';
 import { AvisoCobroFallido, AvisoPagoEnProceso } from '@/componentes/avisos';
 import { useAvisos } from '@/estado/avisos';
@@ -93,6 +93,75 @@ function ordena(
       // El generador ya entrega por cercania y calidad: no se toca.
       return copia;
   }
+}
+
+/**
+ * La pantalla de carga de la portada.
+ *
+ * Montar los picks de "Todas" son cien partidos y varios segundos de cálculo.
+ * Antes eso se enseñaba como una página medio vacía con una ruedecita perdida
+ * en el centro: parecía que la app se había colgado o que no había picks. Ahora
+ * ocupa la pantalla entera y dice lo que está pasando, con el recuento subiendo
+ * —que es lo único que convierte una espera en una espera soportable— y sin
+ * enseñar una lista a medias que crece y salta mientras se lee.
+ */
+function Cargando({
+  nombre,
+  avance,
+}: {
+  nombre: string;
+  avance?: { picks: Pick[]; hechos: number; total: number };
+}) {
+  const parte = avance && avance.total ? Math.min(1, avance.hechos / avance.total) : 0;
+  return (
+    <View
+      style={{
+        flex: 1,
+        alignItems: 'center',
+        justifyContent: 'center',
+        gap: E.lg,
+        paddingHorizontal: E.xl,
+        backgroundColor: C.fondo,
+      }}
+    >
+      <Logo tam={30} />
+
+      <View style={{ alignItems: 'center', gap: 6 }}>
+        <Txt v="cuerpoFuerte">Analizando {nombre}</Txt>
+        <Txt v="pequeno" color={C.texto3}>
+          {avance
+            ? `${avance.hechos} de ${avance.total} partidos`
+            : 'Preparando los datos…'}
+        </Txt>
+      </View>
+
+      {/* La barra: un porcentaje que avanza dice mucho más que una ruedecita. */}
+      <View
+        style={{
+          width: '100%',
+          maxWidth: 320,
+          height: 8,
+          borderRadius: 4,
+          backgroundColor: C.carta2,
+          overflow: 'hidden',
+        }}
+      >
+        <View
+          style={{ width: `${Math.round(parte * 100)}%`, height: '100%', backgroundColor: C.lima }}
+        />
+      </View>
+
+      {/*
+        Lo que ya lleva encontrado. No es un adorno: enseña que el trabajo está
+        dando resultado y no solo consumiendo tiempo.
+      */}
+      <Txt v="mini" color={C.texto3}>
+        {avance?.picks.length
+          ? `${avance.picks.length} picks encontrados`
+          : 'Buscando picks con valor…'}
+      </Txt>
+    </View>
+  );
 }
 
 /**
@@ -251,7 +320,14 @@ export default function Inicio() {
    */
   const { width } = useWindowDimensions();
   const topePartidos = width < 820 ? 40 : undefined;
-  const picks = useCalculoProgresivo(
+  /*
+   * `final` y no lo que va saliendo: la lista se pinta cuando está entera.
+   *
+   * Mientras se calcula manda la pantalla de carga, con el recuento de `avance`.
+   * Antes se iba pintando a trozos y el resultado era una portada que crecía
+   * sola durante varios segundos, con las tarjetas moviéndose bajo el dedo.
+   */
+  const { avance, final: picks } = useCalculoProgresivo(
     () => picksDeCompeticionPorTrozos(competicionId, ajustes.casaId, 2000, libres, 3, topePartidos),
     [competicionId, ajustes.casaId, libres, topePartidos],
   );
@@ -292,6 +368,19 @@ export default function Inicio() {
   const comp = competicion(competicionId);
   const familiasVisibles = todasFamilias ? FAMILIAS : FAMILIAS.slice(0, 5);
 
+  /*
+   * Hasta que esté todo, la pantalla de carga y nada más. Va después de los
+   * hooks —todos están arriba— porque un return antes cambiaría cuántos se
+   * ejecutan y React no lo admite.
+   */
+  if (!picks) {
+    return (
+      <View style={{ flex: 1, backgroundColor: C.fondo, paddingTop: insets.top }}>
+        <Cargando nombre={comp.nombre} avance={avance} />
+      </View>
+    );
+  }
+
   return (
     <View style={{ flex: 1, backgroundColor: C.fondo, paddingTop: insets.top }}>
       <FlatList
@@ -301,6 +390,27 @@ export default function Inicio() {
         showsVerticalScrollIndicator={false}
         ListHeaderComponent={
           <View style={{ gap: E.lg, marginBottom: E.xs }}>
+            {/*
+              Recalculando con la lista ya puesta (cambio de competición, datos
+              nuevos que entran solos): una barra fina arriba y nada más. La
+              pantalla de carga entera solo sale la primera vez; taparle a
+              alguien lo que está leyendo para decirle que hay algo mejor en
+              camino es peor que la espera.
+            */}
+            {avance ? (
+              <View style={{ height: 3, backgroundColor: C.carta2 }}>
+                <View
+                  style={{
+                    width: `${Math.round(
+                      (avance.total ? Math.min(1, avance.hechos / avance.total) : 0) * 100,
+                    )}%`,
+                    height: '100%',
+                    backgroundColor: C.lima,
+                  }}
+                />
+              </View>
+            ) : null}
+
             {/* -------------------------------------------------- cabecera */}
             <View
               style={{
@@ -557,20 +667,13 @@ export default function Inicio() {
           </View>
         )}
         ListEmptyComponent={
-          picks === undefined ? (
-            <View style={{ paddingVertical: E.xxxl, alignItems: 'center', gap: E.md }}>
-              <ActivityIndicator color={C.lima} />
-              <Txt v="pequeno" color={C.texto3}>
-                Analizando {comp.nombre}…
-              </Txt>
-            </View>
-          ) : (
-            <Vacio
-              icono="filtro"
-              titulo="Sin picks con estos filtros"
-              detalle="Prueba a quitar algún filtro o cambia de competición."
-            />
-          )
+          /* Aquí ya no hay "analizando": si se está calculando, lo que se ve es
+             la pantalla de carga entera y no se llega a pintar la lista. */
+          <Vacio
+            icono="filtro"
+            titulo="Sin picks con estos filtros"
+            detalle="Prueba a quitar algún filtro o cambia de competición."
+          />
         }
       />
 
