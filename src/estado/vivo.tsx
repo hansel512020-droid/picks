@@ -16,8 +16,8 @@ import { claveDelPartido, partidosDeHoy, slugDe, type PartidoVivo , seJuegaAhora
 import { competicionesImportadas } from '@/datos/importado';
 import { temporada } from '@/datos/motor';
 import { picksDeCompeticion } from '@/datos/picks';
-import { compruebaPick, progresoDelPick, resumenDelPartido } from '@/datos/resolver';
-import type { Pick, ResultadoPick } from '@/datos/tipos';
+import { compruebaPick, progresoDelPick, resumenDelPartido, type Resumen } from '@/datos/resolver';
+import type { Pick, ResultadoPick, SujetoPick } from '@/datos/tipos';
 import { useAvisos } from './avisos';
 import { useDerechos } from './derechos';
 import { useTienda } from './tienda';
@@ -47,6 +47,34 @@ const CADA_COMPLETO = 5 * 60_000;
 const CADA_PICKS = 15 * 60_000;
 /** Picks de los que ya se aviso, para no repetirlos al reabrir la app. */
 const CLAVE_AVISADOS = 'scout.picks.avisados';
+/**
+ * Cada cuánto se repide el acta de un partido en juego para el contador de un
+ * pick. El acta trae remates, córners y tarjetas, que es lo que no se ve en el
+ * marcador; cambia despacio, así que con un minuto sobra.
+ */
+const CADA_PROGRESO = 60_000;
+/** Cuánto vale un acta antes de volver a pedirla. */
+const VIDA_RESUMEN = 45_000;
+
+/**
+ * Actas pedidas hace poco, por partido.
+ *
+ * En la portada puede haber quince tarjetas del mismo partido en juego —quince
+ * picks de un Barcelona–Emelec—, y cada una necesita el mismo acta para contar
+ * lo suyo. Sin esto serían quince peticiones idénticas por minuto. Se guarda la
+ * promesa, no el resultado, para que las tarjetas que preguntan a la vez
+ * esperen todas a la misma petición.
+ */
+const ACTAS = new Map<string, { en: number; dato: Promise<Resumen | null> }>();
+
+function actaCacheada(slug: string, idEspn: string): Promise<Resumen | null> {
+  const clave = `${slug}:${idEspn}`;
+  const guardada = ACTAS.get(clave);
+  if (guardada && Date.now() - guardada.en < VIDA_RESUMEN) return guardada.dato;
+  const dato = resumenDelPartido(slug, idEspn).catch(() => null);
+  ACTAS.set(clave, { en: Date.now(), dato });
+  return dato;
+}
 
 const acabadoAhora = (p?: PartidoVivo) => p?.estado === 'finalizado';
 
@@ -62,6 +90,8 @@ export interface ProgresoVivo {
   /** La línea que tenía que batir. */
   linea: number;
   sentido: 'mas' | 'menos';
+  /** Sobre qué va la línea: remates, corners, goles… */
+  metrica?: string;
   minuto?: number;
   golesLocal: number;
   golesVisitante: number;
@@ -647,6 +677,9 @@ export function usePartidoDelPick(pick: {
 
   return useMemo(() => {
     if (!porPartido.size) return undefined;
+    // Sin partido no hay nada que buscar, y `temporada('')` no existe: esta
+    // función también se llama desde pantallas que aún no tienen el pick.
+    if (!pick.competicionId || !pick.partidoId) return undefined;
     const t = temporada(pick.competicionId);
     const partido = t.porPartido.get(pick.partidoId);
     if (!partido) return undefined;
@@ -684,6 +717,119 @@ export function usePartidoVivoDe(partido?: {
     if (!local || !visitante) return undefined;
     return porPartido.get(claveDelPartido(local.nombre, visitante.nombre));
   }, [partido, porPartido, porEspn]);
+}
+
+/**
+ * El contador en vivo de un pick: lo que lleva el sujeto ahora mismo contra la
+ * línea que tenía que batir.
+ *
+ * El marcador en vivo ya sale en la tarjeta, pero un pick casi nunca va de
+ * goles: va de los remates de un jugador o de los córners de un equipo, y de
+ * eso el marcador no dice nada. Con el partido en juego el usuario tiene
+ * delante la pregunta "¿cómo va MI pick?" y hasta ahora la app no la
+ * contestaba: había que esperar al pitido final.
+ *
+ * Solo pide datos mientras el partido se juega de verdad, y el acta se comparte
+ * entre todas las tarjetas del mismo partido (ver `actaCacheada`). Un pick de
+ * 1X2 no tiene contador —lo suyo es el marcador— y devuelve `undefined`.
+ */
+export function useProgresoEnVivo(
+  /**
+   * Puede venir vacío: la ficha del pick lo calcula después de montar los
+   * hooks, y un hook no se puede llamar a medias.
+   */
+  pick:
+    | {
+        id: string;
+        partidoId: string;
+        competicionId: string;
+        titulo: string;
+        sujeto?: SujetoPick;
+      }
+    | undefined,
+  /**
+   * Con `false` no se pide nada. Sirve para los picks con candado: el contador
+   * dice de qué va la línea —"lleva 3, necesita 2 remates"— y eso es
+   * exactamente lo que el muro de pago tapa, aparte de que sería una petición
+   * a ESPN por cada tarjeta bloqueada.
+   */
+  activo = true,
+): (ProgresoVivo & { cumplido: boolean; roto: boolean }) | undefined {
+  const { progreso } = useVivo();
+  const enVivo = usePartidoDelPick({
+    partidoId: pick?.partidoId ?? '',
+    competicionId: pick?.competicionId ?? '',
+  });
+  const jugando = activo && !!pick && seJuegaAhora(enVivo?.estado);
+  const idEspn = enVivo?.idEspn;
+  const slug = pick ? slugDe(pick.competicionId) : undefined;
+  const [marcha, setMarcha] = useState<{
+    valor: number;
+    linea: number;
+    sentido: 'mas' | 'menos';
+    metrica: string;
+  }>();
+
+  const id = pick?.id ?? '';
+  const partidoId = pick?.partidoId ?? '';
+  const titulo = pick?.titulo ?? '';
+  const sujeto = pick?.sujeto;
+
+  useEffect(() => {
+    if (!jugando || !idEspn || !slug) {
+      setMarcha(undefined);
+      return;
+    }
+    let montado = true;
+    const mira = async () => {
+      const resumen = await actaCacheada(slug, idEspn);
+      if (!montado || !resumen) return;
+      setMarcha(
+        progresoDelPick({ pickId: id, partidoId, titulo, sujeto }, resumen) ?? undefined,
+      );
+    };
+    void mira();
+    const reloj = setInterval(() => void mira(), CADA_PROGRESO);
+    return () => {
+      montado = false;
+      clearInterval(reloj);
+    };
+  }, [jugando, idEspn, slug, id, partidoId, titulo, sujeto]);
+
+  /*
+   * Si el barrido de los guardados ya lo calculó, se usa el suyo: es el mismo
+   * dato y así el pick guardado y el de la lista dicen exactamente lo mismo.
+   */
+  const delBarrido = pick ? progreso.get(pick.id) : undefined;
+
+  return useMemo(() => {
+    if (!jugando || !enVivo) return undefined;
+    const base =
+      delBarrido ??
+      (marcha
+        ? {
+            ...marcha,
+            minuto: enVivo.minuto,
+            golesLocal: enVivo.golesLocal,
+            golesVisitante: enVivo.golesVisitante,
+          }
+        : undefined);
+    if (!base) return undefined;
+    /*
+     * Qué se puede afirmar con el partido en marcha.
+     *
+     * Un "más de" que ya cruzó la línea está ganado y no se puede desandar:
+     * eso sí se canta. Un "menos de" no se puede dar por ganado hasta el
+     * pitido final, pero sí por perdido en cuanto se pasa de la línea. Lo que
+     * no se sabe se queda sin color.
+     */
+    const pasada = base.valor > base.linea;
+    return {
+      ...base,
+      cumplido: base.sentido === 'mas' && pasada,
+      roto: base.sentido === 'menos' && pasada,
+    };
+  }, [jugando, enVivo, delBarrido, marcha]);
 }
 
 /** Estado en vivo de un partido concreto, si ESPN lo tiene hoy. */

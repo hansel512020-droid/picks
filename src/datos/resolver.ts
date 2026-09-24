@@ -39,7 +39,7 @@ export function troceaPick(pickId: string, partidoId: string) {
   };
 }
 
-interface Resumen {
+export interface Resumen {
   terminado: boolean;
   golesLocal: number;
   golesVisitante: number;
@@ -135,6 +135,20 @@ export async function resumenDelPartido(slug: string, idEspn: string): Promise<R
 }
 
 /**
+ * Lo mínimo que hace falta para saber de quién habla un pick: el nombre del
+ * sujeto y de qué clase es.
+ *
+ * No se pide un `PickGuardado` entero porque el progreso en vivo se calcula
+ * también de picks que el usuario NO ha guardado —la tarjeta de la portada de
+ * un partido que se está jugando—, y esos son `Pick`, con `id` en vez de
+ * `pickId`.
+ */
+interface Sujeto {
+  titulo: string;
+  sujeto?: PickGuardado['sujeto'];
+}
+
+/**
  * Valor que lleva el sujeto del pick en este partido, sea jugador, equipo o
  * el partido entero. Devuelve `undefined` cuando el acta no tiene ese dato.
  *
@@ -143,7 +157,7 @@ export async function resumenDelPartido(slug: string, idEspn: string): Promise<R
  * ya cruzó la línea.
  */
 function valorDe(
-  guardado: PickGuardado,
+  guardado: Sujeto,
   resumen: Resumen,
   metrica: string,
 ): number | undefined {
@@ -313,13 +327,13 @@ export function compruebaPick(
  * historial en vez de un simple "pendiente".
  */
 export function progresoDelPick(
-  guardado: PickGuardado,
+  guardado: Sujeto & { pickId: string; partidoId: string },
   resumen: Resumen,
-): { valor: number; linea: number; sentido: 'mas' | 'menos' } | null {
+): { valor: number; linea: number; sentido: 'mas' | 'menos'; metrica: string } | null {
   if (guardado.pickId.includes('-1x2-')) return null;
   const { metrica, linea, sentido } = troceaPick(guardado.pickId, guardado.partidoId);
   if (!metrica || Number.isNaN(linea)) return null;
   const valor = valorDe(guardado, resumen, metrica);
   if (valor === undefined) return null;
-  return { valor, linea, sentido };
+  return { valor, linea, sentido, metrica };
 }

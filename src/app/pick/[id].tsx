@@ -7,7 +7,7 @@ import { Boton, Fuego, Insignia, Pulsable, Separador, Tarjeta, Txt, Vacio } from
 import { Icono } from '@/componentes/iconos';
 import { Escudo, LogoCompeticion } from '@/componentes/imagen';
 import { CabeceraAtras, FilaDato } from '@/componentes/navegacion';
-import { Avatar, BarraL10, FilaMercado, TarjetaPick } from '@/componentes/pick';
+import { Avatar, BarraL10, FilaMercado, MarchaEnVivo, TarjetaPick } from '@/componentes/pick';
 import { competicion } from '@/datos/competiciones';
 import { equiposImportados, partidosDelEquipoEnTodas } from '@/datos/importado';
 import { temporada } from '@/datos/motor';
@@ -21,7 +21,7 @@ import {
 import { useComunidad } from '@/estado/comunidad';
 import { useDerechos } from '@/estado/derechos';
 import { useTienda } from '@/estado/tienda';
-import { usePartidoVivoDe } from '@/estado/vivo';
+import { usePartidoVivoDe, useProgresoEnVivo } from '@/estado/vivo';
 import { C, E, R } from '@/tema';
 
 /**
@@ -349,6 +349,13 @@ export default function PantallaPick() {
     !tieneAcceso(pick.competicionId) &&
     !esPickDelDia(pick.id, ajustes.casaId);
 
+  /*
+   * Cómo va el pick si su partido se está jugando ahora mismo. Va aquí arriba,
+   * con el resto de los hooks: `pick` puede no estar todavía y el hook lo
+   * admite vacío.
+   */
+  const marcha = useProgresoEnVivo(pick, !bloqueado);
+
   const contexto = useCalculo(() => {
     if (!pick) return undefined;
     const t = temporada(competicionId);
@@ -588,6 +595,41 @@ ${enlace}`;
                 <Fuego n={comunidad.cuenta(pick.id) ?? 0} />
               </Pulsable>
             </View>
+
+            {/*
+              El directo del pick, arriba y en grande.
+
+              Con el partido en juego esta pantalla es lo que el usuario tiene
+              abierto para seguirlo, y hasta ahora solo le contaba el histórico:
+              lo que hacía falta saber —cuánto lleva y cuánto le falta— no
+              estaba en ninguna parte.
+            */}
+            {marcha ? (
+              <View
+                style={{
+                  gap: 10,
+                  padding: E.md,
+                  borderRadius: R.lg,
+                  borderWidth: 1,
+                  borderColor: C.rojo,
+                  backgroundColor: '#1A1315',
+                }}
+              >
+                <View style={{ flexDirection: 'row', alignItems: 'center', gap: 6 }}>
+                  <View
+                    style={{ width: 7, height: 7, borderRadius: 4, backgroundColor: C.rojo }}
+                  />
+                  <Txt v="etiqueta" color={C.rojo}>
+                    EN VIVO{marcha.minuto ? ` · ${marcha.minuto}'` : ''}
+                  </Txt>
+                  <View style={{ flex: 1 }} />
+                  <Txt v="pequenoFuerte">
+                    {marcha.golesLocal}-{marcha.golesVisitante}
+                  </Txt>
+                </View>
+                <MarchaEnVivo marcha={marcha} grande />
+              </View>
+            ) : null}
 
             {bloqueado ? (
               /*

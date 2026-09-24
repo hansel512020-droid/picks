@@ -10,7 +10,7 @@ import type { Pick, SujetoPick } from '@/datos/tipos';
 import { useComunidad } from '@/estado/comunidad';
 import { useDerechos } from '@/estado/derechos';
 import { useTienda } from '@/estado/tienda';
-import { usePartidoDelPick } from '@/estado/vivo';
+import { usePartidoDelPick, useProgresoEnVivo } from '@/estado/vivo';
 import { C, E, R, T } from '@/tema';
 import { Fuego, Insignia, Pulsable, Tarjeta, Txt } from './base';
 import { Icono } from './iconos';
@@ -555,6 +555,114 @@ function vibra() {
   if (Platform.OS !== 'web') Haptics.impactAsync(Haptics.ImpactFeedbackStyle.Light);
 }
 
+/**
+ * Cómo se llama en castellano lo que cuenta cada línea, en singular y en
+ * plural. Las dos formas porque el contador dice números de verdad y "necesita
+ * 1 goles" canta: el texto en vivo es lo que más se lee de la tarjeta.
+ */
+const NOMBRE_METRICA: Record<string, [uno: string, varios: string]> = {
+  goles: ['gol', 'goles'],
+  golesTotales: ['gol', 'goles'],
+  asistencias: ['asistencia', 'asistencias'],
+  remates: ['remate', 'remates'],
+  rematesPuerta: ['remate a puerta', 'remates a puerta'],
+  rematesTotales: ['remate', 'remates'],
+  corners: ['córner', 'córners'],
+  cornersTotales: ['córner', 'córners'],
+  tarjetas: ['tarjeta', 'tarjetas'],
+  tarjetasTotales: ['tarjeta', 'tarjetas'],
+  amarillas: ['amarilla', 'amarillas'],
+  faltasCometidas: ['falta', 'faltas'],
+  faltasRecibidas: ['falta recibida', 'faltas recibidas'],
+  paradas: ['parada', 'paradas'],
+};
+
+const nombra = (n: number, metrica?: string) => {
+  const par = NOMBRE_METRICA[metrica ?? ''];
+  if (!par) return '';
+  return n === 1 ? par[0] : par[1];
+};
+
+/**
+ * El contador en vivo de un pick: lo que lleva contra lo que le hace falta.
+ *
+ * La franja roja dice el minuto y el marcador, pero un pick de "más de 1.5
+ * remates" no se sigue con el marcador: hace falta el acta. Esto es lo que
+ * convierte la tarjeta en algo que se mira durante el partido y no solo antes.
+ *
+ * El tope y el objetivo se sacan de la línea, que siempre es de media: para
+ * "más de 1.5" hacen falta 2, y para "menos de 2.5" el tope son 2. Se dice en
+ * números enteros porque nadie mete medio gol.
+ */
+export function MarchaEnVivo({
+  marcha,
+  grande,
+}: {
+  marcha: { valor: number; linea: number; sentido: 'mas' | 'menos'; metrica?: string; cumplido: boolean; roto: boolean };
+  grande?: boolean;
+}) {
+  // El hándicap ya se lee en el marcador, y "lleva 1 de −0.5" no se entiende.
+  if (marcha.metrica === 'handicap') return null;
+
+  const mas = marcha.sentido === 'mas';
+  const meta = mas ? Math.ceil(marcha.linea) : Math.floor(marcha.linea);
+  const parte = meta > 0 ? Math.min(1, marcha.valor / meta) : marcha.valor > 0 ? 1 : 0;
+  const lleva = `Lleva ${marcha.valor} ${nombra(marcha.valor, marcha.metrica)}`.trim();
+
+  const color = marcha.cumplido ? C.acierto : marcha.roto ? C.fallo : C.texto2;
+  const texto = marcha.cumplido
+    ? `¡Cumplido! ${lleva}`
+    : marcha.roto
+      ? `Se pasó: ${lleva}`
+      : mas
+        ? `${lleva} · necesita ${meta}`
+        : `${lleva} · el tope es ${meta}`;
+
+  return (
+    <View style={{ gap: 5 }}>
+      <View style={{ flexDirection: 'row', alignItems: 'center', gap: 6 }}>
+        {marcha.cumplido || marcha.roto ? (
+          <Icono
+            nombre={marcha.cumplido ? 'check' : 'cruz'}
+            tam={grande ? 14 : 12}
+            color={color}
+            grosor={2.6}
+          />
+        ) : null}
+        <Text style={{ ...(grande ? T.cuerpoFuerte : T.pequenoFuerte), color, flex: 1 }}>
+          {texto}
+        </Text>
+      </View>
+      {/*
+        La barra se llena con lo que lleva. En un "menos de" es al revés de lo
+        que parece: llenarla es malo, porque es el presupuesto que se gasta.
+      */}
+      <View
+        style={{
+          height: grande ? 8 : 5,
+          borderRadius: 4,
+          backgroundColor: C.carta2,
+          overflow: 'hidden',
+        }}
+      >
+        <View
+          style={{
+            width: `${Math.round(parte * 100)}%`,
+            height: '100%',
+            backgroundColor: marcha.cumplido
+              ? C.acierto
+              : marcha.roto
+                ? C.fallo
+                : mas
+                  ? C.lima
+                  : C.ambar,
+          }}
+        />
+      </View>
+    </View>
+  );
+}
+
 export function TarjetaPick({
   pick,
   onPress,
@@ -584,6 +692,12 @@ export function TarjetaPick({
   // Si el partido se está jugando ahora, la tarjeta lo dice.
   const enVivo = usePartidoDelPick(pick);
   const jugando = seJuegaAhora(enVivo?.estado);
+  /*
+   * Y cómo va el pick en ese partido. No se pide con el candado puesto: el
+   * contador dice de qué va la línea ("lleva 3, necesita 2 remates") y eso es
+   * justo lo que el muro tapa.
+   */
+  const marcha = useProgresoEnVivo(pick, !bloqueado);
 
   useEffect(() => {
     comunidad.pide([pick.id]);
@@ -665,6 +779,23 @@ export function TarjetaPick({
           <Text style={{ ...T.pequenoFuerte, color: '#FFF' }}>
             {enVivo?.golesLocal}-{enVivo?.golesVisitante}
           </Text>
+        </View>
+      ) : null}
+
+      {/*
+        Debajo de la franja, cómo va este pick concreto. Es la diferencia entre
+        "el partido va 1-0" y "tu pick lleva 3 de los 2 remates que pedía".
+      */}
+      {marcha ? (
+        <View
+          style={{
+            paddingHorizontal: E.md,
+            paddingTop: 8,
+            paddingBottom: 2,
+            backgroundColor: '#1A1315',
+          }}
+        >
+          <MarchaEnVivo marcha={marcha} />
         </View>
       ) : null}
 
