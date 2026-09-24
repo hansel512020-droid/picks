@@ -273,13 +273,17 @@ function argumentos() {
      *
      * Es lo que decide cuanta historia tiene el modelo para hablar: pide seis
      * partidos con el dato para publicar un pick, y mira los ultimos diez o
-     * veinte para la racha. Con 35 entra casi una temporada entera de liga mas
-     * lo que llevan de la actual, que es lo que describe a un equipo hoy.
+     * veinte para la racha.
+     *
+     * Setenta y no 35: con 35 entraba una sola temporada, y eso dejaba el cara
+     * a cara en dos enfrentamientos —en una liga te cruzas una o dos veces por
+     * temporada con cada rival—, que no dice nada. Con 70 entran dos
+     * temporadas y el historial mutuo pasa a cuatro o cinco partidos.
      *
      * Por equipo y no por liga: ver el recorte, mas abajo. Con un tope por liga,
      * cuantos mas equipos tenia, menos historia le quedaba a cada uno.
      */
-    porEquipo: 35,
+    porEquipo: 70,
     /*
      * Techo de seguridad por competicion, ya con el recorte por equipo hecho.
      *
@@ -342,7 +346,7 @@ function argumentos() {
     else if (a[i] === '--listar') o.listar = true;
     else if (a[i] === '--estadisticas') o.estadisticas = true;
     else if (a[i] === '--partidos') o.partidos = Number(a[++i]) || 1200;
-    else if (a[i] === '--por-equipo') o.porEquipo = Number(a[++i]) || 35;
+    else if (a[i] === '--por-equipo') o.porEquipo = Number(a[++i]) || 70;
     else if (a[i] === '--actas-por-equipo') o.actasPorEquipo = Number(a[++i]) || 12;
     else if (a[i] === '--detalles') o.detalles = Number(a[++i]) || 0;
     else if (a[i] === '--importantes') o.ligas = [...IMPORTANTES];

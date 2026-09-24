@@ -999,8 +999,30 @@ function CaraACara({
       if (suyosGoles > 0 && delRival > 0) ambosMarcan++;
     }
 
+    /*
+     * Cada fila con los dos escudos y quién jugaba en casa.
+     *
+     * Antes ponía "fuera" o "en casa" y el marcador suelto: había que adivinar
+     * de quién era cada cifra. Con el local a la izquierda, el visitante a la
+     * derecha y sus escudos, se lee como un marcador de toda la vida.
+     */
+    const filas = suyos.map(({ partido, esLocal }) => {
+      const local = porId.get(partido.localId);
+      const visitante = porId.get(partido.visitanteId);
+      return {
+        id: partido.id,
+        fecha: partido.fecha,
+        competicionId: partido.competicionId,
+        golesLocal: partido.golesLocal,
+        golesVisitante: partido.golesVisitante,
+        local: local ?? (esLocal ? equipoA : equipoB),
+        visitante: visitante ?? (esLocal ? equipoB : equipoA),
+      };
+    });
+
     return {
       partidos: suyos,
+      filas,
       ganaA,
       empates,
       ganaB,
@@ -1023,12 +1045,6 @@ function CaraACara({
       </Tarjeta>
     );
   }
-
-  const marcador = (p: Partido, esLocal: boolean) => {
-    const suyos = esLocal ? p.golesLocal : p.golesVisitante;
-    const rival = esLocal ? p.golesVisitante : p.golesLocal;
-    return { suyos, rival, gano: suyos > rival, empate: suyos === rival };
-  };
 
   return (
     <Tarjeta style={{ padding: E.md, gap: E.md }}>
@@ -1101,29 +1117,82 @@ function CaraACara({
 
       <Separador />
 
-      {/* Y el detalle, partido a partido. */}
+      {/* Y el detalle, partido a partido, leído como un marcador. */}
       <View style={{ gap: E.sm }}>
-        {datos.partidos.map(({ partido, esLocal }) => {
-          const m = marcador(partido, esLocal);
+        {/* Quién jugaba en casa, dicho y no supuesto. */}
+        <View style={{ flexDirection: 'row', alignItems: 'center', gap: E.sm }}>
+          <View style={{ width: 74 }} />
+          <Txt v="mini" color={C.texto3} style={{ flex: 1, textAlign: 'right' }}>
+            EN CASA
+          </Txt>
+          <Txt v="mini" color={C.texto3}>
+            {' · '}
+          </Txt>
+          <Txt v="mini" color={C.texto3} style={{ flex: 1 }}>
+            VISITANTE
+          </Txt>
+        </View>
+        {datos.filas.map((f) => {
+          const ganoLocal = f.golesLocal > f.golesVisitante;
+          const ganoVisita = f.golesVisitante > f.golesLocal;
           return (
-            <View
-              key={partido.id}
-              style={{ flexDirection: 'row', alignItems: 'center', gap: E.sm }}
-            >
-              <Txt v="mini" color={C.texto3} style={{ width: 62 }}>
-                {partido.fecha.slice(0, 10).split('-').reverse().slice(0, 2).join('/')}
-                {'  '}
-                {partido.fecha.slice(2, 4)}
-              </Txt>
-              <Txt v="pequeno" color={C.texto3} style={{ flex: 1 }} numberOfLines={1}>
-                {competicion(partido.competicionId).corto} · {esLocal ? 'en casa' : 'fuera'}
-              </Txt>
-              <Txt
-                v="pequenoFuerte"
-                color={m.gano ? C.acierto : m.empate ? C.texto2 : C.rojo}
+            <View key={f.id} style={{ flexDirection: 'row', alignItems: 'center', gap: E.sm }}>
+              <View style={{ width: 74 }}>
+                <Txt v="mini" color={C.texto3}>
+                  {f.fecha.slice(8, 10)}/{f.fecha.slice(5, 7)}/{f.fecha.slice(2, 4)}
+                </Txt>
+                <Txt v="mini" color={C.texto3} numberOfLines={1}>
+                  {competicion(f.competicionId).corto}
+                </Txt>
+              </View>
+
+              {/* Local a la izquierda, con su escudo pegado al nombre. */}
+              <View
+                style={{
+                  flex: 1,
+                  flexDirection: 'row',
+                  alignItems: 'center',
+                  justifyContent: 'flex-end',
+                  gap: 6,
+                }}
               >
-                {m.suyos}-{m.rival}
+                <Txt
+                  v="pequeno"
+                  color={ganoLocal ? C.texto : C.texto3}
+                  numberOfLines={1}
+                  style={{ textAlign: 'right' }}
+                >
+                  {f.local.corto}
+                </Txt>
+                <Escudo
+                  nombre={f.local.nombre}
+                  id={f.local.id}
+                  bandera={f.local.bandera}
+                  corto={f.local.corto}
+                  color={f.local.color}
+                  tam={20}
+                />
+              </View>
+
+              <Txt v="pequenoFuerte" color={C.texto}>
+                {f.golesLocal}-{f.golesVisitante}
               </Txt>
+
+              <View
+                style={{ flex: 1, flexDirection: 'row', alignItems: 'center', gap: 6 }}
+              >
+                <Escudo
+                  nombre={f.visitante.nombre}
+                  id={f.visitante.id}
+                  bandera={f.visitante.bandera}
+                  corto={f.visitante.corto}
+                  color={f.visitante.color}
+                  tam={20}
+                />
+                <Txt v="pequeno" color={ganoVisita ? C.texto : C.texto3} numberOfLines={1}>
+                  {f.visitante.corto}
+                </Txt>
+              </View>
             </View>
           );
         })}
@@ -1163,11 +1232,20 @@ function Duelo({
         corners: acumula((p, l) => (l ? p.estadisticas.local : p.estadisticas.visitante).corners),
         tarjetas: acumula((p, l) => (l ? p.estadisticas.local : p.estadisticas.visitante).amarillas),
         xg: acumula((p, l) => (l ? p.estadisticas.local : p.estadisticas.visitante).xg),
+        /*
+         * El balance entero, no solo las victorias.
+         *
+         * Antes esta fila decía "Victorias (últimos 10)" y en un partido entre
+         * dos equipos en mala racha salía "0" y "0", con las dos barras vacías:
+         * parecía un dato que faltaba. Con victorias, empates y derrotas se ve
+         * que el cero es de verdad y por qué.
+         */
         victorias: suyos.filter((p) =>
           p.localId === equipoId
             ? p.golesLocal > p.golesVisitante
             : p.golesVisitante > p.golesLocal,
         ).length,
+        empates: suyos.filter((p) => p.golesLocal === p.golesVisitante).length,
       };
     };
     return { a: resumen(localId), b: resumen(visitanteId) };
@@ -1175,8 +1253,10 @@ function Duelo({
 
   if (!datos) return <ActivityIndicator color={C.lima} style={{ marginTop: E.xl }} />;
 
+  const balance = (r: typeof datos.a) =>
+    `${r.victorias}V ${r.empates}E ${Math.max(0, r.partidos - r.victorias - r.empates)}D`;
+
   const filas: { etiqueta: string; a: number; b: number; decimales?: number; sufijo?: string }[] = [
-    { etiqueta: 'Victorias (últimos 10)', a: datos.a.victorias, b: datos.b.victorias },
     { etiqueta: 'Goles a favor', a: datos.a.goles, b: datos.b.goles, decimales: 2 },
     { etiqueta: 'Goles en contra', a: datos.a.encajados, b: datos.b.encajados, decimales: 2 },
     { etiqueta: 'xG estimado', a: datos.a.xg, b: datos.b.xg, decimales: 2 },
@@ -1203,6 +1283,20 @@ function Duelo({
           MEDIA EN LOS ÚLTIMOS 10
         </Txt>
         <Txt v="cuerpoFuerte">{datos.b.equipo.corto}</Txt>
+      </View>
+
+      {/* El balance de cada uno en esos diez, en texto y sin barras: aquí un
+          cero es un cero, no un dato que falta. */}
+      <View style={{ flexDirection: 'row', alignItems: 'center', justifyContent: 'space-between' }}>
+        <Txt v="pequenoFuerte" color={C.texto2}>
+          {balance(datos.a)}
+        </Txt>
+        <Txt v="mini" color={C.texto3}>
+          BALANCE
+        </Txt>
+        <Txt v="pequenoFuerte" color={C.texto2}>
+          {balance(datos.b)}
+        </Txt>
       </View>
 
       {filas.map((f) => {
