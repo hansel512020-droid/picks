@@ -193,6 +193,29 @@ const DIBUJOS: Record<string, Dibujo> = {
   ),
   // Un sobre: el rectángulo y la solapa en uve.
   correo: linea('M3 6h18v12H3zM3 7l9 6 9-6'),
+  // Para ver la contraseña escrita, y para volver a taparla.
+  ojo: ({ color, grosor }) => (
+    <>
+      <Path
+        d="M2 12s3.6-6.5 10-6.5S22 12 22 12s-3.6 6.5-10 6.5S2 12 2 12z"
+        stroke={color}
+        strokeWidth={grosor}
+        fill="none"
+      />
+      <Circle cx={12} cy={12} r={3} stroke={color} strokeWidth={grosor} fill="none" />
+    </>
+  ),
+  ojoCerrado: ({ color, grosor }) => (
+    <>
+      <Path
+        d="M2 12s3.6-6.5 10-6.5S22 12 22 12s-3.6 6.5-10 6.5S2 12 2 12z"
+        stroke={color}
+        strokeWidth={grosor}
+        fill="none"
+      />
+      <Path d="M4 20L20 4" stroke={color} strokeWidth={grosor} strokeLinecap="round" />
+    </>
+  ),
 };
 
 export type NombreIcono = keyof typeof DIBUJOS;

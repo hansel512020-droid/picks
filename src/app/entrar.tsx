@@ -1,6 +1,7 @@
+import { router } from 'expo-router';
 import * as WebBrowser from 'expo-web-browser';
 import { useState } from 'react';
-import { ActivityIndicator, Platform, TextInput, View } from 'react-native';
+import { ActivityIndicator, Platform, ScrollView, TextInput, View } from 'react-native';
 import { useSafeAreaInsets } from 'react-native-safe-area-context';
 import { Boton, Insignia, Pulsable, Tarjeta, Txt } from '@/componentes/base';
 import { Icono, LogoApple, LogoGoogle } from '@/componentes/iconos';
@@ -42,39 +43,81 @@ const DESTINO =
 
 type Modo = 'crear' | 'entrar';
 
+/**
+ * Un campo del formulario, con su etiqueta encima.
+ *
+ * La etiqueta no es adorno: con solo el texto gris de dentro, en cuanto
+ * escribes ya no sabes qué pedía cada casilla, y en un formulario de cuatro
+ * eso se nota. La contraseña lleva ojo para verla: el 90% de los fallos al
+ * entrar son una letra mal escrita que nadie puede comprobar.
+ */
 function Campo({
+  etiqueta,
   valor,
   onCambia,
   marcador,
-  clave,
+  tipo = 'texto',
 }: {
+  etiqueta?: string;
   valor: string;
   onCambia: (v: string) => void;
   marcador: string;
-  clave?: boolean;
+  tipo?: 'texto' | 'correo' | 'telefono' | 'clave';
 }) {
+  const [visible, setVisible] = useState(false);
+  const esClave = tipo === 'clave';
+
   return (
-    <TextInput
-      value={valor}
-      onChangeText={onCambia}
-      placeholder={marcador}
-      placeholderTextColor={C.texto3}
-      secureTextEntry={clave}
-      autoCapitalize="none"
-      autoCorrect={false}
-      keyboardType={clave ? 'default' : 'email-address'}
-      autoComplete={clave ? 'password' : 'email'}
-      style={{
-        paddingHorizontal: E.md,
-        paddingVertical: 13,
-        borderRadius: R.md,
-        borderWidth: 1,
-        borderColor: C.borde,
-        backgroundColor: C.carta,
-        color: C.texto,
-        fontSize: 15,
-      }}
-    />
+    <View style={{ gap: 6 }}>
+      {etiqueta ? (
+        <Txt v="mini" color={C.texto3} style={{ letterSpacing: 0.6 }}>
+          {etiqueta.toUpperCase()}
+        </Txt>
+      ) : null}
+      <View style={{ justifyContent: 'center' }}>
+        <TextInput
+          value={valor}
+          onChangeText={onCambia}
+          placeholder={marcador}
+          placeholderTextColor={C.texto3}
+          secureTextEntry={esClave && !visible}
+          autoCapitalize={tipo === 'texto' ? 'words' : 'none'}
+          autoCorrect={false}
+          keyboardType={
+            tipo === 'correo' ? 'email-address' : tipo === 'telefono' ? 'phone-pad' : 'default'
+          }
+          autoComplete={
+            tipo === 'correo'
+              ? 'email'
+              : tipo === 'clave'
+                ? 'password'
+                : tipo === 'telefono'
+                  ? 'tel'
+                  : 'name'
+          }
+          style={{
+            paddingHorizontal: E.md,
+            paddingRight: esClave ? 44 : E.md,
+            paddingVertical: 13,
+            borderRadius: R.md,
+            borderWidth: 1,
+            borderColor: C.borde,
+            backgroundColor: C.carta,
+            color: C.texto,
+            fontSize: 15,
+          }}
+        />
+        {esClave ? (
+          <Pulsable
+            onPress={() => setVisible((v) => !v)}
+            hitSlop={10}
+            style={{ position: 'absolute', right: E.md }}
+          >
+            <Icono nombre={visible ? 'ojoCerrado' : 'ojo'} tam={18} color={C.texto3} />
+          </Pulsable>
+        ) : null}
+      </View>
+    </View>
   );
 }
 
@@ -165,6 +208,9 @@ export default function Entrar() {
   const { entra } = useSesion();
 
   const [modo, setModo] = useState<Modo>('crear');
+  const [nombre, setNombre] = useState('');
+  const [telefono, setTelefono] = useState('');
+  const [acepta, setAcepta] = useState(false);
   const [correo, setCorreo] = useState('');
   const [clave, setClave] = useState('');
   const [ocupado, setOcupado] = useState(false);
@@ -179,13 +225,22 @@ export default function Entrar() {
 
   const envia = async () => {
     setAviso(null);
+    if (modo === 'crear') {
+      if (nombre.trim().length < 3) return setAviso('Escribe tu nombre.');
+      if (!acepta) {
+        return setAviso('Para crear la cuenta hay que aceptar los términos y la privacidad.');
+      }
+    }
     if (!correo.includes('@')) return setAviso('Escribe un correo válido.');
     // Seis es el mínimo de Supabase; menos ni lo intenta.
     if (clave.length < 6) return setAviso('La contraseña necesita al menos 6 caracteres.');
 
     setOcupado(true);
     if (modo === 'crear') {
-      const r = await registra(correo.trim(), clave);
+      const r = await registra(correo.trim(), clave, {
+        nombre: nombre.trim(),
+        telefono: telefono.trim(),
+      });
       setOcupado(false);
       if (r.error) return setAviso(r.error);
       if (r.necesitaConfirmar) return setConfirma(true);
@@ -292,14 +347,20 @@ export default function Entrar() {
   }
 
   return (
-    <View
-      style={{
-        flex: 1,
-        backgroundColor: C.fondo,
+    /*
+     * Con scroll: el formulario de registro son cuatro campos, la casilla de
+     * términos, el botón y los dos proveedores. En un teléfono pequeño eso no
+     * cabe en una pantalla, y sin scroll el botón de crear cuenta se quedaba
+     * fuera sin manera de llegar a él.
+     */
+    <ScrollView
+      style={{ flex: 1, backgroundColor: C.fondo }}
+      contentContainerStyle={{
         paddingTop: insets.top + E.xl,
         paddingHorizontal: E.lg,
         gap: E.lg,
       }}
+      keyboardShouldPersistTaps="handled"
     >
       <View style={{ alignItems: 'center', gap: E.sm }}>
         <Logo tam={42} />
@@ -310,32 +371,6 @@ export default function Entrar() {
           Tu cuenta guarda tus picks, tu rendimiento y las ligas que sigues, y los
           lleva a cualquier sitio donde entres.
         </Txt>
-      </View>
-
-      {/* Google primero: es un toque y no hay contraseña que recordar. */}
-      <View style={{ gap: E.sm }}>
-        <BotonProveedor
-          proveedor="google"
-          texto="Continuar con Google"
-          icono="mundo"
-          onEntra={trasProveedor}
-        />
-        {Platform.OS === 'ios' ? (
-          <BotonProveedor
-            proveedor="apple"
-            texto="Continuar con Apple"
-            icono="usuario"
-            onEntra={trasProveedor}
-          />
-        ) : null}
-      </View>
-
-      <View style={{ flexDirection: 'row', alignItems: 'center', gap: E.md }}>
-        <View style={{ flex: 1, height: 1, backgroundColor: C.bordeSuave }} />
-        <Txt v="mini" color={C.texto3}>
-          O CON TU CORREO
-        </Txt>
-        <View style={{ flex: 1, height: 1, backgroundColor: C.bordeSuave }} />
       </View>
 
       {/* Crear cuenta o entrar, en la misma pantalla. */}
@@ -372,9 +407,83 @@ export default function Entrar() {
         ))}
       </View>
 
-      <View style={{ gap: E.sm }}>
-        <Campo valor={correo} onCambia={setCorreo} marcador="tucorreo@ejemplo.com" />
-        <Campo valor={clave} onCambia={setClave} marcador="Contraseña" clave />
+      <View style={{ gap: E.md }}>
+        {/* El nombre y el teléfono solo al crear la cuenta: para entrar sobran. */}
+        {modo === 'crear' ? (
+          <Campo
+            etiqueta="Nombre completo"
+            valor={nombre}
+            onCambia={setNombre}
+            marcador="Juan Pérez"
+          />
+        ) : null}
+
+        <Campo
+          etiqueta="Email"
+          valor={correo}
+          onCambia={setCorreo}
+          marcador="tucorreo@ejemplo.com"
+          tipo="correo"
+        />
+
+        {modo === 'crear' ? (
+          <Campo
+            etiqueta="Teléfono"
+            valor={telefono}
+            onCambia={setTelefono}
+            marcador="+593 99 000 0000"
+            tipo="telefono"
+          />
+        ) : null}
+
+        <Campo
+          etiqueta="Contraseña"
+          valor={clave}
+          onCambia={setClave}
+          marcador="Mínimo 6 caracteres"
+          tipo="clave"
+        />
+
+        {/*
+          La casilla de términos, y sin marcarla no se crea la cuenta.
+
+          No es burocracia: la app cobra suscripciones y habla de apuestas, así
+          que tiene que quedar constancia de que el usuario aceptó las
+          condiciones y supo que esto es informativo, no una casa de apuestas.
+        */}
+        {modo === 'crear' ? (
+          <Pulsable
+            onPress={() => setAcepta((a) => !a)}
+            style={{ flexDirection: 'row', alignItems: 'flex-start', gap: E.sm }}
+          >
+            <View
+              style={{
+                width: 20,
+                height: 20,
+                borderRadius: 5,
+                borderWidth: 1.5,
+                borderColor: acepta ? C.lima : C.borde,
+                backgroundColor: acepta ? C.lima : 'transparent',
+                alignItems: 'center',
+                justifyContent: 'center',
+                marginTop: 1,
+              }}
+            >
+              {acepta ? <Icono nombre="check" tam={13} color={C.fondo} /> : null}
+            </View>
+            <Txt v="pequeno" color={C.texto2} style={{ flex: 1 }}>
+              He leído y acepto los{' '}
+              <Txt v="pequeno" color={C.lima} onPress={() => router.push('/terminos')}>
+                Términos de Uso
+              </Txt>{' '}
+              y la{' '}
+              <Txt v="pequeno" color={C.lima} onPress={() => router.push('/privacidad')}>
+                Política de Privacidad
+              </Txt>{' '}
+              de Golden Picks.
+            </Txt>
+          </Pulsable>
+        ) : null}
 
         {aviso ? (
           <Tarjeta style={{ padding: E.sm, borderColor: C.borde }}>
@@ -386,7 +495,7 @@ export default function Entrar() {
 
         <Boton
           ancho
-          texto={ocupado ? 'Un momento…' : modo === 'crear' ? 'Crear cuenta' : 'Entrar'}
+          texto={ocupado ? 'Un momento…' : modo === 'crear' ? 'Crear cuenta →' : 'Iniciar sesión →'}
           onPress={envia}
         />
 
@@ -399,9 +508,54 @@ export default function Entrar() {
         ) : null}
       </View>
 
-      <View style={{ alignItems: 'center', marginTop: 'auto', paddingBottom: insets.bottom + E.lg }}>
+      {/*
+        Los proveedores, debajo del formulario.
+
+        Estaban arriba del todo, y con el formulario largo de registro eso deja
+        el correo y el nombre fuera de la primera pantalla. Quien quiere entrar
+        con Google lo encuentra igual; quien viene a escribir sus datos, los ve
+        sin desplazarse.
+      */}
+      <View style={{ flexDirection: 'row', alignItems: 'center', gap: E.md }}>
+        <View style={{ flex: 1, height: 1, backgroundColor: C.bordeSuave }} />
+        <Txt v="mini" color={C.texto3}>
+          O CONTINÚA CON
+        </Txt>
+        <View style={{ flex: 1, height: 1, backgroundColor: C.bordeSuave }} />
+      </View>
+
+      <View style={{ gap: E.sm }}>
+        <BotonProveedor
+          proveedor="google"
+          texto="Continuar con Google"
+          icono="mundo"
+          onEntra={trasProveedor}
+        />
+        {Platform.OS === 'ios' ? (
+          <BotonProveedor
+            proveedor="apple"
+            texto="Continuar con Apple"
+            icono="usuario"
+            onEntra={trasProveedor}
+          />
+        ) : null}
+      </View>
+
+      <Pulsable
+        onPress={() => { setModo(modo === 'crear' ? 'entrar' : 'crear'); setAviso(null); }}
+        style={{ alignItems: 'center' }}
+      >
+        <Txt v="pequeno" color={C.texto3}>
+          {modo === 'crear' ? '¿Ya tienes cuenta? ' : '¿No tienes cuenta? '}
+          <Txt v="pequeno" color={C.lima}>
+            {modo === 'crear' ? 'Iniciar sesión' : 'Regístrate'}
+          </Txt>
+        </Txt>
+      </Pulsable>
+
+      <View style={{ alignItems: 'center', paddingBottom: insets.bottom + E.lg }}>
         <Insignia texto="SOLO MAYORES DE 18 AÑOS · CONTENIDO INFORMATIVO" />
       </View>
-    </View>
+    </ScrollView>
   );
 }

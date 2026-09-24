@@ -76,7 +76,13 @@ function Puerta() {
       if (donde !== 'bienvenida') router.replace('/bienvenida');
       return;
     }
-    if (exigeCuenta && donde !== 'entrar') router.replace('/entrar');
+    /*
+     * Los términos y la privacidad se ven sin cuenta a propósito: se enlazan
+     * desde la propia pantalla de registro, y mandar a alguien a "entrar" justo
+     * cuando va a leer lo que está aceptando es de broma.
+     */
+    const abiertasSinCuenta = ['entrar', 'terminos', 'privacidad'];
+    if (exigeCuenta && !abiertasSinCuenta.includes(donde ?? '')) router.replace('/entrar');
     else if (!exigeCuenta && donde === 'entrar') router.replace('/');
   }, [cargado, cargada, onboarding, exigeCuenta, segmentos, router]);
 

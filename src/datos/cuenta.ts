@@ -381,13 +381,28 @@ export function ligasDesbloqueadas(derechos: Derecho[]): Set<string> {
 export async function registra(
   correo: string,
   clave: string,
+  /*
+   * El nombre y el teléfono van como datos del usuario, no como campos de
+   * autenticación. El teléfono de Supabase es otra cosa —un segundo modo de
+   * entrar, con SMS y su coste— y aquí solo se quiere para poder avisar y para
+   * dar soporte a quien pagó.
+   */
+  extra?: { nombre?: string; telefono?: string },
 ): Promise<{ sesion: Sesion | null; necesitaConfirmar: boolean; error?: string }> {
   if (!CUENTAS_ACTIVAS) return { sesion: null, necesitaConfirmar: false, error: 'Sin servidor' };
   try {
+    const datosUsuario: Record<string, string> = {};
+    if (extra?.nombre) datosUsuario.nombre = extra.nombre;
+    if (extra?.telefono) datosUsuario.telefono = extra.telefono;
+
     const r = await fetch(`${URL}/auth/v1/signup`, {
       method: 'POST',
       headers: cabeceras(),
-      body: JSON.stringify({ email: correo, password: clave }),
+      body: JSON.stringify({
+        email: correo,
+        password: clave,
+        ...(Object.keys(datosUsuario).length ? { data: datosUsuario } : {}),
+      }),
     });
     const datos = await r.json();
     if (!r.ok) {
