@@ -104,6 +104,7 @@ export function fusionaDetalle(detalle: unknown): void {
   }
   CACHE.clear();
   HISTORIALES.clear();
+  INDICE = null;
   for (const rehacer of alCambiar) rehacer();
   for (const repinta of alLlegarMas) repinta();
 }
@@ -120,6 +121,7 @@ export function aplicaDatos(nuevo: unknown): void {
   ARCHIVO = nuevo as Archivo;
   CACHE.clear();
   HISTORIALES.clear();
+  INDICE = null;
   for (const rehacer of alCambiar) rehacer();
   // También repinta: quien resuelve los picks guardados o calcula la portada
   // necesita rehacerlo con los datos nuevos, no solo tirar sus cachés.
@@ -278,6 +280,60 @@ function esBanderaDePais(s?: string): boolean {
   return false;
 }
 
+/**
+ * Índice del archivo entero, montado una sola vez: de qué equipos es cada
+ * nombre y qué partidos jugó cada equipo.
+ *
+ * Antes cada consulta recorría las 52 competiciones enteras —normalizando el
+ * nombre de los 1.969 equipos y mirando los 18.000 partidos— y eso se hacía una
+ * vez por equipo: al abrir la portada con "Todas" eran unos 150 recorridos del
+ * archivo completo, casi siete segundos con la pantalla parada. La caché de
+ * abajo evitaba repetir la misma consulta, pero no el coste de la primera.
+ *
+ * Con el índice se recorre una vez —unos 60 ms— y a partir de ahí cada consulta
+ * es buscar en un mapa.
+ */
+interface Indice {
+  /** Equipos por nombre normalizado: los homónimos caen en la misma entrada. */
+  porNombre: Map<string, { id: string; bandera?: string; competicionId: string }[]>;
+  /** Partidos de cada equipo, por su identificador. */
+  porEquipo: Map<string, { competicionId: string; partido: Partido; esLocal: boolean }[]>;
+}
+
+let INDICE: Indice | null = null;
+
+function indice(): Indice {
+  if (INDICE) return INDICE;
+  const porNombre = new Map<string, { id: string; bandera?: string; competicionId: string }[]>();
+  const porEquipo = new Map<string, { competicionId: string; partido: Partido; esLocal: boolean }[]>();
+
+  for (const [competicionId, c] of Object.entries(ARCHIVO.competiciones ?? {})) {
+    for (const e of c.equipos ?? []) {
+      const clave = claveEquipo(e.nombre);
+      const lista = porNombre.get(clave);
+      const entrada = { id: e.id, bandera: e.bandera, competicionId };
+      if (lista) lista.push(entrada);
+      else porNombre.set(clave, [entrada]);
+    }
+    for (const p of c.partidos ?? []) {
+      for (const [equipoId, esLocal] of [
+        [p.localId, true],
+        [p.visitanteId, false],
+      ] as [string, boolean][]) {
+        // El partido se guarda crudo y se completa al entregarlo: completar
+        // aquí los 18.000 costaría más que todo lo que ahorra el índice.
+        const suyos = porEquipo.get(equipoId);
+        const entrada = { competicionId, partido: p, esLocal };
+        if (suyos) suyos.push(entrada);
+        else porEquipo.set(equipoId, [entrada]);
+      }
+    }
+  }
+
+  INDICE = { porNombre, porEquipo };
+  return INDICE;
+}
+
 export function partidosDelEquipoEnTodas(
   nombreEquipo: string,
   bandera?: string,
@@ -289,28 +345,25 @@ export function partidosDelEquipoEnTodas(
   const guardado = HISTORIALES.get(memo);
   if (guardado) return guardado;
 
-  const clave = claveEquipo(nombreEquipo);
-  const salida: { competicionId: string; partido: Partido; esLocal: boolean }[] = [];
+  const { porNombre, porEquipo } = indice();
+  /*
+   * El nombre no basta para saber que es el mismo club.
+   *
+   * Hay homónimos en países distintos —el River Plate argentino y el de
+   * Montevideo— y buscando solo por nombre se mezclaban: en la ficha del
+   * argentino aparecía "Primera División · 1 partido", que es la liga
+   * uruguaya del otro. Con la bandera de país se separan; quien no la pase se
+   * queda con el comportamiento de antes.
+   */
+  const equipos = (porNombre.get(claveEquipo(nombreEquipo)) ?? []).filter(
+    (e) => !banderaPais || !e.bandera || e.bandera === banderaPais,
+  );
 
-  for (const [competicionId, c] of Object.entries(ARCHIVO.competiciones ?? {})) {
-    /*
-     * El nombre no basta para saber que es el mismo club.
-     *
-     * Hay homónimos en países distintos —el River Plate argentino y el de
-     * Montevideo— y buscando solo por nombre se mezclaban: en la ficha del
-     * argentino aparecía "Primera División · 1 partido", que es la liga
-     * uruguaya del otro. Con la bandera de país se separan; quien no la pase se
-     * queda con el comportamiento de antes.
-     */
-    const suyos = c.equipos.filter(
-      (e) => claveEquipo(e.nombre) === clave && (!banderaPais || !e.bandera || e.bandera === banderaPais),
-    );
-    if (!suyos.length) continue;
-    const ids = new Set(suyos.map((e) => e.id));
-    for (const p of c.partidos) {
+  const salida: { competicionId: string; partido: Partido; esLocal: boolean }[] = [];
+  for (const e of equipos) {
+    for (const x of porEquipo.get(e.id) ?? []) {
       // Se devuelven completos: quien los recibe lee estadísticas directas.
-      if (ids.has(p.localId)) salida.push({ competicionId, partido: completaPartido(p), esLocal: true });
-      else if (ids.has(p.visitanteId)) salida.push({ competicionId, partido: completaPartido(p), esLocal: false });
+      salida.push({ competicionId: x.competicionId, partido: completaPartido(x.partido), esLocal: x.esLocal });
     }
   }
   salida.sort((a, b) => a.partido.fecha.localeCompare(b.partido.fecha));

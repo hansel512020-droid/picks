@@ -647,6 +647,95 @@ function tieneDetalle(p: Partido, esLocal: boolean): boolean {
   return (esLocal ? p.estadisticas.local : p.estadisticas.visitante).remates > 0;
 }
 
+/*
+ * ---------------------------------------------------------------------------
+ * La media de la competición, sin recorrerla entera cada vez.
+ *
+ * Para poner precio a una línea hace falta la media de la competición hasta la
+ * fecha del partido —cuántos córners se pitan por partido, cuántos remates—, y
+ * eso se calculaba filtrando TODOS los partidos de la temporada y sumando, una
+ * vez por cada métrica y por cada partido analizado. Con "Todas" la temporada
+ * son casi 18.000 partidos y la portada analiza unos ochenta: unos once
+ * millones de sumas para pintar una pantalla. Medido: 205 ms por partido, siete
+ * segundos largos de reloj parado al abrir.
+ *
+ * Aquí se hace una sola pasada por métrica y se guardan las sumas acumuladas.
+ * Como los partidos van ordenados por fecha, la media hasta un día cualquiera
+ * es una búsqueda binaria y una división. La cuenta que sale es exactamente la
+ * misma; lo que cambia es que se calcula una vez en vez de ochenta.
+ * ---------------------------------------------------------------------------
+ */
+interface Acumulado {
+  fechas: string[];
+  /** Suma de la métrica en los `i` primeros partidos. */
+  suma: Float64Array;
+  /** Cuántos valores entraron en esos `i` primeros (dos por partido, o uno). */
+  cuenta: Int32Array;
+}
+
+const FINALIZADOS = new Map<string, Partido[]>();
+const ACUMULADOS = new Map<string, Acumulado>();
+cuandoCambienLosDatos(() => {
+  FINALIZADOS.clear();
+  ACUMULADOS.clear();
+});
+
+/** Los partidos ya jugados de una temporada, por fecha. Una vez por temporada. */
+function finalizadosDe(competicionId: string, partidos: Partido[]): Partido[] {
+  const guardado = FINALIZADOS.get(competicionId);
+  if (guardado) return guardado;
+  const lista = partidos
+    .filter((p) => p.estado === 'finalizado')
+    .sort((a, b) => a.fecha.localeCompare(b.fecha));
+  FINALIZADOS.set(competicionId, lista);
+  return lista;
+}
+
+/**
+ * Media de la métrica en la competición contando solo lo jugado antes de
+ * `antesDe`. El recorte en el tiempo importa: al medir el modelo contra el
+ * pasado, la media de hoy no se conocía aquel día.
+ */
+function mediaDeLaCompeticion(
+  competicionId: string,
+  partidos: Partido[],
+  /** Identifica el acumulado: métrica + si excluye los partidos sin detalle. */
+  clave: string,
+  /** Lo que aporta un partido: la suma y cuántos valores son. */
+  aporta: (p: Partido) => { suma: number; cuenta: number },
+  antesDe: string,
+  minimo = 1,
+): number {
+  const memo = `${competicionId}|${clave}`;
+  let acc = ACUMULADOS.get(memo);
+  if (!acc) {
+    const jugados = finalizadosDe(competicionId, partidos);
+    const fechas = new Array<string>(jugados.length);
+    const suma = new Float64Array(jugados.length + 1);
+    const cuenta = new Int32Array(jugados.length + 1);
+    for (let i = 0; i < jugados.length; i++) {
+      const p = jugados[i];
+      fechas[i] = p.fecha;
+      const { suma: s, cuenta: c } = aporta(p);
+      suma[i + 1] = suma[i] + s;
+      cuenta[i + 1] = cuenta[i] + c;
+    }
+    acc = { fechas, suma, cuenta };
+    ACUMULADOS.set(memo, acc);
+  }
+
+  // Cuántos partidos hay antes de esa fecha (búsqueda binaria: van ordenados).
+  let bajo = 0;
+  let alto = acc.fechas.length;
+  while (bajo < alto) {
+    const medio = (bajo + alto) >> 1;
+    if (acc.fechas[medio] < antesDe) bajo = medio + 1;
+    else alto = medio;
+  }
+
+  return acc.suma[bajo] / Math.max(minimo, acc.cuenta[bajo]);
+}
+
 /** Picks de un partido concreto. */
 export function picksDePartido(
   competicionId: string,
@@ -871,13 +960,6 @@ export function picksDePartido(
         return rivalId === rival.id ? peso * PESO_ENFRENTAMIENTO : peso;
       });
 
-    // Los partidos de la liga ya jugados, base de la media con la que tarifica
-    // el mercado. Se filtra una vez; cada métrica decide si además excluye los
-    // que vinieron sin detalle.
-    const partidosLiga = t.partidos.filter(
-      (p) => p.estado === 'finalizado' && p.fecha < partido.fecha,
-    );
-
     for (const met of METRICAS_EQUIPO) {
       /*
        * Los goles están siempre en el acta; tiros, córners y tarjetas solo
@@ -898,16 +980,23 @@ export function picksDePartido(
       // La media de la competición, con el mismo criterio: los partidos sin
       // detalle no rebajan la media a base de ceros falsos. Recortada en el
       // tiempo, porque la media de hoy no se conocía el día que se está midiendo.
-      let sumaLiga = 0;
-      let cuentaLiga = 0;
-      for (const p of partidosLiga) {
-        for (const esLocal of [true, false]) {
-          if (soloConDetalle && !tieneDetalle(p, esLocal)) continue;
-          sumaLiga += met.valor(p, esLocal);
-          cuentaLiga++;
-        }
-      }
-      const mediaCompeticion = sumaLiga / Math.max(2, cuentaLiga);
+      const mediaCompeticion = mediaDeLaCompeticion(
+        competicionId,
+        t.partidos,
+        `eq-${met.clave}-${soloConDetalle ? 'det' : 'todo'}`,
+        (p) => {
+          let suma = 0;
+          let cuenta = 0;
+          for (const esLocal of [true, false]) {
+            if (soloConDetalle && !tieneDetalle(p, esLocal)) continue;
+            suma += met.valor(p, esLocal);
+            cuenta++;
+          }
+          return { suma, cuenta };
+        },
+        partido.fecha,
+        2,
+      );
 
       for (const l of met.lineas) {
         for (const sentido of ['mas', 'menos'] as const) {
@@ -1157,14 +1246,16 @@ export function picksDePartido(
         : delPartido;
       if (muestra.length < 8) continue;
       const valores = muestra.map(met.valor);
-      const jugados = t.partidos.filter(
+      const mediaCompeticion = mediaDeLaCompeticion(
+        competicionId,
+        t.partidos,
+        `pt-${met.clave}-${soloConDetalle ? 'det' : 'todo'}`,
         (p) =>
-          p.estado === 'finalizado' &&
-          p.fecha < partido.fecha &&
-          (!soloConDetalle || tieneDetalle(p, true)),
+          soloConDetalle && !tieneDetalle(p, true)
+            ? { suma: 0, cuenta: 0 }
+            : { suma: met.valor(p), cuenta: 1 },
+        partido.fecha,
       );
-      const mediaCompeticion =
-        jugados.reduce((a, p) => a + met.valor(p), 0) / Math.max(1, jugados.length);
 
       for (const l of met.lineas) {
         for (const sentido of ['mas', 'menos'] as const) {

@@ -22,6 +22,7 @@ import { useTienda } from '@/estado/tienda';
 import { usePicksVigentes, useVivo } from '@/estado/vivo';
 import { C, E, R } from '@/tema';
 import { useCalculo, useCalculoProgresivo } from '@/utiles/carga';
+import { useOcultaPestanas } from './_layout';
 
 type Orden = 'valor' | 'ventaja' | 'acierto' | 'cuota' | 'fuego';
 
@@ -367,6 +368,9 @@ export default function Inicio() {
 
   const comp = competicion(competicionId);
   const familiasVisibles = todasFamilias ? FAMILIAS : FAMILIAS.slice(0, 5);
+
+  // Mientras carga no se ve nada más: tampoco la barra de pestañas.
+  useOcultaPestanas(!picks);
 
   /*
    * Hasta que esté todo, la pantalla de carga y nada más. Va después de los
