@@ -1,3 +1,4 @@
+import { caraACaraEspn } from '@/datos/duelos';
 import { seJuegaAhora } from '@/datos/envivo';
 import { LinearGradient } from 'expo-linear-gradient';
 import { router, useLocalSearchParams } from 'expo-router';
@@ -950,6 +951,25 @@ function ListaBajas({ competicionId, equipoId }: { competicionId: string; equipo
  * Copa cuenta igual que uno de Liga. Y se comparan por nombre porque el mismo
  * club tiene un identificador distinto en cada competición importada.
  */
+/** Un enfrentamiento ya jugado, venga de donde venga. */
+interface FilaDuelo {
+  id: string;
+  fecha: string;
+  /** Solo la traen los nuestros: ESPN no dice de qué competición era. */
+  competicionId?: string;
+  golesLocal: number;
+  golesVisitante: number;
+  local: { id: string; nombre: string; corto?: string; bandera?: string; color?: string };
+  visitante: { id: string; nombre: string; corto?: string; bandera?: string; color?: string };
+}
+
+const sinTildes = (s: string) =>
+  (s || '')
+    .normalize('NFD')
+    .replace(/[̀-ͯ]/g, '')
+    .toLowerCase()
+    .trim();
+
 function CaraACara({
   competicionId,
   partidoId,
@@ -961,24 +981,108 @@ function CaraACara({
   equipoA: Equipo;
   equipoB: Equipo;
 }) {
-  const datos = useCalculo(() => {
-    const sinTildes = (s: string) =>
-      s
-        .normalize('NFD')
-        .replace(/[̀-ͯ]/g, '')
-        .toLowerCase()
-        .trim();
+  /* Lo que tenemos descargado: los enfrentamientos que caen en la ventana. */
+  const nuestros = useCalculo(() => {
     const porId = new Map(equiposImportados().map((e) => [e.id, e]));
     const buscado = sinTildes(equipoB.nombre);
 
-    const suyos = partidosDelEquipoEnTodas(equipoA.nombre, equipoA.bandera)
+    return partidosDelEquipoEnTodas(equipoA.nombre, equipoA.bandera)
       .filter(({ partido }) => partido.estado === 'finalizado' && partido.id !== partidoId)
       .filter(({ partido, esLocal }) => {
         const rivalId = esLocal ? partido.visitanteId : partido.localId;
         const rival = porId.get(rivalId);
         return rival ? sinTildes(rival.nombre) === buscado : false;
       })
-      .sort((x, y) => y.partido.fecha.localeCompare(x.partido.fecha))
+      .map(({ partido, esLocal }): FilaDuelo => {
+        const local = porId.get(partido.localId);
+        const visitante = porId.get(partido.visitanteId);
+        return {
+          id: partido.id,
+          fecha: partido.fecha,
+          competicionId: partido.competicionId,
+          golesLocal: partido.golesLocal,
+          golesVisitante: partido.golesVisitante,
+          local: local ?? (esLocal ? equipoA : equipoB),
+          visitante: visitante ?? (esLocal ? equipoB : equipoA),
+        };
+      });
+  }, [competicionId, partidoId, equipoA.id, equipoB.id]);
+
+  /*
+   * Y lo que tiene ESPN, que llega más atrás.
+   *
+   * Nuestro archivo guarda tres temporadas por equipo; ESPN publica los últimos
+   * cinco enfrentamientos aunque sean de hace seis años. Sin esto, dos equipos
+   * que se reencuentran después de años salían como "no se han enfrentado"
+   * —Girona y Albacete, catorce duelos, el último en 2021— y eso no parece un
+   * dato: parece que la app está rota.
+   */
+  const [deEspn, setDeEspn] = useState<FilaDuelo[]>([]);
+  const [respondioEspn, setRespondioEspn] = useState(false);
+  const idEspn = useMemo(() => {
+    try {
+      return temporada(competicionId).porPartido.get(partidoId)?.idEspn;
+    } catch {
+      return undefined;
+    }
+  }, [competicionId, partidoId]);
+
+  useEffect(() => {
+    let vivo = true;
+    caraACaraEspn(competicionId, idEspn)
+      .then((duelos) => {
+        if (!vivo) return;
+        setRespondioEspn(true);
+        if (!duelos.length) return;
+        /*
+         * El escudo se busca por nombre: ESPN usa los suyos ("Girona", no
+         * "Girona FC"). Primero exacto y después tolerando que uno contenga al
+         * otro, que es lo que salva los "FC Barcelona" contra "Barcelona". Lo
+         * que no encaje se queda con el nombre a secas y sus iniciales.
+         */
+        const importados = equiposImportados();
+        const porNombre = new Map(importados.map((e) => [sinTildes(e.nombre), e]));
+        const comoEquipo = (nombre: string) => {
+          const clave = sinTildes(nombre);
+          const exacto = porNombre.get(clave);
+          if (exacto) return exacto;
+          const parecido = importados.find((e) => {
+            const suyo = sinTildes(e.nombre);
+            return suyo.includes(clave) || clave.includes(suyo);
+          });
+          return parecido ?? { id: nombre, nombre, corto: nombre.slice(0, 3).toUpperCase() };
+        };
+        setDeEspn(
+          duelos.map((d) => ({
+            id: `espn-${d.fecha}`,
+            fecha: d.fecha,
+            golesLocal: d.golesLocal,
+            golesVisitante: d.golesVisitante,
+            local: comoEquipo(d.local),
+            visitante: comoEquipo(d.visitante),
+          })),
+        );
+      })
+      .catch(() => {
+        if (vivo) setRespondioEspn(true);
+      });
+    return () => {
+      vivo = false;
+    };
+  }, [competicionId, idEspn]);
+
+  const datos = useMemo(() => {
+    if (!nuestros) return undefined;
+
+    /*
+     * Se juntan las dos fuentes y se quitan los repetidos por día: el mismo
+     * partido está en las dos, y contarlo dos veces estropearía el balance.
+     * Manda lo nuestro, que trae la competición y los identificadores buenos.
+     */
+    const porDia = new Map<string, FilaDuelo>();
+    for (const f of [...deEspn, ...nuestros]) porDia.set(f.fecha.slice(0, 10), f);
+    const filas = [...porDia.values()]
+      .sort((x, y) => y.fecha.localeCompare(x.fecha))
       .slice(0, 8);
 
     let ganaA = 0;
@@ -988,53 +1092,62 @@ function CaraACara({
     let masDeDosMedio = 0;
     let ambosMarcan = 0;
 
-    for (const { partido, esLocal } of suyos) {
-      const suyosGoles = esLocal ? partido.golesLocal : partido.golesVisitante;
-      const delRival = esLocal ? partido.golesVisitante : partido.golesLocal;
-      if (suyosGoles > delRival) ganaA++;
-      else if (suyosGoles < delRival) ganaB++;
+    /*
+     * De qué lado jugaba cada uno, con los nombres de las dos fuentes.
+     *
+     * Comparar el nombre exacto no vale: los nuestros vienen del importador
+     * ("Girona FC") y los de ESPN de ESPN ("Girona"). Si no se reconoce a
+     * ninguno de los dos no se cuenta esa fila, que es mejor que apuntarle la
+     * victoria al equipo equivocado —un balance al revés no se nota mirándolo,
+     * y es de las peores mentiras que puede contar la ficha—.
+     */
+    const encaja = (a: string, b: string) => {
+      const x = sinTildes(a);
+      const y = sinTildes(b);
+      return !!x && !!y && (x === y || x.includes(y) || y.includes(x));
+    };
+    const localEsA = (f: FilaDuelo) => {
+      if (encaja(f.local.nombre, equipoA.nombre)) return true;
+      if (encaja(f.visitante.nombre, equipoA.nombre)) return false;
+      if (encaja(f.local.nombre, equipoB.nombre)) return false;
+      if (encaja(f.visitante.nombre, equipoB.nombre)) return true;
+      return null;
+    };
+
+    for (const f of filas) {
+      const lado = localEsA(f);
+      golesTotales += f.golesLocal + f.golesVisitante;
+      if (f.golesLocal + f.golesVisitante > 2.5) masDeDosMedio++;
+      if (f.golesLocal > 0 && f.golesVisitante > 0) ambosMarcan++;
+      if (lado === null) continue;
+      const suyos = lado ? f.golesLocal : f.golesVisitante;
+      const delRival = lado ? f.golesVisitante : f.golesLocal;
+      if (suyos > delRival) ganaA++;
+      else if (suyos < delRival) ganaB++;
       else empates++;
-      golesTotales += suyosGoles + delRival;
-      if (suyosGoles + delRival > 2.5) masDeDosMedio++;
-      if (suyosGoles > 0 && delRival > 0) ambosMarcan++;
     }
 
-    /*
-     * Cada fila con los dos escudos y quién jugaba en casa.
-     *
-     * Antes ponía "fuera" o "en casa" y el marcador suelto: había que adivinar
-     * de quién era cada cifra. Con el local a la izquierda, el visitante a la
-     * derecha y sus escudos, se lee como un marcador de toda la vida.
-     */
-    const filas = suyos.map(({ partido, esLocal }) => {
-      const local = porId.get(partido.localId);
-      const visitante = porId.get(partido.visitanteId);
-      return {
-        id: partido.id,
-        fecha: partido.fecha,
-        competicionId: partido.competicionId,
-        golesLocal: partido.golesLocal,
-        golesVisitante: partido.golesVisitante,
-        local: local ?? (esLocal ? equipoA : equipoB),
-        visitante: visitante ?? (esLocal ? equipoB : equipoA),
-      };
-    });
-
     return {
-      partidos: suyos,
       filas,
       ganaA,
       empates,
       ganaB,
-      mediaGoles: suyos.length ? golesTotales / suyos.length : 0,
+      mediaGoles: filas.length ? golesTotales / filas.length : 0,
       masDeDosMedio,
       ambosMarcan,
     };
-  }, [competicionId, partidoId, equipoA.id, equipoB.id]);
+  }, [nuestros, deEspn, equipoA.nombre, equipoB.nombre]);
 
   if (!datos) return null;
 
-  if (!datos.partidos.length) {
+  /*
+   * El "no se han enfrentado" espera a que ESPN conteste. Sin esto la tarjeta
+   * decía que no hay historial y medio segundo después aparecían cinco
+   * partidos: el mensaje que más confianza quita es el que se desdice solo.
+   */
+  if (!datos.filas.length && !respondioEspn) return null;
+
+  if (!datos.filas.length) {
     return (
       <Tarjeta style={{ padding: E.md, gap: 4 }}>
         <Txt v="cuerpoFuerte">Cara a cara</Txt>
@@ -1059,7 +1172,7 @@ function CaraACara({
       <View style={{ flexDirection: 'row', alignItems: 'center', justifyContent: 'space-between' }}>
         <Txt v="cuerpoFuerte">Cara a cara</Txt>
         <Txt v="mini" color={C.texto3}>
-          ÚLTIMOS {datos.partidos.length} ENFRENTAMIENTOS
+          ÚLTIMOS {datos.filas.length} ENFRENTAMIENTOS
         </Txt>
       </View>
 
@@ -1109,7 +1222,7 @@ function CaraACara({
         </View>
         <View style={{ alignItems: 'center', flex: 1 }}>
           <Txt v="cuerpoFuerte" color={C.lima}>
-            {datos.masDeDosMedio}/{datos.partidos.length}
+            {datos.masDeDosMedio}/{datos.filas.length}
           </Txt>
           <Txt v="mini" color={C.texto3}>
             más de 2.5
@@ -1117,7 +1230,7 @@ function CaraACara({
         </View>
         <View style={{ alignItems: 'center', flex: 1 }}>
           <Txt v="cuerpoFuerte" color={C.lima}>
-            {datos.ambosMarcan}/{datos.partidos.length}
+            {datos.ambosMarcan}/{datos.filas.length}
           </Txt>
           <Txt v="mini" color={C.texto3}>
             ambos marcan
@@ -1151,8 +1264,11 @@ function CaraACara({
                 <Txt v="mini" color={C.texto3}>
                   {f.fecha.slice(8, 10)}/{f.fecha.slice(5, 7)}/{f.fecha.slice(2, 4)}
                 </Txt>
+                {/* La competición solo la traen los partidos que tenemos
+                    descargados; los que vienen de ESPN se quedan con la fecha,
+                    que es lo que hay. */}
                 <Txt v="mini" color={C.texto3} numberOfLines={1}>
-                  {competicion(f.competicionId).corto}
+                  {f.competicionId ? competicion(f.competicionId).corto : ''}
                 </Txt>
               </View>
 
