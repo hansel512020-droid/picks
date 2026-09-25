@@ -70,11 +70,13 @@ function EjemploPick() {
       <Txt v="cuerpo">
         Neymar Jr. superó los 0,5 remates a puerta en 9 de sus últimos 10 partidos (2,3 por partido).
       </Txt>
+      {/* Sin cuota: la maqueta enseña lo que enseña la app de verdad, y la app
+          solo pone precio cuando lo publica una casa. */}
       <FilaMercado
         mercado="Más de 0.5 remates a puerta"
         cuota={1.22}
         casaId="medio"
-        ventaja={24}
+        precioReal={false}
       />
       <BarraL10
         racha={[true, true, true, true, true, true, false, true, true, true]}

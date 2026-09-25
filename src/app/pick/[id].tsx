@@ -675,7 +675,6 @@ ${enlace}`;
                 mercado={pick.mercado}
                 cuota={pick.cuota}
                 casaId={pick.casa}
-                ventaja={pick.ventaja}
                 precioReal={pick.precioReal}
               />
             )}
@@ -691,28 +690,23 @@ ${enlace}`;
             */}
             {!bloqueado && pick.precioReal === false ? (
               <Txt v="mini" color={C.texto3}>
-                Precio estimado por el modelo como referencia: ninguna casa publica esta línea, así
-                que en tu casa de apuestas la cuota será distinta.
+                Este mercado no tiene cuota publicada a la que la app pueda mirar, así que no se
+                enseña ningún precio. Mira el de tu casa de apuestas y decide con el histórico de
+                aquí abajo.
               </Txt>
             ) : null}
 
             {/*
-              Con precio estimado, la tercera casilla dice la probabilidad y no
-              la "ventaja": la ventaja está medida contra un precio que pone el
-              propio modelo, así que no es dinero que nadie esté dejando encima
-              de la mesa. La probabilidad sí sale del histórico y se sostiene.
+              La tercera casilla era la "Ventaja". Ahora es la probabilidad: la
+              ventaja se medía contra un precio que pone el propio modelo, así
+              que no era dinero que nadie esté dejando encima de la mesa. La
+              probabilidad sale del histórico y se sostiene sola.
             */}
             <View style={{ flexDirection: 'row', gap: E.sm, display: bloqueado ? 'none' : 'flex' }}>
               {[
                 { v: `${pick.aciertosL10}/10`, e: 'Últimos 10' },
                 { v: `${pick.aciertosL5}/5`, e: 'Últimos 5' },
-                pick.precioReal === false
-                  ? {
-                      v: `${Math.round(pick.probabilidad * 100)}%`,
-                      e: 'Probabilidad',
-                      color: C.lima,
-                    }
-                  : { v: `${pick.ventaja.toFixed(0)}%`, e: 'Ventaja', color: C.lima },
+                { v: `${Math.round(pick.probabilidad * 100)}%`, e: 'Probabilidad', color: C.lima },
               ].map((d) => (
                 <View
                   key={d.e}

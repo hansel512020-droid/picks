@@ -87,9 +87,16 @@ export interface Rendimiento {
   perdidos: number;
   pendientes: number;
   acierto: number;
-  /** Retorno sobre lo apostado, en porcentaje, a 1 unidad por pick. */
-  roi: number;
-  beneficio: number;
+  /*
+   * Aquí había `roi` y `beneficio`, calculados con la cuota de cada pick. Se
+   * quitaron: solo los picks de 1X2 llevan una cuota publicada por alguien; en
+   * todos los demás la pone el propio modelo, así que ese "retorno" no era
+   * dinero, era el modelo puntuándose a sí mismo. Un porcentaje en verde con un
+   * "+" delante, al lado de los picks de quien está apostando de verdad, es la
+   * clase de dato que hace que alguien se sienta estafado con razón.
+   *
+   * Lo que queda —aciertos sobre resueltos— sale del resultado del partido.
+   */
 }
 
 const Contexto = createContext<Tienda | null>(null);
@@ -300,17 +307,12 @@ export function calculaRendimiento(guardados: PickGuardado[]): Rendimiento {
   const perdidos = guardados.filter((g) => g.resultado === 'perdido');
   const pendientes = guardados.filter((g) => g.resultado === 'pendiente');
   const resueltos = ganados.length + perdidos.length;
-  // Una unidad por pick: lo ganado es (cuota - 1) y lo perdido es -1.
-  const beneficio =
-    ganados.reduce((a, g) => a + (g.cuota - 1), 0) - perdidos.length;
   return {
     total: guardados.length,
     ganados: ganados.length,
     perdidos: perdidos.length,
     pendientes: pendientes.length,
     acierto: resueltos ? (ganados.length / resueltos) * 100 : 0,
-    roi: resueltos ? (beneficio / resueltos) * 100 : 0,
-    beneficio,
   };
 }
 

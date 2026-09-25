@@ -377,24 +377,26 @@ export function SelloCasa({ casaId, tam = 18 }: { casaId: string; tam?: number }
   );
 }
 
-/** Fila gris del mercado: nombre a la izquierda, cuota y casa a la derecha. */
+/**
+ * Fila gris del mercado: el nombre a la izquierda y, cuando existe de verdad,
+ * la cuota publicada a la derecha.
+ */
 export function FilaMercado({
   mercado,
   cuota,
   casaId,
-  ventaja,
   bloqueado,
   precioReal,
 }: {
   mercado: string;
   cuota: number;
   casaId: string;
-  ventaja?: number;
   bloqueado?: boolean;
   /**
-   * Si el precio viene de una cuota publicada. Cuando no, se dice: colgarle
-   * el sello de una casa a un precio que ha puesto el modelo hace creer al
-   * usuario que puede ir a esa casa y encontrarlo, y no es verdad.
+   * Si el precio viene de una cuota publicada. Cuando no, no se enseña ningún
+   * número: colgarle el sello de una casa —o hasta un "EST"— a un precio que ha
+   * puesto el modelo hace creer al usuario que puede ir a esa casa y
+   * encontrarlo, y no es verdad.
    */
   precioReal?: boolean;
 }) {
@@ -420,54 +422,49 @@ export function FilaMercado({
         {bloqueado ? 'Mercado y precio con Golden Pro' : mercado}
       </Text>
       {/*
-        La flecha de "esto tiene valor" solo cuando el precio es de verdad.
-        Sobre un precio que ha puesto el propio modelo, la ventaja se mide
-        contra una estimación suya: pintarla igual que la de una cuota publicada
-        es prometer algo que nadie está pagando.
+        El precio solo se enseña cuando lo ha publicado una casa.
+        *
+        * Antes salía siempre, con un sello "EST" cuando lo ponía el modelo, y
+        * al lado una flecha verde de "aquí hay valor". Las dos cosas sobran: la
+        * ventaja estaba medida contra ese mismo precio inventado —el modelo
+        * contra sí mismo— y el número invitaba a ir a una casa a buscar una
+        * cuota que allí no existe. Lo que sostiene un pick es su histórico, y
+        * eso sigue entero justo debajo.
       */}
-      {ventaja !== undefined && !bloqueado && precioReal !== false ? (
-        <View style={{ flexDirection: 'row', alignItems: 'center', gap: 3 }}>
-          <Icono nombre="tendencia" tam={14} color={C.verde} />
-        </View>
-      ) : null}
-      <View
-        style={{
-          flexDirection: 'row',
-          alignItems: 'center',
-          gap: 6,
-          borderWidth: 1,
-          borderColor: C.borde,
-          borderRadius: R.sm,
-          paddingHorizontal: 8,
-          paddingVertical: 5,
-          backgroundColor: C.carta,
-        }}
-      >
-        {bloqueado ? (
+      {bloqueado ? (
+        <View
+          style={{
+            flexDirection: 'row',
+            alignItems: 'center',
+            gap: 6,
+            borderWidth: 1,
+            borderColor: C.borde,
+            borderRadius: R.sm,
+            paddingHorizontal: 8,
+            paddingVertical: 5,
+            backgroundColor: C.carta,
+          }}
+        >
           <Icono nombre="candado" tam={13} color={C.texto3} />
-        ) : (
+        </View>
+      ) : precioReal === false ? null : (
+        <View
+          style={{
+            flexDirection: 'row',
+            alignItems: 'center',
+            gap: 6,
+            borderWidth: 1,
+            borderColor: C.borde,
+            borderRadius: R.sm,
+            paddingHorizontal: 8,
+            paddingVertical: 5,
+            backgroundColor: C.carta,
+          }}
+        >
           <Text style={{ ...T.cuerpoFuerte, color: C.lima }}>{cuota.toFixed(2)}</Text>
-        )}
-        {precioReal === false ? (
-          <View
-            style={{
-              paddingHorizontal: 4,
-              height: 18,
-              minWidth: 18,
-              borderRadius: 4,
-              alignItems: 'center',
-              justifyContent: 'center',
-              backgroundColor: C.carta2,
-              borderWidth: 1,
-              borderColor: C.borde,
-            }}
-          >
-            <Text style={{ fontSize: 8.5, fontWeight: '800', color: C.texto3 }}>EST</Text>
-          </View>
-        ) : (
           <SelloCasa casaId={casaId} />
-        )}
-      </View>
+        </View>
+      )}
     </View>
   );
 }
@@ -950,7 +947,6 @@ export function TarjetaPick({
           mercado={pick.mercado}
           cuota={pick.cuota}
           casaId={pick.casa}
-          ventaja={pick.ventaja}
           precioReal={pick.precioReal}
           bloqueado={bloqueado}
         />
@@ -969,19 +965,14 @@ export function TarjetaPick({
               sentido={pick.sentido}
             />
             {/*
-              Qué se dice del precio, según de dónde salga.
-              *
-              * Ponía "X% de ventaja según el modelo" en todos, y en casi todos
-              * el precio también lo pone el modelo: la ventaja se mide contra
-              * una estimación propia, no contra lo que paga una casa. Eso no es
-              * una ventaja, es una coherencia interna, y anunciarla como si
-              * fuera dinero sobre la mesa es lo que hace que alguien se sienta
-              * engañado al ir a apostar y encontrar otro precio.
+              Aquí ponía "X% de ventaja según el modelo". Fuera: esa ventaja se
+              medía contra un precio que pone el propio modelo, así que no era
+              valor sobre el mercado sino coherencia consigo mismo. Queda lo que
+              sí se sostiene: cuántas veces ha pasado esto en los últimos 5, 10
+              y 20 partidos.
             */}
             <Txt v="pequeno" color={C.texto3}>
-              {pick.precioReal === false
-                ? `Últimos 5, 10 y 20 partidos · precio estimado: ninguna casa lo publica`
-                : `Últimos 5, 10 y 20 partidos · ${pick.ventaja.toFixed(0)}% de ventaja sobre la cuota`}
+              Últimos 5, 10 y 20 partidos
             </Txt>
           </View>
         ) : null}

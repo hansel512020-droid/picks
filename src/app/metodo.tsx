@@ -22,9 +22,9 @@ const PASOS: { icono: NombreIcono; titulo: string; texto: string }[] = [
   },
   {
     icono: 'moneda',
-    titulo: '3. Se compara con el precio',
+    titulo: '3. El precio, solo cuando existe',
     texto:
-      'El precio no sale de esa racha: sale de la media de toda la temporada corregida hacia el patrón de su puesto, que es como tarifica el mercado, más el margen que hayas elegido. La ventaja es la diferencia entre la probabilidad del modelo y la que implica ese precio.',
+      'De los mercados de jugador, equipo y totales no hay cuota publicada en ninguna parte a la que la app pueda mirar, así que no se enseña ningún precio: enseñar uno calculado por el modelo —y una "ventaja" medida contra él— sería el modelo dándose la razón a sí mismo, y al ir a apostar te encontrarías otro número. Solo el 1X2 lleva cuota, y es la que publica la casa.',
   },
   {
     icono: 'filtro',

@@ -467,31 +467,24 @@ export default function Rendimiento() {
                 <Dato ancho valor={`${resumen.total}`} etiqueta="Picks" />
               </View>
 
-              <View
-                style={{
-                  flexDirection: 'row',
-                  alignItems: 'center',
-                  justifyContent: 'space-between',
-                  paddingHorizontal: E.md,
-                  paddingVertical: 12,
-                  borderRadius: R.md,
-                  backgroundColor: resumen.roi >= 0 ? C.verdeTenue : C.rojoTenue,
-                }}
-              >
-                <Txt v="cuerpo" color={resumen.roi >= 0 ? C.verde : C.rojo}>
-                  Retorno de inversión
-                </Txt>
-                <Txt v="cuerpoFuerte" color={resumen.roi >= 0 ? C.verde : C.rojo}>
-                  {resumen.roi >= 0 ? '+' : ''}
-                  {resumen.roi.toFixed(1)}%
-                </Txt>
-              </View>
-
+              {/*
+                Aquí había un "Retorno de inversión" en verde y un beneficio en
+                unidades. Fuera los dos.
+                *
+                * Se calculaban con la cuota de cada pick, y la cuota de casi
+                * todos la estima el propio modelo: solo el 1X2 lleva un precio
+                * que haya publicado alguien. Es decir, ese ROI no medía dinero,
+                * medía lo generoso que el modelo es consigo mismo. Enseñarlo en
+                * verde, con un "+", junto a los picks de alguien que sí está
+                * apostando dinero de verdad, es lo más engañoso que tenía la
+                * app.
+                *
+                * Lo que queda —cuántos entran de los que se resuelven— sale del
+                * resultado del partido y es verdad se mire como se mire.
+              */}
               {resumen.resueltos > 0 ? (
                 <Txt v="mini" color={C.texto3}>
-                  {resumen.resueltos} picks resueltos · beneficio de{' '}
-                  {resumen.beneficio >= 0 ? '+' : ''}
-                  {resumen.beneficio.toFixed(2)} unidades a 1 unidad por pick.
+                  {resumen.resueltos} picks resueltos de {resumen.total} guardados.
                 </Txt>
               ) : null}
             </Tarjeta>

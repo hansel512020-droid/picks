@@ -27,13 +27,19 @@ import { C, E, R } from '@/tema';
 import { useCalculo, useCalculoProgresivo } from '@/utiles/carga';
 import { useOcultaPestanas } from './_layout';
 
-type Orden = 'valor' | 'ventaja' | 'acierto' | 'cuota' | 'fuego';
+type Orden = 'acierto' | 'probabilidad' | 'fuego';
 
+/*
+ * Aquí había tres órdenes más: "Valor", "Ventaja" y "Precio más alto". Los tres
+ * ordenaban por la cuota o por la ventaja sobre la cuota, y la cuota de casi
+ * todos los picks la pone el propio modelo: ordenar por eso es ordenar por lo
+ * generoso que el modelo se ha puesto consigo mismo, no por nada del mercado.
+ * Quedan los dos criterios que salen de hechos: cuántas veces ha pasado y
+ * cuánta gente lo ha guardado.
+ */
 const ORDENES: { id: Orden; texto: string }[] = [
-  { id: 'valor', texto: 'Valor' },
-  { id: 'ventaja', texto: 'Ventaja' },
   { id: 'acierto', texto: '% de acierto' },
-  { id: 'cuota', texto: 'Precio más alto' },
+  { id: 'probabilidad', texto: 'Probabilidad' },
   { id: 'fuego', texto: 'Más guardados' },
 ];
 
@@ -71,8 +77,6 @@ function ordena(
   const copia = [...picks];
 
   switch (orden) {
-    case 'ventaja':
-      return copia.sort((a, b) => porDia(a, b) || b.ventaja - a.ventaja);
     case 'acierto':
       // Los recomendados delante y, dentro de ellos, los de mas racha.
       return copia.sort(
@@ -80,18 +84,18 @@ function ordena(
           porDia(a, b) ||
           Number(b.recomendado) - Number(a.recomendado) ||
           b.aciertosL10 - a.aciertosL10 ||
-          b.ventaja - a.ventaja,
+          b.probabilidad - a.probabilidad,
       );
-    case 'cuota':
-      return copia.sort((a, b) => porDia(a, b) || b.cuota - a.cuota);
+    case 'probabilidad':
+      return copia.sort((a, b) => porDia(a, b) || b.probabilidad - a.probabilidad);
     case 'fuego':
       /*
-       * Por los guardados de VERDAD y nada mas. El numero inventado que hacia
-       * de respaldo ya no existe: sin guardados reales, este orden se decide
-       * por la ventaja, que al menos dice algo del pick.
+       * Por los guardados de VERDAD y nada mas. Sin guardados reales desempata
+       * la probabilidad, que sale del historico del sujeto.
        */
       return copia.sort(
-        (a, b) => porDia(a, b) || (cuenta(b) ?? 0) - (cuenta(a) ?? 0) || b.ventaja - a.ventaja,
+        (a, b) =>
+          porDia(a, b) || (cuenta(b) ?? 0) - (cuenta(a) ?? 0) || b.probabilidad - a.probabilidad,
       );
     default:
       // El generador ya entrega por cercania y calidad: no se toca.

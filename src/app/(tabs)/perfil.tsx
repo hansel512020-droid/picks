@@ -258,16 +258,16 @@ export default function Perfil() {
         {[
           { v: `${rendimiento.acierto.toFixed(0)}%`, e: 'Acierto' },
           { v: `${guardados.length}`, e: 'Guardados' },
-          {
-            v: `${rendimiento.roi >= 0 ? '+' : ''}${rendimiento.roi.toFixed(0)}%`,
-            e: 'ROI',
-            color: rendimiento.roi >= 0 ? C.verde : C.rojo,
-          },
+          /*
+           * Aquí iba el ROI. Fuera: se calculaba con la cuota de cada pick, y
+           * la de casi todos la pone el propio modelo, así que no era dinero
+           * sino una cuenta del modelo consigo mismo. En su sitio, cuántos
+           * están esperando resultado, que es un dato de verdad.
+           */
+          { v: `${rendimiento.pendientes}`, e: 'En juego' },
         ].map((d) => (
           <Tarjeta key={d.e} style={{ flex: 1, alignItems: 'center', paddingVertical: E.md, gap: 2 }}>
-            <Txt v="subtitulo" color={d.color ?? C.texto}>
-              {d.v}
-            </Txt>
+            <Txt v="subtitulo">{d.v}</Txt>
             <Txt v="mini" color={C.texto3}>
               {d.e}
             </Txt>

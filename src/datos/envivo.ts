@@ -19,8 +19,21 @@ const LIGAS: Record<string, string> = {
   bundesliga: 'ger.1', ligue1: 'fra.1', eredivisie: 'ned.1', portugal: 'por.1',
   belgica: 'bel.1', turquia: 'tur.1', grecia: 'gre.1', escocia: 'sco.1',
   suiza: 'sui.1', austria: 'aut.1', dinamarca: 'den.1', noruega: 'nor.1',
-  suecia: 'swe.1', polonia: 'pol.1', rumania: 'rou.1', chequia: 'cze.1',
-  croacia: 'cro.1', serbia: 'srb.1', ucrania: 'ukr.1',
+  suecia: 'swe.1', rumania: 'rou.1', chequia: 'cze.1',
+  /*
+   * Polonia, Croacia, Ucrania, Eslovenia y Eslovaquia no están.
+   *
+   * Aquí ponía `polonia: 'pol.1'`, `croacia: 'cro.1'` y `ucrania: 'ukr.1'`, y
+   * ESPN contesta 400 a los tres: esos códigos no existen en su API —probados
+   * también cro.hnl, pol.ekstraklasa, ukr.upl y alguno más, todos 400—. El
+   * resultado era pedirlos cada treinta segundos para nada, y de paso pedirles
+   * un cara a cara que nunca iban a dar.
+   *
+   * Esas cinco competiciones vienen de SofaScore, así que tienen sus partidos y
+   * su historial, pero no tienen marcador en vivo. Si algún día ESPN las añade,
+   * se vuelven a poner aquí y el directo funciona solo.
+   */
+  serbia: 'srb.1',
   champions: 'uefa.champions', europaleague: 'uefa.europa',
   conference: 'uefa.europa.conf',
   // La fase previa es una competición aparte en la app (con su indicador en la
