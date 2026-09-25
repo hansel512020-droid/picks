@@ -1,11 +1,20 @@
-# Workflow de prueba, temporal.
+# ¿Puede GitHub bajar datos de SofaScore?
 #
-# Existe solo para saber por qué "Datos" no aparece en la pestaña Actions. Es
-# lo más simple que GitHub acepta: si este sale en la lista y el otro no, el
-# problema está en el contenido de `datos.yml`. Si no sale ninguno, el problema
-# es del repositorio o de la cuenta, y hay que mirar por otro lado.
+# Lo que hay que averiguar son dos cosas distintas, y hasta ahora se mezclaban:
 #
-# Se borra en cuanto sepamos cuál de las dos cosas es.
+#   1. Si carga `curl-cffi-node`, que es la librería que imita el saludo TLS de
+#      un navegador de verdad. Sin ella, SofaScore corta la conexión.
+#   2. Si SofaScore le contesta a un servidor de GitHub. Una cosa es que la
+#      librería funcione y otra que dejen entrar a una IP de centro de datos.
+#
+# El workflow de datos corría en Alpine (musl) creyendo que ahí sí cargaba el
+# binario. No puede: `curl-cffi-node` 0.1.8 solo publica binarios para glibc,
+# macOS y Windows —comprobado con `npm view curl-cffi-node optionalDependencies`—
+# así que en Alpine no hay nada que cargar. Esta prueba corre en el Ubuntu normal
+# (glibc), que es donde el binario existe.
+#
+# No importa ni publica nada: solo pregunta y cuenta lo que pasa. Se lanza a mano
+# desde la pestaña Actions.
 
 name: Prueba
 
@@ -13,7 +22,56 @@ on:
   workflow_dispatch:
 
 jobs:
-  saludo:
+  sofascore:
     runs-on: ubuntu-latest
+    timeout-minutes: 10
     steps:
-      - run: echo "Si ves esto, Actions funciona en este repositorio."
+      - uses: actions/checkout@v4
+
+      - uses: actions/setup-node@v4
+        with:
+          node-version: '20'
+
+      # `npm install` y no `npm ci`: el lockfile se genera en Windows y no trae
+      # resuelto el binario de Linux (ver el comentario en datos.yml).
+      - run: npm install
+
+      - name: Que dice el sistema
+        run: |
+          node -e "console.log('node', process.version, require('os').platform(), require('os').arch())"
+          ldd --version | head -1
+
+      - name: Carga la libreria de TLS
+        run: |
+          node -e "
+            try {
+              const { curl } = require('curl-cffi-node');
+              console.log('curl-cffi-node CARGA BIEN');
+            } catch (e) {
+              console.log('curl-cffi-node NO CARGA:', e.message);
+              process.exit(1);
+            }
+          "
+
+      - name: Contesta SofaScore desde aqui
+        run: |
+          node -e "
+            (async () => {
+              const { curl } = require('curl-cffi-node');
+              // Un torneo cualquiera: solo interesa el codigo de respuesta.
+              const url = 'https://api.sofascore.com/api/v1/unique-tournament/8/season/61643/events/last/0';
+              try {
+                const r = await curl.get(url, { impersonate: 'chrome124', timeout: 20000 });
+                const cuerpo = typeof r.body === 'string' ? r.body : String(r.body ?? '');
+                console.log('HTTP', r.statusCode ?? r.status);
+                console.log('primeros 200 caracteres:', cuerpo.slice(0, 200));
+                if ((r.statusCode ?? r.status) !== 200) process.exit(1);
+                const j = JSON.parse(cuerpo);
+                console.log('partidos que devuelve:', (j.events ?? []).length);
+                console.log('SOFASCORE FUNCIONA DESDE ACTIONS');
+              } catch (e) {
+                console.log('SOFASCORE NO CONTESTA:', e.message);
+                process.exit(1);
+              }
+            })();
+          "

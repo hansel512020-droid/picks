@@ -55,11 +55,31 @@ try {
 const RAIZ = 'https://api.sofascore.com/api/v1';
 
 /*
- * Se presenta como un Chrome de verdad, hasta en la huella TLS. Para eso esta
- * curl-cffi-node: con `fetch` esta misma peticion devuelve 403 siempre.
+ * Se presenta como un navegador de verdad, hasta en la huella TLS. Para eso
+ * esta curl-cffi-node: con `fetch` esta misma peticion devuelve 403 siempre.
+ *
+ * ── Por que hay varias y no una ────────────────────────────────────────────
+ *
+ * Aqui habia una sola, `chrome124`, y el 2026-09-24 dejo de valer: SofaScore
+ * empezo a contestar `{"error":{"code":403,"reason":"challenge"}}` a TODAS las
+ * huellas de Chrome —probadas chrome124, chrome131 y chrome136— mientras seguia
+ * atendiendo a las de Safari y Firefox con normalidad. No fue un bloqueo de
+ * esta IP ni del PC: fue un cambio de su filtro.
+ *
+ * El bot no se entero. Como cada competicion decia "calendario... 0 partidos" y
+ * seguia adelante con ESPN, los datos se publicaron sin xG medido y sin la
+ * linea completa de jugador durante un dia entero sin un solo error en rojo.
+ *
+ * Por eso ahora son varias y se van probando: si la primera recibe un 403, se
+ * pasa a la siguiente y se dice en el registro. El orden es el de lo que
+ * funciona hoy, con una de Chrome al final por si vuelven a darle la vuelta.
  */
-const PETICION = {
-  impersonate: 'chrome124',
+const HUELLAS = ['safari17_0', 'firefox133', 'chrome136'];
+/** Cual se esta usando. Vale para toda la ejecucion: no se busca en cada liga. */
+let huella = 0;
+
+const peticion = () => ({
+  impersonate: HUELLAS[huella],
   timeout: 25,
   verify: false,
   headers: {
@@ -68,7 +88,12 @@ const PETICION = {
     Referer: 'https://www.sofascore.com/',
     Origin: 'https://www.sofascore.com',
   },
-};
+});
+
+/** Con que huella se esta hablando, para poder contarlo al terminar. */
+function huellaEnUso() {
+  return HUELLAS[huella];
+}
 
 /** Competicion de la app -> torneo de SofaScore. */
 const TORNEOS = {
@@ -230,12 +255,33 @@ class Cliente {
     }
 
     if (this.cortado) return null;
-    await this.espera();
 
-    let respuesta;
-    try {
-      respuesta = await get(url, PETICION);
-    } catch {
+    /*
+     * Un 403 puede ser "no te queremos aqui" o "esa huella ya no cuela". Antes
+     * se daban por lo mismo y a los tres seguidos se cerraba el grifo para toda
+     * la importacion; el dia que SofaScore dejo de aceptar Chrome, eso significo
+     * publicar sin sus estadisticas sin que nadie se enterara. Ahora, antes de
+     * rendirse, se prueban las demas huellas.
+     */
+    let respuesta = null;
+    for (let intento = 0; intento < HUELLAS.length; intento++) {
+      await this.espera();
+      try {
+        respuesta = await get(url, peticion());
+      } catch {
+        respuesta = null;
+      }
+      const bloqueado = !respuesta || respuesta.status === 403 || respuesta.status === 429;
+      if (!bloqueado) break;
+      if (intento === HUELLAS.length - 1) break;
+      const siguiente = (huella + 1) % HUELLAS.length;
+      console.error(
+        `  (SofaScore rechaza la huella ${HUELLAS[huella]}: se prueba con ${HUELLAS[siguiente]})`,
+      );
+      huella = siguiente;
+    }
+
+    if (!respuesta) {
       this.fallos++;
       return null;
     }
@@ -282,7 +328,14 @@ class Cliente {
   }
 
   resumen() {
-    return { nuevas: this.nuevas, cache: this.cache, cortado: this.cortado };
+    return {
+      nuevas: this.nuevas,
+      cache: this.cache,
+      cortado: this.cortado,
+      // Con cuál se acabó hablando: si un día vuelve a fallar, el registro dice
+      // cuál dejó de valer sin tener que reproducirlo a mano.
+      huella: huellaEnUso(),
+    };
   }
 }
 
@@ -535,4 +588,15 @@ async function detalle(cliente, idSofa) {
   return { globales, plantillas };
 }
 
-module.exports = { Cliente, TORNEOS, IMPORTABLES, calendario, estadisticas, alineaciones, detalle };
+module.exports = {
+  Cliente,
+  TORNEOS,
+  IMPORTABLES,
+  calendario,
+  estadisticas,
+  alineaciones,
+  detalle,
+  // Para `scripts/probar-sofascore.js`: la prueba tiene que usar exactamente
+  // las mismas huellas que el bot, o no dice nada de lo que el bot hace.
+  HUELLAS,
+};

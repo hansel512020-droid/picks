@@ -492,7 +492,10 @@ async function aplicaSofaScore(id, opciones, dirCache, contexto) {
   const calendario = await sofared.calendario(cli, torneoId, { desde: objetivo[0].fecha });
   console.log(`${calendario.length} partidos`);
   if (!calendario.length) {
-    return { pegados: 0, conXgReal: new Set(), cortado: cli.resumen().cortado };
+    // El resumen entero, no solo `cortado`: sin `nuevas` ni `cache` la línea de
+    // abajo imprimía "undefined peticiones nuevas, undefined de caché", que es
+    // justo el aspecto que tenía el día que SofaScore dejó de contestar.
+    return { pegados: 0, conJugadores: 0, conXgReal: new Set(), ...cli.resumen() };
   }
 
   const nombreDe = new Map(equipos.map((e) => [e.id, e.nombre]));
@@ -1176,8 +1179,24 @@ async function importaCompeticion(id, opciones, catalogo, clave, sofa) {
       for (const x of redSofa.conXgReal) conXgReal.add(x);
       console.log(
         `  ${jugadores.length} jugadores · ${registros.length} registros (SofaScore sobre ESPN)` +
-          ` · ${redSofa.nuevas} peticiones nuevas, ${redSofa.cache} de caché`,
+          ` · ${redSofa.nuevas} peticiones nuevas, ${redSofa.cache} de caché` +
+          ` · huella ${redSofa.huella ?? '?'}`,
       );
+      /*
+       * Que SofaScore no traiga NADA se dice con todas las letras.
+       *
+       * El 2026-09-24 cambiaron su filtro, empezaron a rechazar la huella de
+       * Chrome y cada competición imprimió "calendario… 0 partidos" sin un solo
+       * error: se publicó un día entero sin xG medido y sin la línea de jugador
+       * como si todo fuera bien. Un fallo silencioso en la fuente que MANDA en
+       * estadísticas no puede pasar por una línea más del registro.
+       */
+      if (!redSofa.pegados && sofared.TORNEOS[id]) {
+        console.log('  ⚠ SofaScore no pegó ni un partido: esta liga va solo con datos de ESPN.');
+        aviso.push(
+          'SofaScore no devolvió nada. Los pronósticos van con lo de ESPN: sin xG medido y sin la línea completa de cada jugador. Comprueba con `node scripts/probar-sofascore.js` si sigue aceptando alguna de las huellas.',
+        );
+      }
       if (redSofa.cortado) {
         aviso.push(
           'SofaScore dejó de responder a mitad de la descarga y se siguió con lo de ESPN. Lo ya bajado queda en caché: al volver a lanzarlo seguirá donde lo dejó.',

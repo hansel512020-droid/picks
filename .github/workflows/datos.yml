@@ -90,25 +90,19 @@ jobs:
   importar:
     needs: turno
     if: needs.turno.outputs.saltar != 'true'
+    # El Ubuntu normal, sin contenedor.
+    #
+    # Esto corría dentro de `node:20-alpine` creyendo que en musl sí cargaba el
+    # binario nativo de curl-cffi-node (el que imita la huella TLS para poder
+    # bajar SofaScore). No puede: `curl-cffi-node` 0.1.8 solo publica binarios
+    # para linux-x64-gnu, linux-arm64-gnu, macOS y Windows —comprobado con
+    # `npm view curl-cffi-node optionalDependencies`—, así que en Alpine no hay
+    # nada que cargar y la librería fallaba siempre. Con glibc el binario existe.
     runs-on: ubuntu-latest
-    # Alpine, no la imagen normal de Ubuntu: usa musl en vez de glibc, y ahí
-    # el binario nativo de curl-cffi-node para SofaScore sí carga. Con glibc
-    # se probaron dos versiones de Ubuntu (22.04 y 24.04) y las dos fallaban,
-    # cada una por una version distinta de una libreria del sistema que el
-    # binario no reconocia — musl no tiene ese lio de versionado de simbolos.
-    container:
-      image: node:20-alpine
     # Pedir el acta de cada partido de 36 competiciones lleva su rato.
     timeout-minutes: 240
 
     steps:
-      # Alpine viene pelado: sin bash, sin git, sin curl. Hace falta antes que
-      # nada, hasta antes del propio checkout, y con `sh` a proposito: bash
-      # todavia no existe cuando arranca este paso.
-      - name: Preparar el contenedor (alpine)
-        shell: sh
-        run: apk add --no-cache bash curl git
-
       # Lo primero, antes de gastar tres cuartos de hora importando: comprobar
       # que están las claves para subir. Descubrirlo al final significa esperar
       # toda la importación para que te digan que falta un secreto, y volver a
@@ -168,28 +162,19 @@ jobs:
 
       # La CLI de Supabase es la que sube a Storage (ver el paso de subida y el
       # comentario de scripts/publicar-datos.js). Se fija a la versión probada
-      # en local; el binario es Go estático, así que corre igual en Alpine.
+      # en local.
       - name: Instalar la CLI de Supabase
         run: npm install -g supabase@2.116.0
 
-      # Temporal, se quita en cuanto se confirme si musl funciona.
-      - name: Diagnostico curl-cffi-node
-        run: |
-          echo "--- se instalo el paquete? ---"
-          ls -la node_modules/@curl-cffi-node/ 2>/dev/null || echo "no existe node_modules/@curl-cffi-node"
-          ls -la node_modules/@curl-cffi-node/linux-x64-musl/ 2>/dev/null || echo "no existe el paquete musl"
-          echo "--- deteccion de libc ---"
-          node -e "console.log(require('os').platform(), require('os').arch())"
-          cat /etc/os-release 2>/dev/null | head -3
-          echo "--- require directo del paquete musl ---"
-          node -e "
-            try {
-              const m = require('@curl-cffi-node/linux-x64-musl');
-              console.log('CARGO BIEN:', Object.keys(m));
-            } catch (e) {
-              console.log('ERROR REAL:', e.stack);
-            }
-          "
+      # ¿Va a poder bajar SofaScore? Se pregunta antes de importar, no después.
+      #
+      # Son dos cosas: que cargue la librería de TLS (aquí, con glibc, debería)
+      # y que SofaScore deje pasar a una IP de GitHub. Si no deja, la
+      # importación sigue igual —con lo de ESPN— pero queda dicho en el registro
+      # en vez de descubrirse semanas después mirando por qué faltan los xG.
+      - name: Comprobar el acceso a SofaScore
+        continue-on-error: true
+        run: node scripts/probar-sofascore.js
 
       # El cache de descargas, guardado de una ejecución a la siguiente.
       #
@@ -224,8 +209,12 @@ jobs:
           LIGAS=$(node -e "console.log(require('./src/datos/competiciones.json').join(','))")
 
           if [ "$COMPLETA" = "true" ]; then
-            echo "Pasada COMPLETA (con actas) · $LIGAS"
-            node scripts/importar.js --ligas "$LIGAS" --detalles 400 --jugadores 40
+            # Con SofaScore. Es la fuente que MANDA en estadísticas —xG medido y
+            # la línea completa de cada jugador— y aquí no se pedía nunca: por
+            # eso, cuando el respaldo de GitHub publicaba, los datos salían peor
+            # que los del PC aunque el resto de la pasada fuera idéntica.
+            echo "Pasada COMPLETA (con actas y SofaScore) · $LIGAS"
+            node scripts/importar.js --ligas "$LIGAS" --detalles 400 --jugadores 40 --sofascore-red
           else
             # Sin actas: resultados, calendario y cuotas. Minutos, no horas.
             echo "Pasada LIGERA (sin actas) · $LIGAS"
