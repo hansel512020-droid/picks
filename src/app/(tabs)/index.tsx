@@ -1,10 +1,11 @@
 import { router } from 'expo-router';
-import { useMemo, useState } from 'react';
+import { useEffect, useMemo, useState } from 'react';
 import { FlatList, Text, useWindowDimensions, View } from 'react-native';
 import { useSafeAreaInsets } from 'react-native-safe-area-context';
 import { AvisoCobroFallido, AvisoPagoEnProceso } from '@/componentes/avisos';
 import { useAvisos } from '@/estado/avisos';
 import { Chip, Insignia, Pulsable, Seccion, Tarjeta, Txt, Vacio } from '@/componentes/base';
+import { PantallaCargando } from '@/componentes/cargando';
 import { CarruselCompeticion, CarruselProximos } from '@/componentes/carruseles';
 import { Icono } from '@/componentes/iconos';
 import { Escudo } from '@/componentes/imagen';
@@ -13,6 +14,8 @@ import { TiraChips } from '@/componentes/navegacion';
 import { TarjetaPick } from '@/componentes/pick';
 import { competicion } from '@/datos/competiciones';
 import { claveDelPartido , seJuegaAhora } from '@/datos/envivo';
+import { detalleResuelto } from '@/datos/importado';
+import { logosResueltos } from '@/datos/imagenes';
 import { temporada } from '@/datos/motor';
 import { FAMILIAS, picksDeCompeticionPorTrozos, reparteVariedad } from '@/datos/picks';
 import type { Familia, Pick } from '@/datos/tipos';
@@ -97,71 +100,44 @@ function ordena(
 }
 
 /**
- * La pantalla de carga de la portada.
- *
- * Montar los picks de "Todas" son cien partidos y varios segundos de cálculo.
- * Antes eso se enseñaba como una página medio vacía con una ruedecita perdida
- * en el centro: parecía que la app se había colgado o que no había picks. Ahora
- * ocupa la pantalla entera y dice lo que está pasando, con el recuento subiendo
- * —que es lo único que convierte una espera en una espera soportable— y sin
- * enseñar una lista a medias que crece y salta mientras se lee.
+ * La pantalla de carga de la portada: la misma que enseña el arranque, con
+ * otra frase. Ver `PantallaCargando`.
  */
 function Cargando({
   nombre,
   avance,
+  esperandoJugadores,
 }: {
   nombre: string;
   avance?: { picks: Pick[]; hechos: number; total: number };
+  /** Los picks ya están; falta la segunda pieza de datos, la de jugadores. */
+  esperandoJugadores?: boolean;
 }) {
-  const parte = avance && avance.total ? Math.min(1, avance.hechos / avance.total) : 0;
+  if (esperandoJugadores) {
+    return (
+      <PantallaCargando
+        titulo="Cargando estadísticas de jugadores"
+        detalle="Es la parte más pesada; solo la primera vez"
+        pie="Ya casi"
+        parte={0.92}
+      />
+    );
+  }
   return (
-    <View
-      style={{
-        flex: 1,
-        alignItems: 'center',
-        justifyContent: 'center',
-        gap: E.lg,
-        paddingHorizontal: E.xl,
-        backgroundColor: C.fondo,
-      }}
-    >
-      <Logo tam={30} />
-
-      <View style={{ alignItems: 'center', gap: 6 }}>
-        <Txt v="cuerpoFuerte">Analizando {nombre}</Txt>
-        <Txt v="pequeno" color={C.texto3}>
-          {avance
-            ? `${avance.hechos} de ${avance.total} partidos`
-            : 'Preparando los datos…'}
-        </Txt>
-      </View>
-
-      {/* La barra: un porcentaje que avanza dice mucho más que una ruedecita. */}
-      <View
-        style={{
-          width: '100%',
-          maxWidth: 320,
-          height: 8,
-          borderRadius: 4,
-          backgroundColor: C.carta2,
-          overflow: 'hidden',
-        }}
-      >
-        <View
-          style={{ width: `${Math.round(parte * 100)}%`, height: '100%', backgroundColor: C.lima }}
-        />
-      </View>
-
-      {/*
-        Lo que ya lleva encontrado. No es un adorno: enseña que el trabajo está
-        dando resultado y no solo consumiendo tiempo.
-      */}
-      <Txt v="mini" color={C.texto3}>
-        {avance?.picks.length
+    <PantallaCargando
+      titulo={`Analizando ${nombre}`}
+      detalle={avance ? `${avance.hechos} de ${avance.total} partidos` : 'Preparando los datos…'}
+      /*
+       * Lo que lleva encontrado. No es un adorno: enseña que el trabajo está
+       * dando resultado y no solo consumiendo tiempo.
+       */
+      pie={
+        avance?.picks.length
           ? `${avance.picks.length} picks encontrados`
-          : 'Buscando picks con valor…'}
-      </Txt>
-    </View>
+          : 'Buscando picks con valor…'
+      }
+      parte={avance && avance.total ? Math.min(1, avance.hechos / avance.total) : undefined}
+    />
   );
 }
 
@@ -369,18 +345,43 @@ export default function Inicio() {
   const comp = competicion(competicionId);
   const familiasVisibles = todasFamilias ? FAMILIAS : FAMILIAS.slice(0, 5);
 
+  /*
+   * La portada no se enseña hasta que está TODO: los picks calculados y la
+   * segunda pieza de datos —la de jugadores— resuelta.
+   *
+   * Sin esperar a los jugadores se veía la app montarse por partes: primero una
+   * lista con los escudos en gris y las tarjetas sin analizar, y dos segundos
+   * después todo otra vez, ya completo. Dos cargas en la misma pantalla.
+   *
+   * El tope de diez segundos es la red de seguridad: con mala conexión, antes
+   * que dejar a alguien mirando la pantalla de carga, se enseña lo que haya.
+   */
+  const [seAcabaLaEspera, setSeAcabaLaEspera] = useState(false);
+  useEffect(() => {
+    const t = setTimeout(() => setSeAcabaLaEspera(true), 10_000);
+    return () => clearTimeout(t);
+  }, []);
+  const faltanJugadores = !detalleResuelto() && !seAcabaLaEspera;
+  // Y los escudos: una portada con los círculos en gris es una portada a medias.
+  const faltanEscudos = !logosResueltos() && !seAcabaLaEspera;
+  const cargando = !picks || faltanJugadores || faltanEscudos;
+
   // Mientras carga no se ve nada más: tampoco la barra de pestañas.
-  useOcultaPestanas(!picks);
+  useOcultaPestanas(cargando);
 
   /*
    * Hasta que esté todo, la pantalla de carga y nada más. Va después de los
    * hooks —todos están arriba— porque un return antes cambiaría cuántos se
    * ejecutan y React no lo admite.
    */
-  if (!picks) {
+  if (cargando) {
     return (
       <View style={{ flex: 1, backgroundColor: C.fondo, paddingTop: insets.top }}>
-        <Cargando nombre={comp.nombre} avance={avance} />
+        <Cargando
+          nombre={comp.nombre}
+          avance={avance}
+          esperandoJugadores={!!picks && (faltanJugadores || faltanEscudos)}
+        />
       </View>
     );
   }
@@ -395,25 +396,13 @@ export default function Inicio() {
         ListHeaderComponent={
           <View style={{ gap: E.lg, marginBottom: E.xs }}>
             {/*
-              Recalculando con la lista ya puesta (cambio de competición, datos
-              nuevos que entran solos): una barra fina arriba y nada más. La
-              pantalla de carga entera solo sale la primera vez; taparle a
-              alguien lo que está leyendo para decirle que hay algo mejor en
-              camino es peor que la espera.
+              Aquí había una barra fina de progreso para los recálculos con la
+              lista ya puesta. Fuera: con la portada delante, una barra que
+              aparece y desaparece sola en lo alto de la pantalla no informa de
+              nada —nadie sabe de qué va— y lo único que transmite es que la app
+              sigue a medio cargar. Lo que se recalcula se cambia de golpe
+              cuando está, sin anunciarlo.
             */}
-            {avance ? (
-              <View style={{ height: 3, backgroundColor: C.carta2 }}>
-                <View
-                  style={{
-                    width: `${Math.round(
-                      (avance.total ? Math.min(1, avance.hechos / avance.total) : 0) * 100,
-                    )}%`,
-                    height: '100%',
-                    backgroundColor: C.lima,
-                  }}
-                />
-              </View>
-            ) : null}
 
             {/* -------------------------------------------------- cabecera */}
             <View

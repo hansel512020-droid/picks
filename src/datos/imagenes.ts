@@ -26,8 +26,26 @@ interface Archivo {
  */
 let LOGOS = logos as Archivo;
 
+/*
+ * Si ya se sabe a qué atenerse con el catálogo del servidor: llegó, o no va a
+ * llegar. La portada espera a esto para no salir con los escudos en gris y
+ * pintarlos medio segundo después, que es lo que hace que la app parezca a
+ * medio cargar.
+ */
+let RESUELTOS = false;
+
+export function logosResueltos(): boolean {
+  return RESUELTOS;
+}
+
+/** El catálogo del servidor no viene: se sigue con el que trae la app dentro. */
+export function sinLogosNuevos(): void {
+  RESUELTOS = true;
+}
+
 /** Sustituye el catálogo de imágenes por uno recién descargado. */
 export function aplicaLogos(nuevo: unknown): void {
+  RESUELTOS = true;
   const a = nuevo as Archivo;
   if (!a?.jugadores && !a?.equipos) return;
   LOGOS = a;

@@ -1,10 +1,10 @@
 import { Stack, useRouter, useSegments } from 'expo-router';
 import { StatusBar } from 'expo-status-bar';
 import React, { useEffect, useState, type ReactNode } from 'react';
-import { ActivityIndicator, Platform, Text, View } from 'react-native';
+import { Platform, Text, View } from 'react-native';
 import { GestureHandlerRootView } from 'react-native-gesture-handler';
 import { SafeAreaProvider } from 'react-native-safe-area-context';
-import { Simbolo } from '@/componentes/marca';
+import { PantallaCargando } from '@/componentes/cargando';
 import { cargaGuardados, descargaDatos } from '@/datos/remotos';
 import { ProveedorAvisos } from '@/estado/avisos';
 import { ProveedorComunidad } from '@/estado/comunidad';
@@ -33,13 +33,15 @@ function Versionado({ children }: { children: React.ReactNode }) {
   return <React.Fragment key={version}>{children}</React.Fragment>;
 }
 
-/** Pantalla de carga mientras se lee el estado guardado. */
+/**
+ * Pantalla de carga mientras se lee el estado guardado.
+ *
+ * La misma que las demás: era un símbolo suelto en el centro, y entre él, el
+ * "Cargando resultados…" y la pantalla de la portada se veían tres esperas
+ * distintas seguidas para una sola apertura.
+ */
 function Cargando() {
-  return (
-    <View style={{ flex: 1, backgroundColor: C.fondo, alignItems: 'center', justifyContent: 'center' }}>
-      <Simbolo tam={52} />
-    </View>
-  );
+  return <PantallaCargando titulo="Golden Picks" detalle="Abriendo tu cuenta" />;
 }
 
 /** Manda al onboarding la primera vez que se abre la app. */
@@ -196,19 +198,13 @@ function ConDatos({ children }: { children: React.ReactNode }) {
   }, []);
 
   if (!listo) {
+    // La misma pantalla que la portada, para que la espera sea una sola y no
+    // tres pantallas distintas pisándose. Ver `PantallaCargando`.
     return (
-      <View
-        style={{
-          flex: 1,
-          backgroundColor: C.fondo,
-          alignItems: 'center',
-          justifyContent: 'center',
-          gap: E.md,
-        }}
-      >
-        <ActivityIndicator color={C.lima} />
-        <Text style={{ color: C.texto3, fontSize: 13 }}>Cargando resultados…</Text>
-      </View>
+      <PantallaCargando
+        titulo="Cargando resultados"
+        detalle="Trayendo los partidos y las cuotas de hoy"
+      />
     );
   }
 

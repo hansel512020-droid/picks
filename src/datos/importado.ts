@@ -87,6 +87,38 @@ export function cuandoLlegueMasDato(repinta: () => void): () => void {
   };
 }
 
+/*
+ * Si la segunda pieza —el detalle por jugador— ya está resuelta: llegó, o se
+ * sabe que no va a llegar.
+ *
+ * La portada lo consulta para no enseñarse a medias. Sin esto se pintaba con
+ * los picks de equipo, y unos segundos después, al entrar el detalle, se
+ * rehacía entera con los de jugador: la misma pantalla cargando dos veces, con
+ * los escudos apareciendo tarde. Es la diferencia entre esperar una vez y ver
+ * la app montarse por partes delante.
+ */
+let DETALLE_RESUELTO = false;
+
+/** Si ya se sabe a qué atenerse con el detalle por jugador. */
+export function detalleResuelto(): boolean {
+  return DETALLE_RESUELTO;
+}
+
+/** Pide un repintado sin tocar los datos: ha llegado algo que se dibuja. */
+export function avisaRepintado(): void {
+  for (const repinta of alLlegarMas) repinta();
+}
+
+/**
+ * Marca el detalle como resuelto sin traer nada: no estaba publicado, no se
+ * pudo bajar o no hay red. La app no puede quedarse esperándolo para siempre.
+ */
+export function sinDetalle(): void {
+  if (DETALLE_RESUELTO) return;
+  DETALLE_RESUELTO = true;
+  for (const repinta of alLlegarMas) repinta();
+}
+
 /**
  * Pega el detalle por jugador (jugadores y registros) sobre el núcleo ya
  * cargado. Es la segunda pieza de la descarga: llega después y sin ella la app
@@ -105,6 +137,7 @@ export function fusionaDetalle(detalle: unknown): void {
   CACHE.clear();
   HISTORIALES.clear();
   INDICE = null;
+  DETALLE_RESUELTO = true;
   for (const rehacer of alCambiar) rehacer();
   for (const repinta of alLlegarMas) repinta();
 }

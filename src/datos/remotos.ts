@@ -1,7 +1,7 @@
 import AsyncStorage from '@react-native-async-storage/async-storage';
 import { guardaGrande, leeGrande } from './almacen';
-import { aplicaDatos, fusionaDetalle } from './importado';
-import { aplicaLogos } from './imagenes';
+import { aplicaDatos, avisaRepintado, fusionaDetalle, sinDetalle } from './importado';
+import { aplicaLogos, sinLogosNuevos } from './imagenes';
 
 /**
  * Datos que se descargan del servidor en vez de viajar dentro de la app.
@@ -148,15 +148,22 @@ export async function cargaGuardados(): Promise<boolean> {
     const nucleo = await leeGrande(CLAVE_NUCLEO);
     if (nucleo) {
       aplicaDatos(JSON.parse(nucleo));
-      (async () => {
-        try {
-          const det = await leeGrande(CLAVE_DETALLE);
-          if (det) fusionaDetalle(JSON.parse(det));
-        } catch {
-          // Sin detalle guardado: la app queda con los picks de equipo hasta
-          // que la descarga traiga el detalle.
-        }
-      })();
+      /*
+       * El detalle guardado, ANTES de dar por cargado el arranque.
+       *
+       * Esto era fuego y olvido: la app abría con los picks de equipo y unos
+       * segundos después, al entrar el detalle, se rehacía entera con los de
+       * jugador. Se veía montarse por partes. Leer lo que ya está en el disco
+       * cuesta poco y se hace mientras se ve la pantalla de carga; lo que no
+       * esté guardado ya lo traerá la descarga.
+       */
+      try {
+        const det = await leeGrande(CLAVE_DETALLE);
+        if (det) fusionaDetalle(JSON.parse(det));
+      } catch {
+        // Sin detalle guardado: la app queda con los picks de equipo hasta
+        // que la descarga traiga el detalle.
+      }
       return true;
     }
     // Respaldo: el archivo completo que guardaba una versión anterior de la app.
@@ -179,12 +186,33 @@ export async function cargaGuardados(): Promise<boolean> {
  * tirar hacia abajo, donde el usuario ha pedido explícitamente mirar ahora.
  */
 export async function descargaDatos(forzar = false): Promise<boolean> {
-  if (!URL) return false;
+  /*
+   * En cada salida sin descarga se avisa de que el detalle no va a llegar por
+   * aquí: o ya está puesto desde el disco, o esta vez no hay. La portada espera
+   * a ese aviso para no pintarse a medias, así que olvidarlo la dejaría
+   * cargando para siempre.
+   */
+  if (!URL) {
+    sinDetalle();
+    sinLogosNuevos();
+    return false;
+  }
+
+  /*
+   * El catálogo de escudos, siempre y cuanto antes: son unos cientos de kB y
+   * es lo que decide si la portada sale con escudos o con círculos grises.
+   * Antes solo se pedía cuando los datos habían cambiado, así que al abrir con
+   * datos de hace un rato la app se dibujaba sin ellos.
+   */
+  void descargaLogos();
 
   try {
     if (!forzar) {
       const ultima = Number((await AsyncStorage.getItem(CLAVE_FECHA)) ?? 0);
-      if (ultima && Date.now() - ultima < CADA) return false;
+      if (ultima && Date.now() - ultima < CADA) {
+        sinDetalle();
+        return false;
+      }
     }
 
     const selloPrevio = await AsyncStorage.getItem(CLAVE_SELLO_NUCLEO);
@@ -196,12 +224,16 @@ export async function descargaDatos(forzar = false): Promise<boolean> {
 
     if (bajada === 'igual') {
       await AsyncStorage.setItem(CLAVE_FECHA, String(Date.now()));
+      sinDetalle();
       return false;
     }
 
     // Una respuesta cortada rompería el JSON: se comprueba antes de tocar nada.
     const datos = JSON.parse(bajada.texto);
-    if (!datos?.competiciones || !Object.keys(datos.competiciones).length) return false;
+    if (!datos?.competiciones || !Object.keys(datos.competiciones).length) {
+      sinDetalle();
+      return false;
+    }
 
     aplicaDatos(datos);
     // Guardar es un extra: si el navegador no tiene sitio, no pasa nada. Se
@@ -223,17 +255,26 @@ export async function descargaDatos(forzar = false): Promise<boolean> {
         }
       } catch {
         // Sin detalle: la app se queda con los picks de equipo, que ya es útil.
+      } finally {
+        // Haya venido o no, ya se sabe a qué atenerse: la portada deja de
+        // esperarlo. `sinDetalle` no hace nada si el detalle sí llegó.
+        sinDetalle();
       }
     })();
 
     return true;
   } catch {
+    sinDetalle();
     return false;
   }
 }
 
 /** Respaldo: baja el archivo completo de una vez, como antes de partirlo. */
 async function descargaCompleto(): Promise<boolean> {
+  /*
+   * Este camino trae el archivo entero —jugadores incluidos— o no trae nada,
+   * así que al terminar el detalle está resuelto en cualquier caso.
+   */
   try {
     const selloPrevio = await AsyncStorage.getItem(CLAVE_SELLO);
     const bajada = await bajaArchivo(selloPrevio);
@@ -251,6 +292,8 @@ async function descargaCompleto(): Promise<boolean> {
     return true;
   } catch {
     return false;
+  } finally {
+    sinDetalle();
   }
 }
 
@@ -264,13 +307,24 @@ async function descargaCompleto(): Promise<boolean> {
  * Si falla no se avisa a nadie: sin catálogo la app enseña las iniciales del
  * jugador en un círculo, que es exactamente lo que hacía antes.
  */
+let logosPedidos = false;
+
 async function descargaLogos(): Promise<void> {
+  // Una vez por sesión: lo piden varios caminos y el archivo es el mismo.
+  if (logosPedidos) return;
+  logosPedidos = true;
   try {
     const r = await fetch(RUTA_LOGOS, { cache: 'no-store' });
     if (!r.ok) return;
     aplicaLogos(await r.json());
+    // Con los escudos ya puestos, a repintar: si alguna pantalla se dibujó
+    // antes, sus círculos grises pasan a ser escudos.
+    avisaRepintado();
   } catch {
     // Sin catálogo nuevo. Se sigue con el que trae la app dentro.
+  } finally {
+    sinLogosNuevos();
+    avisaRepintado();
   }
 }
 
