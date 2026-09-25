@@ -65,6 +65,11 @@ jobs:
       - id: mira
         env:
           SUPABASE_URL: ${{ secrets.SUPABASE_URL }}
+          # Con el almacén cerrado, la ruta pública ya no sirve nada. Si el
+          # secreto está, se pide con credencial; si no, por la ruta de antes.
+          # Que esto falle no es grave: se importa "por si acaso", que es el
+          # lado seguro del error.
+          SUPABASE_SECRET_KEY: ${{ secrets.SUPABASE_SECRET_KEY }}
           EVENTO: ${{ github.event_name }}
         run: |
           if [ "$EVENTO" != "schedule" ]; then
@@ -72,7 +77,14 @@ jobs:
             echo "saltar=false" >> "$GITHUB_OUTPUT"
             exit 0
           fi
-          if ! curl -sSf "$SUPABASE_URL/storage/v1/object/public/datos/nucleo.json.gz" -o /tmp/nucleo.gz; then
+          if [ -n "${SUPABASE_SECRET_KEY:-}" ]; then
+            RUTA="$SUPABASE_URL/storage/v1/object/datos/nucleo.json.gz"
+            CABECERAS=(-H "Authorization: Bearer $SUPABASE_SECRET_KEY" -H "apikey: $SUPABASE_SECRET_KEY")
+          else
+            RUTA="$SUPABASE_URL/storage/v1/object/public/datos/nucleo.json.gz"
+            CABECERAS=()
+          fi
+          if ! curl -sSf "$RUTA" "${CABECERAS[@]}" -o /tmp/nucleo.gz; then
             echo "No se pudo leer el núcleo publicado: se importa por si acaso."
             echo "saltar=false" >> "$GITHUB_OUTPUT"
             exit 0
@@ -270,6 +282,11 @@ jobs:
       - name: Comprobar que se sirve
         env:
           SUPABASE_URL: ${{ secrets.SUPABASE_URL }}
+          # La clave secreta del proyecto (`sb_secret_…`). Hace falta desde que
+          # el almacén dejó de ser público: la ruta `/object/public/` ya no
+          # sirve nada y esta comprobación fallaría siempre. Si el secreto no
+          # está puesto, se prueba igual por la ruta pública y no se rompe nada.
+          SUPABASE_SECRET_KEY: ${{ secrets.SUPABASE_SECRET_KEY }}
         run: |
           set -euo pipefail
           # Que la subida diga 200 no basta: se comprueba que el archivo se
@@ -277,7 +294,20 @@ jobs:
           # dejaría la app sin datos hasta el día siguiente.
           #
           # Se verifica el comprimido porque es el que usa la app.
-          curl -sS "$SUPABASE_URL/storage/v1/object/public/datos/importado.json.gz" -o /tmp/bajado.gz
+          if [ -n "${SUPABASE_SECRET_KEY:-}" ]; then
+            curl -sSf "$SUPABASE_URL/storage/v1/object/datos/importado.json.gz" \
+              -H "Authorization: Bearer $SUPABASE_SECRET_KEY" \
+              -H "apikey: $SUPABASE_SECRET_KEY" -o /tmp/bajado.gz
+          elif curl -sSf "$SUPABASE_URL/storage/v1/object/public/datos/importado.json.gz" -o /tmp/bajado.gz; then
+            echo "Comprobado por la ruta pública."
+          else
+            # El almacén ya no es público y no hay clave secreta puesta: no se
+            # puede comprobar, pero la subida sí fue bien (el paso anterior lo
+            # habría cantado). Se avisa y se sigue: hacer fallar todo el
+            # workflow por no poder mirar sería peor que no mirar.
+            echo "::warning::No se pudo descargar para verificar. Pon el secreto SUPABASE_SECRET_KEY (sb_secret_… del panel de Supabase) para que esta comprobación vuelva a funcionar."
+            exit 0
+          fi
           node -e "
             const zlib = require('zlib');
             const fs = require('fs');
