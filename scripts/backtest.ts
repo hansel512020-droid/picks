@@ -95,12 +95,57 @@ function valorReal(
   return null;
 }
 
+const limpio = (s: string) =>
+  (s || '')
+    .toLowerCase()
+    .normalize('NFD')
+    .replace(/[̀-ͯ]/g, '')
+    .replace(/[^a-z0-9]/g, '');
+
+/**
+ * El 1X2, resuelto con el marcador.
+ *
+ * Esto faltaba, y no era un detalle: **los picks de 1X2 son los ÚNICOS con una
+ * cuota publicada de verdad**. Al quedarse fuera, todo lo que medía el backtest
+ * eran picks con precio inventado por la propia app, así que el retorno se
+ * comparaba consigo mismo. De ahí salía aquel "+70%".
+ */
+function acerto1x2(pick: Pick, partido: Partido, nombreLocal: string): boolean | null {
+  const empate = partido.golesLocal === partido.golesVisitante;
+  const ganaLocal = partido.golesLocal > partido.golesVisitante;
+  const m = pick.mercado;
+  const nLocal = limpio(nombreLocal);
+
+  if (m === 'Empate') return empate;
+  if (m === 'Gana uno de los dos (sin empate)') return !empate;
+
+  const deLocal = (texto: string) => {
+    const dicho = limpio(texto);
+    return !!dicho && (dicho.includes(nLocal) || nLocal.includes(dicho));
+  };
+
+  if (/gana o empata/i.test(m)) {
+    const esLocal = deLocal(m.replace(/\s*gana o empata\s*$/i, ''));
+    return esLocal ? ganaLocal || empate : !ganaLocal;
+  }
+  if (/^Gana /i.test(m)) {
+    const esLocal = deLocal(m.replace(/^Gana\s+/i, ''));
+    return esLocal ? ganaLocal : !ganaLocal && !empate;
+  }
+  return null;
+}
+
 /** Si el pick habría entrado. `null` cuando no se puede saber. */
-function acerto(pick: Pick, valor: number | null): boolean | null {
+function acerto(
+  pick: Pick,
+  valor: number | null,
+  partido: Partido,
+  nombreLocal: string,
+): boolean | null {
+  if (pick.metrica === '1x2') return acerto1x2(pick, partido, nombreLocal);
   if (valor === null) return null;
   if (pick.sentido === 'mas') return valor > pick.linea;
   if (pick.sentido === 'menos') return valor < pick.linea;
-  // El 1X2 se resuelve con el marcador, no con una línea: aparte.
   return null;
 }
 
@@ -151,6 +196,17 @@ function main(): void {
   const porFamilia = new Map<string, Casilla>();
   const porVentaja = new Map<string, Casilla>();
   const porSujeto = new Map<string, Casilla>();
+  /*
+   * Lo importante de todo el informe: separar los picks cuyo precio publicó
+   * alguien de los que puso el propio modelo.
+   *
+   * Un retorno calculado contra un precio que se ha inventado la app no es un
+   * retorno: es el modelo midiéndose contra sí mismo. Si el precio estimado es
+   * un poco generoso, el "beneficio" sale solo, y ni un céntimo de eso existe
+   * fuera del ordenador. Solo la primera columna se puede enseñar.
+   */
+  const conCuotaReal = vacia();
+  const conPrecioEstimado = vacia();
   let sinResolver = 0;
   let partidosVistos = 0;
 
@@ -177,14 +233,17 @@ function main(): void {
 
       const registros = t.registrosPorPartido.get(partido.id) ?? [];
 
+      const nombreLocal = t.porEquipo.get(partido.localId)?.nombre ?? '';
+
       for (const pick of picks) {
-        const gano = acerto(pick, valorReal(pick, partido, registros));
+        const gano = acerto(pick, valorReal(pick, partido, registros), partido, nombreLocal);
         if (gano === null) {
           sinResolver++;
           continue;
         }
 
         suma(total, gano, pick.cuota);
+        suma(pick.precioReal ? conCuotaReal : conPrecioEstimado, gano, pick.cuota);
 
         const fam = porFamilia.get(pick.familia) ?? vacia();
         suma(fam, gano, pick.cuota);
@@ -228,6 +287,10 @@ function main(): void {
   console.log('');
   console.log(linea('TOTAL', total));
   console.log('');
+  console.log('  Según de dónde sale el precio  ← lo primero que hay que mirar');
+  console.log(linea('cuota publicada', conCuotaReal));
+  console.log(linea('precio estimado', conPrecioEstimado));
+  console.log('');
   console.log('  Por tipo de sujeto');
   for (const [k, c] of ordenadas(porSujeto)) console.log(linea(k, c));
   console.log('');
@@ -238,24 +301,43 @@ function main(): void {
   for (const [k, c] of [...porVentaja.entries()].sort()) console.log(linea(k, c));
   console.log('');
   if (sinResolver) {
-    console.log(`  (${sinResolver} picks sin resolver: falta el dato del acta o son 1X2)`);
+    console.log(`  (${sinResolver} picks sin resolver: falta el dato del acta)`);
     console.log('');
   }
 
   /*
-   * El retorno es lo que de verdad importa y por eso va al final, solo.
+   * El veredicto se da SOLO con los picks de cuota publicada.
+   *
+   * Antes se daba con el total, y el total está dominado por los picks cuyo
+   * precio pone la propia app: ahí el "retorno" mide si el modelo se pone
+   * precios generosos a sí mismo, no si el sistema gana dinero. Ese es el
+   * número que salía en +70% y el que no se puede enseñar a nadie.
    *
    * Un 70% de acierto a cuota 1.20 pierde dinero; un 45% a cuota 2.60 lo gana.
-   * El porcentaje de acierto sirve para comparar mercados entre sí, pero el que
-   * dice si el sistema vale algo es este.
+   * El porcentaje de acierto sirve para comparar mercados entre sí; el que dice
+   * si el sistema vale algo es el retorno contra un precio de verdad.
    */
-  const roi = total.picks ? (total.retorno / total.picks) * 100 : 0;
+  const roi = conCuotaReal.picks ? (conCuotaReal.retorno / conCuotaReal.picks) * 100 : 0;
+  if (conCuotaReal.picks < 100) {
+    console.log(
+      `  Con cuota publicada solo hay ${conCuotaReal.picks} picks: muy pocos para`,
+    );
+    console.log('  decir nada. Hacen falta unos cientos antes de afirmar un retorno.');
+  } else {
+    console.log(
+      roi > 2
+        ? `  Con cuota publicada habría ganado dinero: ${roi.toFixed(1)}% por pick.`
+        : roi > -2
+          ? `  Con cuota publicada habría quedado en tablas: ${roi.toFixed(1)}% por pick.`
+          : `  Con cuota publicada habría perdido dinero: ${roi.toFixed(1)}% por pick.`,
+    );
+  }
+  const roiEstimado = conPrecioEstimado.picks
+    ? (conPrecioEstimado.retorno / conPrecioEstimado.picks) * 100
+    : 0;
   console.log(
-    roi > 2
-      ? `  El sistema habría ganado dinero: ${roi.toFixed(1)}% por pick.`
-      : roi > -2
-        ? `  El sistema habría quedado en tablas: ${roi.toFixed(1)}% por pick.`
-        : `  El sistema habría perdido dinero: ${roi.toFixed(1)}% por pick.`,
+    `  (Con precio estimado sale ${roiEstimado >= 0 ? '+' : ''}${roiEstimado.toFixed(1)}%, pero eso` +
+      ' es el modelo midiéndose contra sí mismo: no se puede anunciar.)',
   );
   console.log('');
 }

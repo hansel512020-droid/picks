@@ -1309,6 +1309,41 @@ async function main() {
     }
   }
 
+  /*
+   * ── Las cuotas de un partido ya jugado ────────────────────────────────────
+   *
+   * ESPN publica la cuota mientras el partido esta por jugar y la retira
+   * cuando termina, asi que cada importacion las traia solo de lo que viene y
+   * las de ayer se perdian. Consecuencia: **no habia forma de medir el sistema
+   * contra un precio de verdad**. El backtest solo podia evaluar los picks cuyo
+   * precio pone el propio modelo, que es el modelo midiendose contra si mismo,
+   * y de ahi salian retornos que no existen fuera del ordenador.
+   *
+   * Aqui se rescatan del archivo anterior: si un partido ya no trae cuota pero
+   * la tenia guardada de cuando estaba por jugar, se conserva. No arregla el
+   * pasado —lo que no se guardo no esta—, pero a partir de ahora se va
+   * acumulando un historial de precios reales con el que el backtest si puede
+   * decir algo.
+   */
+  const tieneCuotas = (p) => !!p?.cuotas && (p.cuotas.local > 0 || p.cuotas.mas25 > 0);
+
+  function conservaCuotas(anterior, nueva) {
+    if (!anterior?.partidos?.length || !nueva?.partidos?.length) return nueva;
+    const antes = new Map(anterior.partidos.map((p) => [p.id, p]));
+    let rescatadas = 0;
+    for (const p of nueva.partidos) {
+      if (tieneCuotas(p)) continue;
+      const viejo = antes.get(p.id);
+      if (!tieneCuotas(viejo)) continue;
+      p.cuotas = viejo.cuotas;
+      rescatadas++;
+    }
+    if (rescatadas) {
+      console.log(`  ${rescatadas} partidos conservan la cuota que tenían antes de jugarse`);
+    }
+    return nueva;
+  }
+
   // Lo ya importado se conserva: asi se pueden ir sumando competiciones.
   let acumulado = { competiciones: {} };
   if (fs.existsSync(SALIDA)) {
@@ -1323,7 +1358,11 @@ async function main() {
   for (const id of o.ligas) {
     console.log(`${catalogo[id]?.nombre ?? id}`);
     try {
-      acumulado.competiciones[id] = await importaCompeticion(id, o, catalogo, clave, sofa);
+      const anterior = acumulado.competiciones[id];
+      acumulado.competiciones[id] = conservaCuotas(
+        anterior,
+        await importaCompeticion(id, o, catalogo, clave, sofa),
+      );
     } catch (e) {
       console.error(`  ✗ ${e.message}\n`);
       continue;

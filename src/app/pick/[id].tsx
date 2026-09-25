@@ -680,11 +680,39 @@ ${enlace}`;
               />
             )}
 
+            {/*
+              Y se dice de dónde sale el precio, con todas las letras.
+              *
+              * El sello "EST" de la fila de arriba lo entiende quien ya sabe
+              * qué significa. Aquí, que es donde alguien decide si apuesta,
+              * hace falta la frase entera: este precio no lo paga nadie, es una
+              * referencia del modelo para poder comparar. Quien vaya a una casa
+              * encontrará otro, y es mejor que lo sepa antes.
+            */}
+            {!bloqueado && pick.precioReal === false ? (
+              <Txt v="mini" color={C.texto3}>
+                Precio estimado por el modelo como referencia: ninguna casa publica esta línea, así
+                que en tu casa de apuestas la cuota será distinta.
+              </Txt>
+            ) : null}
+
+            {/*
+              Con precio estimado, la tercera casilla dice la probabilidad y no
+              la "ventaja": la ventaja está medida contra un precio que pone el
+              propio modelo, así que no es dinero que nadie esté dejando encima
+              de la mesa. La probabilidad sí sale del histórico y se sostiene.
+            */}
             <View style={{ flexDirection: 'row', gap: E.sm, display: bloqueado ? 'none' : 'flex' }}>
               {[
                 { v: `${pick.aciertosL10}/10`, e: 'Últimos 10' },
                 { v: `${pick.aciertosL5}/5`, e: 'Últimos 5' },
-                { v: `${pick.ventaja.toFixed(0)}%`, e: 'Ventaja', color: C.lima },
+                pick.precioReal === false
+                  ? {
+                      v: `${Math.round(pick.probabilidad * 100)}%`,
+                      e: 'Probabilidad',
+                      color: C.lima,
+                    }
+                  : { v: `${pick.ventaja.toFixed(0)}%`, e: 'Ventaja', color: C.lima },
               ].map((d) => (
                 <View
                   key={d.e}

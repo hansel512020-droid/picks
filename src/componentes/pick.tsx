@@ -419,7 +419,13 @@ export function FilaMercado({
             1.5 entradas" el pick ya está dado y Golden Pro no aporta nada. */}
         {bloqueado ? 'Mercado y precio con Golden Pro' : mercado}
       </Text>
-      {ventaja !== undefined && !bloqueado ? (
+      {/*
+        La flecha de "esto tiene valor" solo cuando el precio es de verdad.
+        Sobre un precio que ha puesto el propio modelo, la ventaja se mide
+        contra una estimación suya: pintarla igual que la de una cuota publicada
+        es prometer algo que nadie está pagando.
+      */}
+      {ventaja !== undefined && !bloqueado && precioReal !== false ? (
         <View style={{ flexDirection: 'row', alignItems: 'center', gap: 3 }}>
           <Icono nombre="tendencia" tam={14} color={C.verde} />
         </View>
@@ -962,8 +968,20 @@ export function TarjetaPick({
               linea={pick.linea}
               sentido={pick.sentido}
             />
+            {/*
+              Qué se dice del precio, según de dónde salga.
+              *
+              * Ponía "X% de ventaja según el modelo" en todos, y en casi todos
+              * el precio también lo pone el modelo: la ventaja se mide contra
+              * una estimación propia, no contra lo que paga una casa. Eso no es
+              * una ventaja, es una coherencia interna, y anunciarla como si
+              * fuera dinero sobre la mesa es lo que hace que alguien se sienta
+              * engañado al ir a apostar y encontrar otro precio.
+            */}
             <Txt v="pequeno" color={C.texto3}>
-              Últimos 5, 10 y 20 partidos · {pick.ventaja.toFixed(0)}% de ventaja según el modelo
+              {pick.precioReal === false
+                ? `Últimos 5, 10 y 20 partidos · precio estimado: ninguna casa lo publica`
+                : `Últimos 5, 10 y 20 partidos · ${pick.ventaja.toFixed(0)}% de ventaja sobre la cuota`}
             </Txt>
           </View>
         ) : null}
