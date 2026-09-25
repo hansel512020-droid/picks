@@ -50,6 +50,23 @@ const sofared = require('./lib/sofascore-api');
 
 const RAIZ = path.join(__dirname, '..');
 const DIR_CACHE = path.join(RAIZ, '.cache-datos');
+
+/*
+ * Cómo le fue a cada competición, para el parte del final.
+ *
+ * ── Por qué existe ──────────────────────────────────────────────────────────
+ *
+ * El 2026-09-24 SofaScore dejó de aceptar la huella con la que pedíamos, y el
+ * bot se pasó un día entero publicando sin xG medido y sin la línea de cada
+ * jugador. Terminó las 52 competiciones diciendo "Guardado · 52 competiciones"
+ * exactamente igual que cuando todo va bien. El fallo estaba escrito —"SofaScore
+ * (calendario)... 0 partidos"— pero repartido entre cien líneas de registro, así
+ * que nadie lo vio hasta que fuimos a buscar otra cosa.
+ *
+ * Un bot que corre solo cada pocas horas necesita decir en dos líneas, al final,
+ * si lo que acaba de publicar está entero o cojo.
+ */
+const PARTE = [];
 const SALIDA = path.join(RAIZ, 'src', 'datos', 'importado.json');
 // El volcado de SofaScore, en esta misma carpeta. Es un archivo local: no se
 // descarga, lo pone el usuario.
@@ -1238,6 +1255,24 @@ async function importaCompeticion(id, opciones, catalogo, clave, sofa) {
     aviso.push(calculado.aviso);
   }
 
+  /*
+   * Lo que hay que mirar al terminar, apuntado por competición.
+   *
+   * Va en una lista aparte y no dentro del objeto que se guarda: esto es para
+   * leerlo en el registro, no para publicarlo en el archivo de datos.
+   */
+  PARTE.push({
+    id,
+    nombre: meta.nombre,
+    partidos: partidos.length,
+    jugadores: jugadores.length,
+    enSofascore: !!sofared.TORNEOS[id],
+    pegadosSofa: redSofa?.pegados ?? 0,
+    huellaSofa: redSofa?.huella ?? null,
+    cortadoSofa: !!redSofa?.cortado,
+    avisos: aviso.length,
+  });
+
   return {
     competicionId: id,
     nombre: meta.nombre,
@@ -1385,6 +1420,71 @@ async function main() {
   const tamano = (fs.statSync(SALIDA).size / 1024 / 1024).toFixed(2);
   console.log(`Guardado en src/datos/importado.json · ${total} competiciones · ${tamano} MB`);
   console.log('Reinicia la app para verlas con datos reales.\n');
+
+  parteFinal(tamano);
+}
+
+/**
+ * El parte del final: si lo que se acaba de publicar está entero o cojo.
+ *
+ * Dos líneas para lo que va bien y un bloque señalado para lo que no. La idea
+ * es que se pueda mirar el final del registro y decidir en tres segundos si hay
+ * que hacer algo, sin releer cien líneas de descargas.
+ */
+function parteFinal(tamanoMb) {
+  if (!PARTE.length) return;
+
+  const enSofa = PARTE.filter((c) => c.enSofascore);
+  const conSofa = enSofa.filter((c) => c.pegadosSofa > 0);
+  const sinSofa = enSofa.filter((c) => c.pegadosSofa === 0);
+  const fuera = PARTE.filter((c) => !c.enSofascore);
+  const cortadas = PARTE.filter((c) => c.cortadoSofa);
+  const vacias = PARTE.filter((c) => c.partidos === 0);
+  const huella = PARTE.find((c) => c.huellaSofa)?.huellaSofa;
+
+  console.log('══════════════════════ PARTE FINAL ══════════════════════');
+  console.log(
+    `  ${PARTE.length} competiciones · ${PARTE.reduce((a, c) => a + c.partidos, 0)} partidos · ` +
+      `${PARTE.reduce((a, c) => a + c.jugadores, 0)} jugadores · ${tamanoMb} MB`,
+  );
+  // El plural, bien puesto: este parte se lee con prisa y de madrugada.
+  const liga = (n) => `${n} ${n === 1 ? 'competición' : 'competiciones'}`;
+
+  console.log(
+    `  SofaScore: ${conSofa.length} con datos${huella ? ` (huella ${huella})` : ''} · ` +
+      `${sinSofa.length} sin nada · ${fuera.length} fuera de SofaScore`,
+  );
+
+  /*
+   * Y aquí lo que hay que mirar. Con nombre y apellidos: "algo falló" no sirve
+   * de nada a las tres de la mañana.
+   */
+  const problemas = [];
+  if (sinSofa.length) {
+    problemas.push(
+      `SofaScore no trajo NADA en ${sinSofa.length} de ${enSofa.length} competiciones ` +
+        `(${sinSofa.slice(0, 6).map((c) => c.id).join(', ')}${sinSofa.length > 6 ? '…' : ''}).\n` +
+        '     Esas van solo con ESPN: sin xG medido y sin la línea completa de cada jugador.\n' +
+        '     Comprueba con:  node scripts/probar-sofascore.js',
+    );
+  }
+  if (cortadas.length) {
+    problemas.push(`SofaScore cortó a mitad en ${liga(cortadas.length)}. Lo bajado queda en caché.`);
+  }
+  if (vacias.length) {
+    problemas.push(
+      `${liga(vacias.length)} sin un solo partido: ` + vacias.map((c) => c.id).join(', '),
+    );
+  }
+
+  if (!problemas.length) {
+    console.log('  Todo correcto.');
+  } else {
+    console.log('');
+    console.log('  ⚠ HAY QUE MIRAR ESTO:');
+    for (const p of problemas) console.log(`   · ${p}`);
+  }
+  console.log('═════════════════════════════════════════════════════════\n');
 }
 
 /*

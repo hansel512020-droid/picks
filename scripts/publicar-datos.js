@@ -133,6 +133,17 @@ async function main() {
   const datos = JSON.parse(crudo);
 
   /*
+   * Cuánto pesaba lo publicado la vez anterior. Se mira AHORA, antes de
+   * escribir nada encima: unas líneas más abajo se sobrescriben los dos
+   * archivos y entonces ya no habría con qué comparar.
+   */
+  const pesoDe = (ruta) => (fs.existsSync(ruta) ? fs.statSync(ruta).size : 0);
+  const pesabaAntes = {
+    nucleo: pesoDe(path.join(RAIZ, 'src', 'datos', 'nucleo.json.gz')),
+    detalle: pesoDe(path.join(RAIZ, 'src', 'datos', 'detalle.json.gz')),
+  };
+
+  /*
    * Si la importación no trajo nada, no se sube nada. Pasó en septiembre de
    * 2026: ESPN cambió su API, el importador guardó "0 competiciones" sin dar
    * error, y la subida habría reemplazado el núcleo publicado por uno vacío,
@@ -208,6 +219,34 @@ async function main() {
 
   const gzDetalle = zlib.gzipSync(Buffer.from(JSON.stringify(detalle)), { level: 9 });
   const detalleGz = path.join(RAIZ, 'src', 'datos', 'detalle.json.gz');
+
+  /*
+   * Si lo que se va a publicar ha encogido de golpe, se dice.
+   *
+   * Los dos sustos de esta semana fueron silenciosos: una importación que no
+   * trajo ninguna competición (se paró a tiempo por el guardia de arriba) y una
+   * que trajo todo menos SofaScore, que pesa la mitad del detalle y no disparó
+   * nada. El tamaño del archivo anterior está aquí mismo, en disco, y un
+   * bajonazo del 25% es la forma más barata de enterarse de que falta algo.
+   *
+   * Solo avisa: no bloquea. Un archivo más pequeño puede ser legítimo —una
+   * temporada que acaba, ligas que se quedan sin partidos—, y quien publica
+   * decide mirándolo, no un umbral.
+   */
+  for (const [nombre, antes, ahora] of [
+    ['el núcleo', pesabaAntes.nucleo, gzNucleo.length],
+    ['el detalle', pesabaAntes.detalle, gzDetalle.length],
+  ]) {
+    if (antes > 0 && ahora < antes * 0.75) {
+      const cuanto = Math.round((1 - ahora / antes) * 100);
+      console.log(
+        `⚠ OJO: ${nombre} pesa un ${cuanto}% menos que la última vez ` +
+          `(${(antes / 1024 / 1024).toFixed(1)} MB → ${(ahora / 1024 / 1024).toFixed(1)} MB).`,
+      );
+      console.log('  Suele significar que una fuente no contestó. Mira el parte final del importador.');
+    }
+  }
+
   fs.writeFileSync(detalleGz, gzDetalle);
   console.log(`Núcleo:     ${(gzNucleo.length / 1024 / 1024).toFixed(1)} MB · Detalle: ${(gzDetalle.length / 1024 / 1024).toFixed(1)} MB`);
   console.log('');
