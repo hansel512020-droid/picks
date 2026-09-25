@@ -17,6 +17,8 @@ import {
   tokenSigueValido,
   type Sesion,
 } from '@/datos/cuenta';
+import { avisaRepintado } from '@/datos/importado';
+import { descargaDatos } from '@/datos/remotos';
 
 /**
  * Quien está usando la app.
@@ -156,7 +158,26 @@ export function ProveedorSesion({ children }: { children: ReactNode }) {
     })();
   }, []);
 
-  const entra = useCallback((s: Sesion) => setSesion(s), []);
+  const entra = useCallback((s: Sesion) => {
+    setSesion(s);
+    /*
+     * Al entrar se vuelven a pedir los datos, ahora ya con la sesión.
+     *
+     * Los datos se bajan al arrancar la app, o sea antes de que nadie haya
+     * entrado. Mientras el almacén sea público da igual, pero en cuanto se
+     * cierre —que es a lo que vamos— esa primera bajada se quedará sin
+     * permiso y la app abriría vacía justo después de iniciar sesión, que es
+     * el peor momento posible. Con esto, entrar dispara la descarga buena.
+     *
+     * `true` salta la espera de seis horas: el usuario acaba de entrar y no
+     * tiene por qué esperar al siguiente ciclo.
+     */
+    descargaDatos(true)
+      .then((hayNuevos) => {
+        if (hayNuevos) avisaRepintado();
+      })
+      .catch(() => {});
+  }, []);
 
   const sal = useCallback(async () => {
     await cierraSesion(sesion?.token);

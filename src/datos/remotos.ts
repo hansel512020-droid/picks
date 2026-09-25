@@ -1,5 +1,6 @@
 import AsyncStorage from '@react-native-async-storage/async-storage';
 import { guardaGrande, leeGrande } from './almacen';
+import { sesionGuardada } from './cuenta';
 import { aplicaDatos, avisaRepintado, fusionaDetalle, sinDetalle } from './importado';
 import { aplicaLogos, sinLogosNuevos } from './imagenes';
 
@@ -69,6 +70,81 @@ const RUTA_LOGOS = `${BASE}/logos.json`;
  */
 type Bajada = { texto: string; sello: string | null } | 'igual' | null;
 
+/* -------------------------------------------------------------------------
+ * Bajar los datos con la sesión del usuario.
+ *
+ * ── El problema ───────────────────────────────────────────────────────────
+ *
+ * Los picks se calculan en el teléfono a partir de este archivo, y el archivo
+ * está en una carpeta pública: cualquiera puede bajárselo con la dirección, y
+ * con el código —que ahora es público— sacar exactamente los mismos picks sin
+ * pagar. El muro de pago tapa la pantalla, no el dato.
+ *
+ * ── Lo que se puede hacer ─────────────────────────────────────────────────
+ *
+ * Calcular los picks en un servidor sería lo suyo, pero es rehacer media app.
+ * Esto es el paso realista: pedir el archivo **como el usuario que lo pide**,
+ * con su sesión, para poder cerrar la carpeta y que deje de estar al alcance de
+ * cualquiera con la dirección. La app ya exige cuenta para todo, así que no
+ * cambia nada de cara al usuario.
+ *
+ * Mientras la carpeta siga siendo pública las dos rutas funcionan, así que esto
+ * se puede desplegar y comprobar sin romper nada: se intenta con sesión y, si
+ * falla, se cae a la pública de siempre. Solo cuando se confirme que la ruta
+ * con sesión responde bien se cierra la carpeta, y ese día la pública dejará de
+ * valer sin que haya que tocar la app.
+ * ------------------------------------------------------------------------- */
+
+/** La misma dirección, pero por la puerta que pide credencial. */
+const conSesion = (rutaPublica: string) =>
+  rutaPublica.replace('/storage/v1/object/public/', '/storage/v1/object/');
+
+/**
+ * Cabeceras con la sesión, si hay. Sin sesión devuelve `null` y quien llama se
+ * queda con la ruta pública.
+ */
+async function credenciales(): Promise<Record<string, string> | null> {
+  // La pública del proyecto, la que ya viaja dentro de la app.
+  const publicable = process.env.EXPO_PUBLIC_SUPABASE_ANON_KEY;
+  if (!publicable) return null;
+  try {
+    const s = await sesionGuardada();
+    if (!s?.token) return null;
+    return { Authorization: `Bearer ${s.token}`, apikey: publicable };
+  } catch {
+    return null;
+  }
+}
+
+/**
+ * Pide una ruta del almacén: primero con la sesión del usuario y, si no hay o
+ * no cuela, por la pública. Devuelve la respuesta y por dónde entró.
+ */
+async function pideArchivo(
+  rutaPublica: string,
+  cabeceras: Record<string, string>,
+): Promise<{ r: Response; privada: boolean } | null> {
+  const cred = await credenciales();
+  if (cred) {
+    try {
+      const r = await fetch(conSesion(rutaPublica), {
+        cache: 'no-store',
+        headers: { ...cabeceras, ...cred },
+      });
+      // 304 también vale: significa que la puerta con sesión funciona.
+      if (r.ok || r.status === 304) return { r, privada: true };
+    } catch {
+      // Sin red por esa puerta: se prueba la de siempre.
+    }
+  }
+  try {
+    const r = await fetch(rutaPublica, { cache: 'no-store', headers: cabeceras });
+    return { r, privada: false };
+  } catch {
+    return null;
+  }
+}
+
 async function bajaArchivo(selloPrevio: string | null): Promise<Bajada> {
   /*
    * Se pregunta con el sello de lo que ya se tiene.
@@ -84,9 +160,10 @@ async function bajaArchivo(selloPrevio: string | null): Promise<Bajada> {
 
   if (typeof DecompressionStream !== 'undefined') {
     try {
-      const r = await fetch(RUTA_GZ, { cache: 'no-store', headers: cabeceras });
-      if (r.status === 304) return 'igual';
-      if (r.ok && r.body) {
+      const intento = await pideArchivo(RUTA_GZ, cabeceras);
+      const r = intento?.r;
+      if (r?.status === 304) return 'igual';
+      if (r?.ok && r.body) {
         const flujo = r.body.pipeThrough(new DecompressionStream('gzip'));
         return { texto: await new Response(flujo).text(), sello: r.headers.get('etag') };
       }
@@ -95,7 +172,9 @@ async function bajaArchivo(selloPrevio: string | null): Promise<Bajada> {
     }
   }
 
-  const r = await fetch(RUTA, { cache: 'no-store', headers: cabeceras });
+  const intento = await pideArchivo(RUTA, cabeceras);
+  if (!intento) return null;
+  const { r } = intento;
   if (r.status === 304) return 'igual';
   return r.ok ? { texto: await r.text(), sello: r.headers.get('etag') } : null;
 }
@@ -112,7 +191,9 @@ async function bajaGz(ruta: string, selloPrevio: string | null): Promise<Bajada>
   if (typeof DecompressionStream === 'undefined') return null;
   const cabeceras: Record<string, string> = selloPrevio ? { 'If-None-Match': selloPrevio } : {};
   try {
-    const r = await fetch(ruta, { cache: 'no-store', headers: cabeceras });
+    const intento = await pideArchivo(ruta, cabeceras);
+    if (!intento) return null;
+    const { r } = intento;
     if (r.status === 304) return 'igual';
     if (r.ok && r.body) {
       const flujo = r.body.pipeThrough(new DecompressionStream('gzip'));
@@ -314,8 +395,9 @@ async function descargaLogos(): Promise<void> {
   if (logosPedidos) return;
   logosPedidos = true;
   try {
-    const r = await fetch(RUTA_LOGOS, { cache: 'no-store' });
-    if (!r.ok) return;
+    const intento = await pideArchivo(RUTA_LOGOS, {});
+    const r = intento?.r;
+    if (!r?.ok) return;
     aplicaLogos(await r.json());
     // Con los escudos ya puestos, a repintar: si alguna pantalla se dibujó
     // antes, sus círculos grises pasan a ser escudos.
