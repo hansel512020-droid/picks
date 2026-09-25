@@ -1039,8 +1039,16 @@ function CaraACara({
       <Tarjeta style={{ padding: E.md, gap: 4 }}>
         <Txt v="cuerpoFuerte">Cara a cara</Txt>
         <Txt v="pequeno" color={C.texto3}>
-          No se han enfrentado en los partidos que guarda la app. Es normal entre equipos de ligas
-          distintas o recién ascendidos.
+          {/*
+            Se dice CUÁNTO se ha mirado, no solo que no hay nada. "No se han
+            enfrentado" a secas se lee como un fallo de la app; con las tres
+            temporadas delante se entiende que es un dato, y que el motivo casi
+            siempre es que uno de los dos estaba en otra categoría —comprobado
+            con Girona-Albacete: no se cruzan desde 2022 porque el Girona pasó
+            esos años en Primera—.
+          */}
+          No se han enfrentado en las tres últimas temporadas, que es lo que guarda la app. Suele
+          pasar cuando uno de los dos venía de otra categoría o de otra liga.
         </Txt>
       </Tarjeta>
     );
