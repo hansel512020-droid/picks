@@ -255,7 +255,55 @@ async function main() {
   subeConLaCli(nucleoGz, 'nucleo.json.gz');
   subeConLaCli(detalleGz, 'detalle.json.gz');
 
+  publicaDetallePorLiga(datos);
+
   console.log('\nPublicado. Los usuarios recibirán la versión nueva en su próxima visita.');
+}
+
+/**
+ * El detalle de jugadores, un archivo por competición.
+ *
+ * ── Por qué partirlo ───────────────────────────────────────────────────────
+ *
+ * Los jugadores y sus líneas partido a partido son la materia prima del 69% de
+ * los picks: los de jugador. En un solo archivo, cualquiera con una cuenta
+ * gratis se lo bajaba entero y, con el motor —que es público—, reconstruía
+ * esos picks sin pagar. Era el agujero grande que quedaba después de cerrar
+ * los picks.
+ *
+ * Partido por ligas, cada archivo se puede cerrar por separado: el permiso del
+ * almacén mira los derechos del usuario y le deja bajar solo las ligas que ha
+ * comprado. Quien no ha pagado nada no se baja ninguna, y quien pagó LaLiga se
+ * baja LaLiga, que es exactamente lo que compró.
+ *
+ * El archivo entero se sigue subiendo mientras haya apps con la versión
+ * anterior instalada; se retira en cuanto dejen de pedirlo.
+ */
+function publicaDetallePorLiga(datos) {
+  const dir = path.join(RAIZ, 'src', 'datos', 'detalle');
+  fs.mkdirSync(dir, { recursive: true });
+
+  let subidas = 0;
+  let pesoTotal = 0;
+  for (const [id, c] of Object.entries(datos.competiciones ?? {})) {
+    const registros = c.registros ?? [];
+    // Una liga sin actas no tiene nada que cerrar ni que subir.
+    if (!registros.length) continue;
+    const trozo = {
+      actualizado: datos.actualizado,
+      competiciones: { [id]: { jugadores: c.jugadores ?? [], registros } },
+    };
+    const gz = zlib.gzipSync(Buffer.from(JSON.stringify(trozo)), { level: 9 });
+    const ruta = path.join(dir, `${id}.json.gz`);
+    fs.writeFileSync(ruta, gz);
+    subeConLaCli(ruta, `detalle/${id}.json.gz`);
+    subidas++;
+    pesoTotal += gz.length;
+  }
+  console.log(
+    `\nDetalle por liga: ${subidas} archivos · ${(pesoTotal / 1024 / 1024).toFixed(1)} MB en total` +
+      ` (el mayor manda solo lo que cada usuario ha comprado)`,
+  );
 }
 
 main().catch((e) => {

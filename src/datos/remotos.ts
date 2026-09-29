@@ -1,7 +1,13 @@
 import AsyncStorage from '@react-native-async-storage/async-storage';
 import { guardaGrande, leeGrande } from './almacen';
-import { sesionGuardada } from './cuenta';
-import { aplicaDatos, avisaRepintado, fusionaDetalle, sinDetalle } from './importado';
+import { derechosDelUsuario, ligasDesbloqueadas, sesionGuardada } from './cuenta';
+import {
+  aplicaDatos,
+  avisaRepintado,
+  competicionesImportadas,
+  fusionaDetalle,
+  sinDetalle,
+} from './importado';
 import { aplicaLogos, sinLogosNuevos } from './imagenes';
 
 /**
@@ -327,26 +333,75 @@ export async function descargaDatos(forzar = false): Promise<boolean> {
      * núcleo: la app ya se ve con los picks de equipo, y los de jugador
      * aparecen cuando el detalle entra. `fusionaDetalle` avisa para repintar.
      */
-    (async () => {
-      try {
-        const det = await bajaGz(RUTA_DETALLE, null);
-        if (det && det !== 'igual') {
-          fusionaDetalle(JSON.parse(det.texto));
-          guardaSiCabe(CLAVE_DETALLE, det.texto, null, null);
-        }
-      } catch {
-        // Sin detalle: la app se queda con los picks de equipo, que ya es útil.
-      } finally {
-        // Haya venido o no, ya se sabe a qué atenerse: la portada deja de
-        // esperarlo. `sinDetalle` no hace nada si el detalle sí llegó.
-        sinDetalle();
-      }
-    })();
+    void bajaDetalleDeMisLigas();
 
     return true;
   } catch {
     sinDetalle();
     return false;
+  }
+}
+
+/**
+ * El detalle de jugadores, solo el de las ligas que este usuario ha comprado.
+ *
+ * ── Por qué ────────────────────────────────────────────────────────────────
+ *
+ * Los jugadores y sus líneas partido a partido son la materia prima del 69% de
+ * los picks. En un solo archivo se le entregaba a cualquiera con cuenta, así
+ * que con el motor —que es público— se podían reconstruir esos picks sin
+ * pagarlos: el agujero grande que quedaba después de cerrar los picks.
+ *
+ * Ahora el bot lo publica partido por ligas y el almacén cierra cada archivo
+ * por separado. Aquí solo se piden los de las competiciones con derecho vivo;
+ * del resto no se pide nada, y si se pidiera, el servidor no lo daría.
+ *
+ * Cae al archivo entero cuando no se puede saber qué tiene comprado: es lo que
+ * había antes y el servidor sigue siendo el que decide si lo entrega.
+ */
+async function bajaDetalleDeMisLigas(): Promise<void> {
+  try {
+    const sesion = await sesionGuardada();
+    if (!sesion?.token) return;
+    const derechos = await derechosDelUsuario(sesion.token, sesion.id);
+    // `null` es "no se sabe": el servidor no contestó. No se pide nada y se
+    // reintenta en la siguiente descarga, que es mejor que pedirlo todo.
+    if (!derechos) return;
+    const mias = ligasDesbloqueadas(derechos);
+
+    // Sin ninguna liga comprada no hay nada que bajar: los picks ya vienen
+    // hechos del servidor y las pantallas de jugador son de pago.
+    if (!mias.size) return;
+
+    const todas = mias.has('*') ? competicionesImportadas() : [...mias];
+    let pegados = 0;
+    for (const liga of todas) {
+      const trozo = await bajaGz(`${BASE}/detalle/${liga}.json.gz`, null);
+      if (trozo && trozo !== 'igual') {
+        fusionaDetalle(JSON.parse(trozo.texto));
+        pegados++;
+      }
+    }
+
+    /*
+     * Si no vino ni una —una app vieja contra un almacén ya partido, o un
+     * usuario con derechos sobre ligas que hoy no tienen actas— se prueba con
+     * el archivo de siempre, que el servidor entregará o no según sus reglas.
+     */
+    if (!pegados) {
+      const det = await bajaGz(RUTA_DETALLE, null);
+      if (det && det !== 'igual') {
+        fusionaDetalle(JSON.parse(det.texto));
+        guardaSiCabe(CLAVE_DETALLE, det.texto, null, null);
+      }
+    }
+  } catch {
+    // Sin detalle la app funciona igual: los picks vienen hechos y lo único
+    // que falta son los gráficos de dentro de una ficha.
+  } finally {
+    // Haya venido o no, ya se sabe a qué atenerse: la portada deja de
+    // esperarlo. `sinDetalle` no hace nada si el detalle sí llegó.
+    sinDetalle();
   }
 }
 
