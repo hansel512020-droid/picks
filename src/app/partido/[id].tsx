@@ -1,4 +1,5 @@
 import { caraACaraEspn } from '@/datos/duelos';
+import { usePicksDelPartido } from '@/utiles/picks';
 import { seJuegaAhora } from '@/datos/envivo';
 import { LinearGradient } from 'expo-linear-gradient';
 import { router, useLocalSearchParams } from 'expo-router';
@@ -26,7 +27,7 @@ import { competicion } from '@/datos/competiciones';
 import { equiposImportados, partidosDelEquipoEnTodas } from '@/datos/importado';
 import { extrasDelPartido, type Extras } from '@/datos/penales';
 import { alineacion, lesiones, posicionesEnLiga, temporada } from '@/datos/motor';
-import { coma, desglose1x2, FAMILIAS, picksDePartido } from '@/datos/picks';
+import { coma, desglose1x2, FAMILIAS } from '@/datos/picks';
 import type { Equipo, Familia, Partido } from '@/datos/tipos';
 import { useDerechos } from '@/estado/derechos';
 import { useTienda } from '@/estado/tienda';
@@ -108,10 +109,9 @@ export default function PantallaPartido() {
     };
   }, [competicionId, partidoId]);
 
-  const picks = useCalculo(
-    () => picksDePartido(competicionId, partidoId, ajustes.casaId, libres),
-    [competicionId, partidoId, ajustes.casaId, libres],
-  );
+  // Del servidor, ya cocinados y ya filtrados por lo que este usuario ha
+  // pagado. Ver `picksServidor.ts`.
+  const picks = usePicksDelPartido(partidoId);
 
   const picksVisibles = useMemo(
     () => (picks ?? []).filter((p) => !familias.length || familias.includes(p.familia)),

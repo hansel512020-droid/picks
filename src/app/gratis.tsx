@@ -2,9 +2,7 @@ import { router } from 'expo-router';
 import { useEffect } from 'react';
 import { ActivityIndicator, View } from 'react-native';
 import { Boton, Txt, Vacio } from '@/componentes/base';
-import { pickDelDia } from '@/datos/picks';
-import { useTienda } from '@/estado/tienda';
-import { useCalculo } from '@/utiles/carga';
+import { usePickGratis } from '@/utiles/picks';
 import { C, E } from '@/tema';
 
 /**
@@ -16,8 +14,9 @@ import { C, E } from '@/tema';
  * con puerta cerrada no enseña nada.
  */
 export default function Gratis() {
-  const { ajustes } = useTienda();
-  const pick = useCalculo(() => pickDelDia(ajustes.casaId), [ajustes.casaId]);
+  // Lo elige el bot al cocinar y viene marcado desde el servidor, así que es
+  // el mismo para todos: el enlace que alguien comparte lleva a lo que él vio.
+  const pick = usePickGratis();
 
   useEffect(() => {
     if (!pick) return;

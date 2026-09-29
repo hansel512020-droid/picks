@@ -5,11 +5,11 @@ import { Chip, Txt, Vacio } from '@/componentes/base';
 import { CabeceraAtras, TiraChips } from '@/componentes/navegacion';
 import { TarjetaPick } from '@/componentes/pick';
 import { competicion } from '@/datos/competiciones';
-import { FAMILIAS, picksDeCompeticion } from '@/datos/picks';
+import { FAMILIAS } from '@/datos/picks';
 import type { Familia } from '@/datos/tipos';
 import { useTienda } from '@/estado/tienda';
 import { C, E } from '@/tema';
-import { useCalculo } from '@/utiles/carga';
+import { usePicksDelServidor } from '@/utiles/picks';
 
 /** Lista completa de picks de la competicion activa: el "Ver todo" de la portada. */
 export default function TodosLosPicks() {
@@ -18,10 +18,7 @@ export default function TodosLosPicks() {
   const [familias, setFamilias] = useState<Familia[]>([]);
   const competicionId = ajustes.competicionId;
 
-  const picks = useCalculo(
-    () => picksDeCompeticion(competicionId, ajustes.casaId, 200),
-    [competicionId, ajustes.casaId],
-  );
+  const picks = usePicksDelServidor(competicionId);
 
   const visibles = useMemo(
     () => (picks ?? []).filter((p) => !familias.length || familias.includes(p.familia)),

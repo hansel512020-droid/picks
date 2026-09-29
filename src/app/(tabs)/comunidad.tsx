@@ -6,12 +6,11 @@ import { BotonCompeticion } from '@/componentes/carruseles';
 import { TiraChips } from '@/componentes/navegacion';
 import { TarjetaPick } from '@/componentes/pick';
 import { competicion } from '@/datos/competiciones';
-import { picksComunidad } from '@/datos/picks';
 import type { Familia, Pick } from '@/datos/tipos';
 import { useComunidad } from '@/estado/comunidad';
 import { useTienda } from '@/estado/tienda';
 import { C, E } from '@/tema';
-import { useCalculo } from '@/utiles/carga';
+import { usePicksDelServidor } from '@/utiles/picks';
 
 /**
  * Lo que esta guardando el resto de la gente. Es la misma lista de picks, pero
@@ -33,10 +32,8 @@ export default function Comunidad() {
   const [filtro, setFiltro] = useState<Familia | 'todos'>('todos');
   const competicionId = ajustes.competicionId;
 
-  const picks = useCalculo(
-    () => picksComunidad(competicionId, ajustes.casaId, 60),
-    [competicionId, ajustes.casaId],
-  );
+  // La misma lista del servidor; aquí se reordena por guardados más abajo.
+  const picks = usePicksDelServidor(competicionId);
 
   /*
    * Los guardados de verdad, no los que inventa el generador.

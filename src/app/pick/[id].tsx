@@ -54,6 +54,7 @@ async function comparte(texto: string): Promise<'compartido' | 'copiado' | null>
   }
 }
 import { useCalculo } from '@/utiles/carga';
+import { usePicksDelPartido } from '@/utiles/picks';
 
 /**
  * Detalle de un pick: el argumento entero, la serie de los ultimos 20 partidos
@@ -328,26 +329,21 @@ export default function PantallaPick() {
     ? decodeURIComponent(partidoParam)
     : pickId.split('-').slice(0, 3).join('-');
 
-  const picks = useCalculo(
-    () => picksDePartido(competicionId, partidoId, ajustes.casaId, libres),
-    [competicionId, partidoId, ajustes.casaId, libres],
-  );
+  // Del servidor, ya cocinados. Ver `picksServidor.ts`.
+  const picks = usePicksDelPartido(partidoId);
 
   const pick = useMemo(() => picks?.find((p) => p.id === pickId), [picks, pickId]);
 
   /*
-
-   * Si esta competicion se le vende a este usuario. Mismo criterio que la
-
-   * tarjeta: el pick viene marcado como `pro` y no consta comprado.
-
+   * El candado viene decidido de fuera.
+   *
+   * Aquí se miraba lo comprado y si era el pick del día, pero el contenido
+   * estaba en el teléfono igualmente: bastaba con no hacer caso a esta línea.
+   * Ahora el servidor manda vacíos los picks que no te tocan y los marca con
+   * `pro`, así que esto solo decide si se pinta el aviso de Golden Pro o el
+   * análisis que sí ha llegado.
    */
-
-  // El pick del día se abre entero, sea de la liga que sea: es el gratis de hoy.
-  const bloqueado =
-    !!pick?.pro &&
-    !tieneAcceso(pick.competicionId) &&
-    !esPickDelDia(pick.id, ajustes.casaId);
+  const bloqueado = !!pick?.pro;
 
   /*
    * Cómo va el pick si su partido se está jugando ahora mismo. Va aquí arriba,

@@ -82,6 +82,42 @@ interface Fila {
   pro: boolean;
   gratis: boolean;
   datos: Pick;
+  escaparate: Partial<Pick>;
+}
+
+/**
+ * El mismo pick, vaciado: lo que se le manda a quien no ha pagado esa liga.
+ *
+ * Tiene que quedar lo justo para que la tarjeta con candado se pinte y se
+ * entienda —de quién es, de qué partido, de qué competición— y no puede quedar
+ * nada de lo que se vende: ni el mercado, ni la línea, ni el argumento, ni la
+ * racha, ni la probabilidad. Se construye nombrando lo que se queda y no
+ * borrando lo que se va: así, el día que el motor añada un campo nuevo, entra
+ * cerrado por defecto en vez de colarse abierto.
+ *
+ * Los tres valores de relleno (mercado, cuota, casa) son para que el
+ * componente no reciba huecos; con el candado puesto no se pintan.
+ */
+function vacia(p: Pick): Partial<Pick> {
+  return {
+    id: p.id,
+    partidoId: p.partidoId,
+    competicionId: p.competicionId,
+    cuando: p.cuando,
+    sujeto: p.sujeto,
+    sujetoId: p.sujetoId,
+    titulo: p.titulo,
+    equipo: p.equipo,
+    contexto: p.contexto,
+    imagen: p.imagen,
+    nombres: p.nombres,
+    familia: p.familia,
+    pro: true,
+    mercado: '',
+    cuota: 0,
+    casa: p.casa,
+    argumento: '',
+  };
 }
 
 function cargaDatos(): void {
@@ -180,6 +216,7 @@ async function main(): Promise<void> {
           pro: !!pick.pro,
           gratis: false,
           datos: pick,
+          escaparate: vacia(pick),
         });
         cuenta++;
       }
@@ -205,6 +242,7 @@ async function main(): Promise<void> {
         pro: !!gratis.pro,
         gratis: true,
         datos: gratis,
+        escaparate: vacia(gratis),
       });
     }
   }

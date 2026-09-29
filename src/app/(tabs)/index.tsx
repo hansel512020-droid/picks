@@ -24,7 +24,8 @@ import { useDerechos } from '@/estado/derechos';
 import { useTienda } from '@/estado/tienda';
 import { usePicksVigentes, useVivo } from '@/estado/vivo';
 import { C, E, R } from '@/tema';
-import { useCalculo, useCalculoProgresivo } from '@/utiles/carga';
+import { useCalculo } from '@/utiles/carga';
+import { usePicksDelServidor } from '@/utiles/picks';
 import { useOcultaPestanas } from './_layout';
 
 type Orden = 'acierto' | 'probabilidad' | 'fuego';
@@ -109,38 +110,22 @@ function ordena(
  */
 function Cargando({
   nombre,
-  avance,
-  esperandoJugadores,
+  esperandoEscudos,
 }: {
   nombre: string;
-  avance?: { picks: Pick[]; hechos: number; total: number };
-  /** Los picks ya están; falta la segunda pieza de datos, la de jugadores. */
-  esperandoJugadores?: boolean;
+  /** Los picks ya están; faltan los escudos. */
+  esperandoEscudos?: boolean;
 }) {
-  if (esperandoJugadores) {
+  if (esperandoEscudos) {
     return (
-      <PantallaCargando
-        titulo="Cargando estadísticas de jugadores"
-        detalle="Es la parte más pesada; solo la primera vez"
-        pie="Ya casi"
-        parte={0.92}
-      />
+      <PantallaCargando titulo="Cargando escudos" detalle="Un momento" pie="Ya casi" parte={0.92} />
     );
   }
   return (
     <PantallaCargando
-      titulo={`Analizando ${nombre}`}
-      detalle={avance ? `${avance.hechos} de ${avance.total} partidos` : 'Preparando los datos…'}
-      /*
-       * Lo que lleva encontrado. No es un adorno: enseña que el trabajo está
-       * dando resultado y no solo consumiendo tiempo.
-       */
-      pie={
-        avance?.picks.length
-          ? `${avance.picks.length} picks encontrados`
-          : 'Buscando picks con valor…'
-      }
-      parte={avance && avance.total ? Math.min(1, avance.hechos / avance.total) : undefined}
+      titulo={`Cargando ${nombre}`}
+      detalle="Trayendo los picks de hoy"
+      parte={0.4}
     />
   );
 }
@@ -302,16 +287,17 @@ export default function Inicio() {
   const { width } = useWindowDimensions();
   const topePartidos = width < 820 ? 40 : undefined;
   /*
-   * `final` y no lo que va saliendo: la lista se pinta cuando está entera.
+   * Los picks ya no se calculan aquí: los pide al servidor `picksServidor`.
    *
-   * Mientras se calcula manda la pantalla de carga, con el recuento de `avance`.
-   * Antes se iba pintando a trozos y el resultado era una portada que crecía
-   * sola durante varios segundos, con las tarjetas moviéndose bajo el dedo.
+   * Antes esta pantalla analizaba hasta cien partidos en el teléfono, a partir
+   * del archivo de datos. Ese archivo se le entrega a cualquiera con cuenta, y
+   * el código es público, así que quien quisiera podía reproducir los picks de
+   * todas las ligas sin pagar: el candado tapaba la pantalla, no el dato.
+   *
+   * Ahora llegan hechos y filtrados: enteros los que te tocan, vaciados los que
+   * no. De paso la portada abre sin analizar nada.
    */
-  const { avance, final: picks } = useCalculoProgresivo(
-    () => picksDeCompeticionPorTrozos(competicionId, ajustes.casaId, 2000, libres, 3, topePartidos),
-    [competicionId, ajustes.casaId, libres, topePartidos],
-  );
+  const picks = usePicksDelServidor(competicionId);
 
   /** Partidos que entran en el filtro del carrusel (un grupo o un equipo). */
   const partidosDelFiltro = useCalculo(() => {
@@ -350,12 +336,15 @@ export default function Inicio() {
   const familiasVisibles = todasFamilias ? FAMILIAS : FAMILIAS.slice(0, 5);
 
   /*
-   * La portada no se enseña hasta que está TODO: los picks calculados y la
-   * segunda pieza de datos —la de jugadores— resuelta.
+   * La portada no se enseña hasta que está TODO: los picks del servidor y los
+   * escudos.
    *
-   * Sin esperar a los jugadores se veía la app montarse por partes: primero una
-   * lista con los escudos en gris y las tarjetas sin analizar, y dos segundos
-   * después todo otra vez, ya completo. Dos cargas en la misma pantalla.
+   * Sin esperar a los escudos se veía la app montarse por partes: primero una
+   * lista con los círculos en gris y un instante después todo otra vez. Dos
+   * cargas en la misma pantalla.
+   *
+   * Ya no se espera al detalle de jugadores: los picks vienen hechos, así que
+   * ese archivo solo hace falta para los gráficos de dentro de una ficha.
    *
    * El tope de diez segundos es la red de seguridad: con mala conexión, antes
    * que dejar a alguien mirando la pantalla de carga, se enseña lo que haya.
@@ -365,10 +354,9 @@ export default function Inicio() {
     const t = setTimeout(() => setSeAcabaLaEspera(true), 10_000);
     return () => clearTimeout(t);
   }, []);
-  const faltanJugadores = !detalleResuelto() && !seAcabaLaEspera;
-  // Y los escudos: una portada con los círculos en gris es una portada a medias.
+  // Los escudos: una portada con los círculos en gris es una portada a medias.
   const faltanEscudos = !logosResueltos() && !seAcabaLaEspera;
-  const cargando = !picks || faltanJugadores || faltanEscudos;
+  const cargando = !picks || faltanEscudos;
 
   // Mientras carga no se ve nada más: tampoco la barra de pestañas.
   useOcultaPestanas(cargando);
@@ -381,11 +369,7 @@ export default function Inicio() {
   if (cargando) {
     return (
       <View style={{ flex: 1, backgroundColor: C.fondo, paddingTop: insets.top }}>
-        <Cargando
-          nombre={comp.nombre}
-          avance={avance}
-          esperandoJugadores={!!picks && (faltanJugadores || faltanEscudos)}
-        />
+        <Cargando nombre={comp.nombre} esperandoEscudos={!!picks && faltanEscudos} />
       </View>
     );
   }

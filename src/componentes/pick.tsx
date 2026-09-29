@@ -675,22 +675,20 @@ export function TarjetaPick({
   onPress?: () => void;
   sinRacha?: boolean;
 }) {
-  const { ajustes, estaGuardado, guardar, quitar } = useTienda();
-  const { tieneAcceso } = useDerechos();
+  const { estaGuardado, guardar, quitar } = useTienda();
   const comunidad = useComunidad();
   const guardado = estaGuardado(pick.id);
   /*
-   * El candado lo decide lo que el usuario tiene COMPRADO, consultado al
-   * servidor, no un interruptor guardado en el teléfono. Antes miraba el plan
-   * local: bastaba con haberlo activado una vez —o con editarlo desde la
-   * consola del navegador— para abrir la app entera sin pagar.
+   * El candado ya viene decidido del servidor.
+   *
+   * Aquí se miraba lo comprado, se comprobaba si era el pick del día y se
+   * tapaba la tarjeta en consecuencia. Pero el contenido estaba igualmente en
+   * el teléfono: tapar es una decisión de pintura, y quien supiera mirar lo
+   * tenía. Ahora el servidor manda enteros los picks que te tocan y vaciados
+   * los que no, y marca cuáles son cuáles: `pro` significa "esto te llegó
+   * vacío". Sin contenido que enseñar no hay nada que tapar.
    */
-  /*
-   * El pick del día se ve siempre, aunque su liga sea de pago: es el gratis de
-   * hoy y el que se comparte fuera. Ver `pickDelDia` en picks.ts.
-   */
-  const bloqueado =
-    !!pick.pro && !tieneAcceso(pick.competicionId) && !esPickDelDia(pick.id, ajustes.casaId);
+  const bloqueado = !!pick.pro;
 
   // Si el partido se está jugando ahora, la tarjeta lo dice.
   const enVivo = usePartidoDelPick(pick);

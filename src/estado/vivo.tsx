@@ -15,7 +15,7 @@ import { competicion } from '@/datos/competiciones';
 import { claveDelPartido, partidosDeHoy, slugDe, type PartidoVivo , seJuegaAhora } from '@/datos/envivo';
 import { competicionesImportadas } from '@/datos/importado';
 import { temporada } from '@/datos/motor';
-import { picksDeCompeticion } from '@/datos/picks';
+import { cargaPicks, picksDelServidor } from '@/datos/picksServidor';
 import { compruebaPick, progresoDelPick, resumenDelPartido, type Resumen } from '@/datos/resolver';
 import type { Pick, ResultadoPick, SujetoPick } from '@/datos/tipos';
 import { useAvisos } from './avisos';
@@ -413,22 +413,31 @@ export function ProveedorVivo({ children }: { children: ReactNode }) {
        * enterrar. Se juntan todos, se ordenan por ventaja y salen los tres
        * primeros que aún no se hayan contado.
        */
-      const candidatos: { pick: Pick; liga: string }[] = [];
-      for (const liga of competicionesImportadas()) {
-        /*
-         * Solo se avisa de ligas a las que el usuario tiene acceso: las cuatro
-         * gratuitas y las que haya comprado. De una liga premium sin pagar no
-         * se avisa, porque el cuerpo del aviso lleva el pick entero (título,
-         * mercado y cuota) y eso es enseñar por la campana justo lo que el muro
-         * de pago tapa en la pantalla.
-         */
-        if (!tieneAccesoRef.current(liga)) continue;
-        const mejor = picksDeCompeticion(liga, ajustes.casaId, 1)[0];
-        if (!mejor || vistos.has(mejor.id)) continue;
-        candidatos.push({ pick: mejor, liga });
+      /*
+       * De los picks que el servidor le ha mandado a ESTE usuario, y de nadie
+       * más.
+       *
+       * Antes se calculaban aquí y había que acordarse de saltar las ligas sin
+       * comprar, porque el cuerpo del aviso lleva el pick entero —título,
+       * mercado y cuota— y eso es regalar por la campana lo que el muro tapa
+       * en la pantalla. Ahora los que no ha pagado le llegan vacíos y se
+       * descartan solos: `pro` significa exactamente eso.
+       */
+      await cargaPicks();
+      const mejorPorLiga = new Map<string, Pick>();
+      for (const p of picksDelServidor()) {
+        if (p.pro) continue;
+        const mejor = mejorPorLiga.get(p.competicionId);
+        if (!mejor || p.probabilidad > mejor.probabilidad) mejorPorLiga.set(p.competicionId, p);
       }
 
-      candidatos.sort((a, b) => b.pick.ventaja - a.pick.ventaja);
+      const candidatos: { pick: Pick; liga: string }[] = [];
+      for (const [liga, pick] of mejorPorLiga) {
+        if (vistos.has(pick.id)) continue;
+        candidatos.push({ pick, liga });
+      }
+
+      candidatos.sort((a, b) => b.pick.probabilidad - a.pick.probabilidad);
 
       for (const { pick, liga } of candidatos.slice(0, 3)) {
         nuevos.push(pick.id);
