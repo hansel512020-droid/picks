@@ -156,7 +156,14 @@ const TORNEOS = {
   peru: 406,
   bolivia: 16736,
   ecuador: 240,
-  uruguay: 18000,
+  /*
+   * Uruguay estaba apuntada al 18000, que en SofaScore es una ficha antigua de
+   * la Primera uruguaya: existe, tiene nombre, y devuelve cero temporadas y
+   * cero partidos. La liga viva es la 30743 (58 partidos en la ventana). Lo
+   * cazó el parte final del bot, que avisó de "SofaScore no trajo NADA en
+   * libertadores y uruguay".
+   */
+  uruguay: 30743,
   paraguay: 11541,
   japon: 196,
   corea: 208,
