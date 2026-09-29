@@ -75,6 +75,15 @@ function ordena(
   };
 
   const porDia = (a: Pick, b: Pick) => dia(a) - dia(b);
+  /*
+   * Los picks que llegan vaciados —los de una liga sin comprar— no traen
+   * probabilidad ni aciertos: el servidor no los manda. Sin esto, comparar
+   * `undefined` da NaN, el orden se vuelve impredecible y la portada de quien
+   * no paga sale barajada de cualquier manera. Se tratan como cero: van detrás
+   * de lo que sí se puede leer, que es lo que tiene sentido enseñar primero.
+   */
+  const prob = (p: Pick) => p.probabilidad ?? 0;
+  const aciertos = (p: Pick) => p.aciertosL10 ?? 0;
   const copia = [...picks];
 
   switch (orden) {
@@ -83,20 +92,19 @@ function ordena(
       return copia.sort(
         (a, b) =>
           porDia(a, b) ||
-          Number(b.recomendado) - Number(a.recomendado) ||
-          b.aciertosL10 - a.aciertosL10 ||
-          b.probabilidad - a.probabilidad,
+          Number(!!b.recomendado) - Number(!!a.recomendado) ||
+          aciertos(b) - aciertos(a) ||
+          prob(b) - prob(a),
       );
     case 'probabilidad':
-      return copia.sort((a, b) => porDia(a, b) || b.probabilidad - a.probabilidad);
+      return copia.sort((a, b) => porDia(a, b) || prob(b) - prob(a));
     case 'fuego':
       /*
        * Por los guardados de VERDAD y nada mas. Sin guardados reales desempata
        * la probabilidad, que sale del historico del sujeto.
        */
       return copia.sort(
-        (a, b) =>
-          porDia(a, b) || (cuenta(b) ?? 0) - (cuenta(a) ?? 0) || b.probabilidad - a.probabilidad,
+        (a, b) => porDia(a, b) || (cuenta(b) ?? 0) - (cuenta(a) ?? 0) || prob(b) - prob(a),
       );
     default:
       // El generador ya entrega por cercania y calidad: no se toca.
