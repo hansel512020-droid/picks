@@ -159,10 +159,19 @@ async function main(): Promise<void> {
     let cuenta = 0;
     for (const partido of partidos) {
       /*
-       * Con el comodín de derechos: aquí se cocinan TODOS, incluidos los de
-       * pago. Quién ve cuál lo decide el permiso de la tabla, no este script.
+       * SIN derechos, a propósito.
+       *
+       * El motor marca `pro` comparando la liga del pick con lo que el usuario
+       * tiene comprado, así que si aquí se le pasa el comodín "lo tiene todo"
+       * —que fue lo primero que probé— sale TODO sin candado, y la tabla se
+       * publica abierta de par en par. Medido antes de darme cuenta: 1.531
+       * picks y los 1.531 visibles para una cuenta sin plan.
+       *
+       * Cocinando sin derechos, cada pick queda marcado como lo que es. Quién
+       * ve cuál lo decide después el permiso de la tabla, con los derechos de
+       * cada usuario.
        */
-      for (const pick of picksDePartido(comp, partido.id, CASA, new Set(['*']))) {
+      for (const pick of picksDePartido(comp, partido.id, CASA)) {
         filas.push({
           id: pick.id,
           competicion: pick.competicionId,
@@ -202,9 +211,21 @@ async function main(): Promise<void> {
 
   const segundos = ((Date.now() - t0) / 1000).toFixed(1);
   const pesoMb = (JSON.stringify(filas).length / 1048576).toFixed(1);
+  const conCandado = filas.filter((f) => f.pro && !f.gratis).length;
   console.log(
     `Picks cocinados: ${filas.length} de ${porCompeticion.size} competiciones · ` +
       `próximos ${DIAS} días · ${segundos} s · ${pesoMb} MB`,
+  );
+  /*
+   * Cuántos llevan candado, dicho siempre.
+   *
+   * La primera versión los cocinó todos abiertos —le pasé al motor unos
+   * derechos de "lo tiene todo"— y la tabla quedó publicada sin cerradura. Se
+   * vio contando filas después; con esta línea se habría visto al momento.
+   */
+  console.log(
+    `  Con candado: ${conCandado} de ${filas.length}` +
+      (conCandado === 0 && filas.length > 0 ? '  ⚠ NINGUNO: la tabla quedaría abierta' : ''),
   );
   console.log(`  El gratis de hoy: ${gratis ? `${gratis.titulo} — ${gratis.mercado}` : '(ninguno)'}`);
 
