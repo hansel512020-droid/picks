@@ -60,6 +60,19 @@ REM el entorno o en .env.local.
 node scripts\publicar-datos.js >> scripts\refrescar.log 2>&1
 echo Publicar: %ERRORLEVEL% >> scripts\refrescar.log
 
+REM Y los picks ya cocinados, uno por fila en la base de datos.
+REM
+REM Es lo que hace que un pick de pago no salga del servidor: el permiso de la
+REM tabla mira los derechos del usuario y le entrega solo lo suyo. Hasta ahora
+REM los calculaba el telefono a partir del archivo de datos, que cualquiera con
+REM cuenta puede bajarse. Ver scripts\publicar-picks.ts y supabase\picks.sql.
+REM
+REM El motor es TypeScript y vive en src\, asi que se compila antes con esbuild
+REM a una carpeta temporal. Tarda unos segundos y no toca nada de la app.
+call npx esbuild scripts\publicar-picks.ts --bundle --platform=node --format=cjs --tsconfig=tsconfig.json --outfile=node_modules\.cache\publicar-picks.cjs --log-level=error >> scripts\refrescar.log 2>&1
+node --max-old-space-size=4096 node_modules\.cache\publicar-picks.cjs >> scripts\refrescar.log 2>&1
+echo Picks: %ERRORLEVEL% >> scripts\refrescar.log
+
 REM Una vez por semana, borra de .cache-datos lo que ya no se usa. Sin esto la
 REM cache llego a 8 GB. Ver scripts\limpiar-cache.js.
 node scripts\limpiar-cache.js >> scripts\refrescar.log 2>&1

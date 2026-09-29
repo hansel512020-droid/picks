@@ -279,6 +279,25 @@ jobs:
             echo "(sin catálogo de imágenes en esta pasada)"
           fi
 
+      # Los picks ya cocinados, uno por fila en la base de datos.
+      #
+      # Es lo que hace que un pick de pago no salga del servidor: el permiso de
+      # la tabla mira los derechos del usuario y le entrega solo lo suyo. Lo
+      # hace quien importa, así que va aquí igual que en el PC.
+      #
+      # Si falla no se aborta: los datos ya están publicados y la app sigue
+      # funcionando con los picks de la pasada anterior.
+      - name: Cocinar y publicar los picks
+        continue-on-error: true
+        env:
+          EXPO_PUBLIC_SUPABASE_URL: ${{ secrets.SUPABASE_URL }}
+          SUPABASE_SECRET_KEY: ${{ secrets.SUPABASE_SECRET_KEY }}
+        run: |
+          set -euo pipefail
+          npx esbuild scripts/publicar-picks.ts --bundle --platform=node --format=cjs \
+            --tsconfig=tsconfig.json --outfile=node_modules/.cache/publicar-picks.cjs --log-level=error
+          node --max-old-space-size=4096 node_modules/.cache/publicar-picks.cjs
+
       - name: Comprobar que se sirve
         env:
           SUPABASE_URL: ${{ secrets.SUPABASE_URL }}
