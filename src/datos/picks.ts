@@ -1278,7 +1278,16 @@ export function picksDePartido(
             sujetoId: partidoId,
             titulo: `${local.nombre} vs ${visitante.nombre}`,
             contexto,
-            argumento: `Promedio combinado: ${coma(ev.media)} ${met.mercado}. ${sentido === 'mas' ? 'Más' : 'Menos'} de ${linea(l)} acierta ${ev.aciertosL10 * 10}% (L10). ${coma(ventaja, 0)}% de ventaja.`,
+            /*
+             * Sin el "X% de ventaja" del final.
+             *
+             * Esa ventaja está medida contra el precio que pone el propio
+             * modelo —de estos mercados no hay cuota publicada—, así que es el
+             * modelo dándose la razón. Se quitó de las tarjetas y de la ficha,
+             * pero seguía escrita aquí dentro, en el texto del pick, que es
+             * justo donde más se lee.
+             */
+            argumento: `Promedio combinado: ${coma(ev.media)} ${met.mercado}. ${sentido === 'mas' ? 'Más' : 'Menos'} de ${linea(l)} acierta ${ev.aciertosL10 * 10}% en los últimos 10 partidos.`,
             familia: met.familia,
             mercado: `${sentido === 'mas' ? 'Más' : 'Menos'} de ${linea(l)} ${met.mercado}`,
             metrica: met.clave,
