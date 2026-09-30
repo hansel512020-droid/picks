@@ -1,5 +1,12 @@
 import { Tabs } from 'expo-router';
-import { createContext, useCallback, useContext, useEffect, useState } from 'react';
+import {
+  createContext,
+  useCallback,
+  useContext,
+  useEffect,
+  useLayoutEffect,
+  useState,
+} from 'react';
 import { Platform } from 'react-native';
 import { Icono, type NombreIcono } from '@/componentes/iconos';
 import { C, T } from '@/tema';
@@ -22,10 +29,24 @@ const PESTANAS: { name: string; titulo: string; icono: NombreIcono }[] = [
  */
 const Ctx = createContext<(cargando: boolean) => void>(() => {});
 
+/*
+ * Antes de pintar, no después.
+ *
+ * Con `useEffect` la orden de esconder la barra llegaba cuando la pantalla ya
+ * se había dibujado, así que había un instante —un fotograma, pero se ve— en
+ * el que la barra de pestañas aparecía debajo de la pantalla de carga y
+ * desaparecía sola. `useLayoutEffect` corre antes de que el navegador pinte,
+ * así que la barra no llega a verse.
+ *
+ * En el servidor no existe layout: durante el prerenderizado de la web no hay
+ * nada que pintar y React avisa si se usa, así que allí se queda el normal.
+ */
+const antesDePintar = typeof window === 'undefined' ? useEffect : useLayoutEffect;
+
 /** Oculta la barra de pestañas mientras `cargando` sea cierto. */
 export function useOcultaPestanas(cargando: boolean) {
   const avisa = useContext(Ctx);
-  useEffect(() => {
+  antesDePintar(() => {
     avisa(cargando);
     // Al salir de la pantalla la barra vuelve, cargue lo que cargue.
     return () => avisa(false);
