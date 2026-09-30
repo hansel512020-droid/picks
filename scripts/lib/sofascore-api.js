@@ -78,8 +78,8 @@ const HUELLAS = ['safari17_0', 'firefox133', 'chrome136'];
 /** Cual se esta usando. Vale para toda la ejecucion: no se busca en cada liga. */
 let huella = 0;
 
-const peticion = () => ({
-  impersonate: HUELLAS[huella],
+const peticion = (cual = huella) => ({
+  impersonate: HUELLAS[cual],
   timeout: 25,
   verify: false,
   headers: {
@@ -270,22 +270,40 @@ class Cliente {
      * publicar sin sus estadisticas sin que nadie se enterara. Ahora, antes de
      * rendirse, se prueban las demas huellas.
      */
+    /*
+     * La huella que se queda es la que FUNCIONÓ, no la última que se probó.
+     *
+     * Antes se movía el puntero antes de reintentar, así que una tanda mala
+     * —dos 403 seguidos por lo que sea— lo dejaba apuntando a la última de la
+     * lista. Y si esa es justo la que SofaScore rechaza, todas las peticiones
+     * siguientes salen ya rechazadas. Medido en la pasada del 29-09 a las
+     * 16:30: acabó en chrome136 y 17 competiciones de 50 se quedaron sin nada.
+     *
+     * Ahora se empieza siempre por la buena conocida y solo se cambia cuando
+     * otra contesta de verdad.
+     */
     let respuesta = null;
     for (let intento = 0; intento < HUELLAS.length; intento++) {
+      const cual = (huella + intento) % HUELLAS.length;
       await this.espera();
       try {
-        respuesta = await get(url, peticion());
+        respuesta = await get(url, peticion(cual));
       } catch {
         respuesta = null;
       }
       const bloqueado = !respuesta || respuesta.status === 403 || respuesta.status === 429;
-      if (!bloqueado) break;
+      if (!bloqueado) {
+        // Esta sirve: se apunta para las siguientes.
+        if (cual !== huella) {
+          console.error(`  (SofaScore acepta la huella ${HUELLAS[cual]}: se usa a partir de ahora)`);
+          huella = cual;
+        }
+        break;
+      }
       if (intento === HUELLAS.length - 1) break;
-      const siguiente = (huella + 1) % HUELLAS.length;
       console.error(
-        `  (SofaScore rechaza la huella ${HUELLAS[huella]}: se prueba con ${HUELLAS[siguiente]})`,
+        `  (SofaScore rechaza la huella ${HUELLAS[cual]}: se prueba con ${HUELLAS[(cual + 1) % HUELLAS.length]})`,
       );
-      huella = siguiente;
     }
 
     if (!respuesta) {
