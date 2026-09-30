@@ -221,12 +221,14 @@ jobs:
           LIGAS=$(node -e "console.log(require('./src/datos/competiciones.json').join(','))")
 
           if [ "$COMPLETA" = "true" ]; then
-            # Con SofaScore. Es la fuente que MANDA en estadísticas —xG medido y
-            # la línea completa de cada jugador— y aquí no se pedía nunca: por
-            # eso, cuando el respaldo de GitHub publicaba, los datos salían peor
-            # que los del PC aunque el resto de la pasada fuera idéntica.
-            echo "Pasada COMPLETA (con actas y SofaScore) · $LIGAS"
-            node scripts/importar.js --ligas "$LIGAS" --detalles 400 --jugadores 40 --sofascore-red
+            # Sin SofaScore desde el 2026-09-30, igual que el PC: dos semanas de
+            # bloqueos hacían que la calidad cambiara de una pasada a otra —unas
+            # ligas con xG medido y otras sin él— y esa lotería es peor que no
+            # tenerlo. Cuesta el 12,6% de los picks (pases y entradas, que ESPN
+            # no da por jugador). Vuelve añadiendo --sofascore-red, después de
+            # comprobar con `node scripts/probar-sofascore.js`.
+            echo "Pasada COMPLETA (con actas) · $LIGAS"
+            node scripts/importar.js --ligas "$LIGAS" --detalles 400 --jugadores 40
           else
             # Sin actas: resultados, calendario y cuotas. Minutos, no horas.
             echo "Pasada LIGERA (sin actas) · $LIGAS"

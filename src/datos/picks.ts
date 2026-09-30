@@ -813,6 +813,24 @@ export function picksDePartido(
     for (const met of METRICAS_JUGADOR) {
       if (met.posiciones && !met.posiciones.includes(jug.posicion)) continue;
       const valores = historial.map(met.extractor);
+
+      /*
+       * Un historial entero a cero no es un dato: es un dato que falta.
+       *
+       * Hay métricas que solo trae SofaScore —pases completados y entradas—, y
+       * cuando esa fuente no contesta, el importador las deja a cero en cada
+       * partido. El motor no distinguía: diez ceros son "acierta 10 de 10" para
+       * un "menos de 14.5 pases", así que saldría publicado como un pick
+       * segurísimo de un jugador del que no sabemos absolutamente nada.
+       *
+       * Hoy no hay ninguno así —comprobado sobre los 1.732 publicados—, pero es
+       * cuestión de que la fuente falle un día entero, que ya pasó el 24 de
+       * septiembre. Un cero de verdad existe (un central que no da una entrada),
+       * pero DIEZ ceros seguidos en una métrica que se mide en decenas es la
+       * firma de la fuente caída, no del jugador.
+       */
+      if (!valores.some((v) => v > 0)) continue;
+
       // Media de toda la temporada: es lo que ve la casa al poner el precio.
       const mediaLarga = valores.reduce((a, b) => a + b, 0) / Math.max(1, valores.length);
 

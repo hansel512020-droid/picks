@@ -10,7 +10,25 @@ REM Baja las dos fuentes, no solo ESPN: ESPN pone el calendario, el estado en
 REM vivo y las cuotas, y SofaScore pone las estadisticas —xG medido y la linea
 REM completa de cada jugador—, que es de donde salen los pronosticos.
 REM
-REM SofaScore por red va con --sofascore-red a proposito. En importar.js paso a
+REM ── SofaScore, apagado desde el 2026-09-30 ──────────────────────────────
+REM
+REM Se quita el --sofascore-red: los datos salen solo de ESPN. Motivo: SofaScore
+REM lleva dos semanas de bloqueos —primero rechazando la huella de Chrome, y hoy
+REM devolviendo 403 "Forbidden" a las tres huellas desde esta conexion— y eso
+REM hacia que la calidad de los datos cambiara de una pasada a otra: unas ligas
+REM con xG medido y otras sin el, sin saber cual te toca. Para un producto que
+REM se cobra, esa loteria es peor que no tenerlo.
+REM
+REM Lo que cuesta, medido sobre 1.732 picks publicados: 219 (el 12,6%) son de
+REM pases completados y entradas, que ESPN no da por jugador. Esos dejan de
+REM salir. Tambien se pierde el xG medido, que pasa a ser el estimado a partir
+REM del marcador y los remates.
+REM
+REM No se borra nada: el codigo sigue entero y vuelve con añadir el flag. Antes
+REM de volver a encenderlo, comprobar con `node scripts/probar-sofascore.js`.
+REM
+REM El texto de abajo describe como funcionaba y se deja por si se reactiva.
+REM SofaScore por red iba con --sofascore-red. En importar.js paso a
 REM ser opcional el 31 de agosto de 2026 (un bloqueo colgo el bot diez horas), y
 REM como este archivo no se toco, el bot siguio corriendo solo con ESPN sin que
 REM nadie lo notara. Aqui si se quiere: es el PC el que publica los datos
@@ -51,7 +69,7 @@ REM no se le nombra ninguna liga. Se pone a proposito: asi el .cmd dice cual es
 REM el catalogo que refresca sin que haya que ir a leer argumentos() en
 REM importar.js, y si algun dia se le anade un --liga delante, sigue entrando
 REM el catalogo entero y no una sola competicion.
-node --max-old-space-size=4096 scripts\importar.js --refrescar --importantes --detalles 90 --sofascore-red >> scripts\refrescar.log 2>&1
+node --max-old-space-size=4096 scripts\importar.js --refrescar --importantes --detalles 90 >> scripts\refrescar.log 2>&1
 echo Importar: %ERRORLEVEL% >> scripts\refrescar.log
 
 REM Sube el archivo recortado a Supabase Storage para que los telefonos
