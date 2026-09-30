@@ -98,10 +98,21 @@ export default function Competiciones() {
                 borderColor: C.limaBorde,
               }}
             >
+              {/*
+                Aquí ponía una "x": un texto de relleno que se quedó sin
+                escribir y que veía todo el que no tiene plan, justo en la
+                pantalla donde elige qué liga quiere.
+              */}
               <Icono nombre="candado" tam={18} color={C.lima} />
-              <Txt v="pequeno" color={C.texto2} style={{ flex: 1 }}>
-                x
-              </Txt>
+              <View style={{ flex: 1 }}>
+                <Txt v="pequenoFuerte" color={C.lima}>
+                  Ahora mismo ves el pick gratis del día
+                </Txt>
+                <Txt v="pequeno" color={C.texto2}>
+                  Con Golden Pro se abren los análisis de las {disponibles.filter((c) => c.id !== TODAS).length} competiciones.
+                </Txt>
+              </View>
+              <Icono nombre="flechaDerecha" tam={16} color={C.lima} />
             </Tarjeta>
           </Pulsable>
         ) : null}

@@ -5,6 +5,7 @@ import {
   useContext,
   useEffect,
   useLayoutEffect,
+  useRef,
   useState,
 } from 'react';
 import { Platform } from 'react-native';
@@ -54,8 +55,31 @@ export function useOcultaPestanas(cargando: boolean) {
 }
 
 export default function LayoutPestanas() {
-  const [oculta, setOculta] = useState(false);
-  const avisa = useCallback((cargando: boolean) => setOculta(cargando), []);
+  /*
+   * Empieza escondida.
+   *
+   * Aunque la orden de esconderla llegue antes de pintar, el primer dibujo de
+   * este layout ocurre antes de que exista la pantalla que la pide, así que la
+   * barra asomaba un instante al entrar. Naciendo escondida no hay ningún
+   * momento en el que se vea con la carga delante.
+   *
+   * La red de seguridad de abajo es porque no todas las pantallas avisan: si
+   * alguien entra directo a Partidos o a Perfil —por un enlace, por ejemplo—,
+   * nadie diría nunca "ya está" y la barra se quedaría escondida para siempre.
+   */
+  const [oculta, setOculta] = useState(true);
+  const avisado = useRef(false);
+  const avisa = useCallback((cargando: boolean) => {
+    avisado.current = true;
+    setOculta(cargando);
+  }, []);
+
+  useEffect(() => {
+    const t = setTimeout(() => {
+      if (!avisado.current) setOculta(false);
+    }, 600);
+    return () => clearTimeout(t);
+  }, []);
 
   return (
     <Ctx.Provider value={avisa}>
