@@ -133,9 +133,37 @@ export function sinDetalle(): void {
  */
 const CON_ESTADISTICAS = new Set<string>();
 
+/*
+ * Lo que ya venía dentro del núcleo, por si acaso.
+ *
+ * El núcleo dejó de llevar las estadísticas el 2026-09-30, pero el que está
+ * publicado en ese momento todavía las lleva, y las apps que lo descargaron
+ * también. Si se mirara solo el archivo por ligas, durante esas horas la app
+ * diría "esto es de pago" a alguien que tiene el dato delante. Se comprueba
+ * también el propio archivo: si un partido jugado trae remates, esa liga tiene
+ * estadísticas, hayan llegado por donde hayan llegado.
+ */
+const MIRADAS = new Map<string, boolean>();
+alCambiar.push(() => MIRADAS.clear());
+
+function elNucleoLasTrae(competicionId: string): boolean {
+  const visto = MIRADAS.get(competicionId);
+  if (visto !== undefined) return visto;
+  const c = ARCHIVO.competiciones?.[competicionId];
+  const trae = !!c?.partidos?.some(
+    (p) =>
+      p.estado === 'finalizado' &&
+      ((p.estadisticas?.local?.remates ?? 0) > 0 || (p.estadisticas?.visitante?.remates ?? 0) > 0),
+  );
+  MIRADAS.set(competicionId, trae);
+  return trae;
+}
+
 export function hayEstadisticas(competicionId: string): boolean {
-  if (competicionId === 'todas') return CON_ESTADISTICAS.size > 0;
-  return CON_ESTADISTICAS.has(competicionId);
+  if (competicionId === 'todas') {
+    return CON_ESTADISTICAS.size > 0 || competicionesImportadas().some(elNucleoLasTrae);
+  }
+  return CON_ESTADISTICAS.has(competicionId) || elNucleoLasTrae(competicionId);
 }
 
 /**
