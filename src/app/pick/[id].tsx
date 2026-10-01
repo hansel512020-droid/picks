@@ -762,8 +762,13 @@ ${enlace}`;
           </Tarjeta>
         </View>
 
-        {/* ---------------------------------------------------------- serie */}
-        {contexto && contexto.serie.length > 2 ? (
+        {/* ---------------------------------------------------------- serie
+            Solo si hay valores de verdad. Las estadísticas de cada partido
+            viajan aparte y solo para quien ha comprado esa liga; cuando no
+            están, `completaPartido` las rellena con ceros y el gráfico salía
+            como una fila de barras vacías con "media 0,00" debajo. Un gráfico
+            a cero no es menos información: es información falsa. */}
+        {contexto && contexto.serie.filter((p) => p.valor > 0).length > 2 ? (
           <View style={{ paddingHorizontal: E.lg, gap: E.sm }}>
             <Txt v="subtitulo">Partido a partido</Txt>
             <Tarjeta style={{ padding: E.md, gap: E.md }}>

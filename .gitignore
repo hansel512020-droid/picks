@@ -72,3 +72,4 @@ scripts/refrescar-manual.log
 # Perfiles del motor de V8 (node --prof), que son de un rato y pesan mucho.
 isolate-*.log
 src/datos/detalle/
+src/datos/estadisticas/

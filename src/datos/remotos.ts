@@ -6,6 +6,7 @@ import {
   avisaRepintado,
   competicionesImportadas,
   fusionaDetalle,
+  fusionaEstadisticas,
   sinDetalle,
 } from './importado';
 import { aplicaLogos, sinLogosNuevos } from './imagenes';
@@ -376,6 +377,15 @@ async function bajaDetalleDeMisLigas(): Promise<void> {
     const todas = mias.has('*') ? competicionesImportadas() : [...mias];
     let pegados = 0;
     for (const liga of todas) {
+      /*
+       * Dos archivos por liga: los jugadores y las estadísticas de los
+       * partidos. Los dos son de pago y los dos se piden igual; las
+       * estadísticas primero porque sin ellas las comparativas de la ficha del
+       * partido salen en blanco, que es lo que más se nota.
+       */
+      const stats = await bajaGz(`${BASE}/estadisticas/${liga}.json.gz`, null);
+      if (stats && stats !== 'igual') fusionaEstadisticas(JSON.parse(stats.texto));
+
       const trozo = await bajaGz(`${BASE}/detalle/${liga}.json.gz`, null);
       if (trozo && trozo !== 'igual') {
         fusionaDetalle(JSON.parse(trozo.texto));

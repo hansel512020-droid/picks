@@ -24,7 +24,7 @@ import { SelloCasa, TarjetaPick } from '@/componentes/pick';
 import { alineacionesDelPartido, type OnceEquipo } from '@/datos/alineaciones';
 import { ANTIGUOS_POR_PERFIL, CASAS, casa as casaPorId } from '@/datos/casas';
 import { competicion } from '@/datos/competiciones';
-import { equiposImportados, partidosDelEquipoEnTodas } from '@/datos/importado';
+import { equiposImportados, hayEstadisticas, partidosDelEquipoEnTodas } from '@/datos/importado';
 import { extrasDelPartido, type Extras } from '@/datos/penales';
 import { alineacion, lesiones, posicionesEnLiga, temporada } from '@/datos/motor';
 import { coma, desglose1x2, FAMILIAS } from '@/datos/picks';
@@ -1404,6 +1404,40 @@ function Duelo({
         equipoB={datos.b.equipo}
       />
 
+      {/*
+        Sin las estadísticas de esta liga no se pintan barras a cero.
+        *
+        * Los remates, córners, tarjetas y posesión de cada partido solo se le
+        * mandan a quien ha comprado la liga: son con lo que se rehacen los
+        * picks de equipo. Para el que no la tiene, estas comparativas no son
+        * "0.00 contra 0.00" —eso parece una app rota—, son algo que se compra.
+        * El cara a cara de arriba sí se queda: sale de los marcadores, que son
+        * públicos.
+      */}
+      {!hayEstadisticas(competicionId) ? (
+        <Pulsable onPress={() => router.push('/pro')}>
+          <Tarjeta
+            style={{
+              padding: E.md,
+              gap: 6,
+              backgroundColor: C.limaTenue,
+              borderColor: C.limaBorde,
+            }}
+          >
+            <View style={{ flexDirection: 'row', alignItems: 'center', gap: 8 }}>
+              <Icono nombre="candado" tam={15} color={C.lima} />
+              <Txt v="pequenoFuerte" color={C.lima}>
+                Comparativa con Golden Pro
+              </Txt>
+            </View>
+            <Txt v="pequeno" color={C.texto2}>
+              Remates, córners, tarjetas, posesión y xG de los últimos diez partidos de cada equipo,
+              uno al lado del otro.
+            </Txt>
+          </Tarjeta>
+        </Pulsable>
+      ) : null}
+
       <View style={{ flexDirection: 'row', alignItems: 'center', justifyContent: 'space-between' }}>
         <Txt v="cuerpoFuerte">{datos.a.equipo.corto}</Txt>
         <Txt v="mini" color={C.texto3}>
@@ -1426,7 +1460,7 @@ function Duelo({
         </Txt>
       </View>
 
-      {filas.map((f) => {
+      {(hayEstadisticas(competicionId) ? filas : filas.filter((f) => f.etiqueta.includes('Goles'))).map((f) => {
         const total = f.a + f.b || 1;
         const pa = (f.a / total) * 100;
         return (

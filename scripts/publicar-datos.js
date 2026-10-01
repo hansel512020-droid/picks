@@ -190,7 +190,21 @@ async function main() {
   const detalle = { actualizado: datos.actualizado, competiciones: {} };
   let totalRegistros = 0;
   for (const [id, c] of Object.entries(datos.competiciones ?? {})) {
-    nucleo.competiciones[id] = { ...c, jugadores: [], registros: [] };
+    /*
+     * El núcleo va SIN las estadísticas de cada partido.
+     *
+     * Lleva el calendario, los equipos y los marcadores, que son públicos y
+     * están en cualquier web. Los remates, córners, tarjetas y posesión salen
+     * aparte (`estadisticas/<liga>.json.gz`) porque son con lo que se rehacen
+     * los picks de equipo: entregárselos a cualquiera con cuenta era dejar
+     * abierta la puerta que acabamos de cerrar con los jugadores.
+     */
+    nucleo.competiciones[id] = {
+      ...c,
+      jugadores: [],
+      registros: [],
+      partidos: (c.partidos ?? []).map(({ estadisticas, ...resto }) => resto),
+    };
     detalle.competiciones[id] = { jugadores: c.jugadores ?? [], registros: c.registros ?? [] };
     totalRegistros += c.registros?.length ?? 0;
   }
@@ -256,8 +270,49 @@ async function main() {
   subeConLaCli(detalleGz, 'detalle.json.gz');
 
   publicaDetallePorLiga(datos);
+  publicaEstadisticasPorLiga(datos);
 
   console.log('\nPublicado. Los usuarios recibirán la versión nueva en su próxima visita.');
+}
+
+/**
+ * Las estadísticas de cada partido, un archivo por competición.
+ *
+ * Remates, remates a puerta, córners, tarjetas, posesión y xG. Es lo que queda
+ * del muro: con esto y el motor —que es público— se rehacen los picks de
+ * equipo y de partido, que son el 31% del catálogo. Van aparte del núcleo para
+ * poder entregárselas solo a quien ha comprado esa liga, igual que los
+ * jugadores.
+ *
+ * Lo que SÍ sigue en el núcleo, abierto a cualquiera con cuenta: el
+ * calendario, los equipos y los marcadores. Eso está en cualquier web de
+ * resultados y cerrarlo solo serviría para que la app no funcionara.
+ */
+function publicaEstadisticasPorLiga(datos) {
+  const dir = path.join(RAIZ, 'src', 'datos', 'estadisticas');
+  fs.mkdirSync(dir, { recursive: true });
+
+  let subidas = 0;
+  let pesoTotal = 0;
+  for (const [id, c] of Object.entries(datos.competiciones ?? {})) {
+    const conDato = (c.partidos ?? []).filter((p) => p.estadisticas);
+    if (!conDato.length) continue;
+    const trozo = {
+      actualizado: datos.actualizado,
+      competiciones: {
+        [id]: { partidos: conDato.map((p) => ({ id: p.id, estadisticas: p.estadisticas })) },
+      },
+    };
+    const gz = zlib.gzipSync(Buffer.from(JSON.stringify(trozo)), { level: 9 });
+    const ruta = path.join(dir, `${id}.json.gz`);
+    fs.writeFileSync(ruta, gz);
+    subeConLaCli(ruta, `estadisticas/${id}.json.gz`);
+    subidas++;
+    pesoTotal += gz.length;
+  }
+  console.log(
+    `Estadísticas por liga: ${subidas} archivos · ${(pesoTotal / 1024 / 1024).toFixed(2)} MB en total`,
+  );
 }
 
 /**

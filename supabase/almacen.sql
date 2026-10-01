@@ -35,12 +35,18 @@ create policy "datos: nucleo a todos, jugadores solo tus ligas"
   using (
     bucket_id = 'datos'
     and (
-      -- Lo que no son jugadores: núcleo, escudos y lo que venga.
-      (name not like 'detalle%' and name <> 'importado.json.gz')
+      -- Lo abierto: el núcleo (calendario, equipos y marcadores, que están en
+      -- cualquier web de resultados) y los escudos.
+      (
+        name not like 'detalle%'
+        and name not like 'estadisticas/%'
+        and name <> 'importado.json.gz'
+      )
 
-      -- Los jugadores de una liga: hace falta tener esa liga.
+      -- Los jugadores y las estadisticas de una liga: hace falta tener esa
+      -- liga. Son las dos cosas con las que se rehacen los picks.
       or (
-        name like 'detalle/%'
+        (name like 'detalle/%' or name like 'estadisticas/%')
         and exists (
           select 1
             from public.derechos d
@@ -48,7 +54,8 @@ create policy "datos: nucleo a todos, jugadores solo tus ligas"
              and (d.caduca is null or d.caduca > now())
              and (
                d.competicion = 'todas'
-               or d.competicion = split_part(replace(name, 'detalle/', ''), '.', 1)
+               or d.competicion = split_part(
+                    replace(replace(name, 'detalle/', ''), 'estadisticas/', ''), '.', 1)
              )
         )
       )

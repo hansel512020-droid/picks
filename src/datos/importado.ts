@@ -119,6 +119,52 @@ export function sinDetalle(): void {
   for (const repinta of alLlegarMas) repinta();
 }
 
+/*
+ * De qué ligas han llegado las estadísticas de partido.
+ *
+ * El núcleo trae el calendario, los equipos y los marcadores —que son públicos
+ * y están en cualquier web— pero ya no trae los remates, córners, tarjetas y
+ * posesión de cada partido: eso es con lo que se rehacen los picks de equipo,
+ * así que viaja aparte y solo para quien ha comprado esa liga.
+ *
+ * Las pantallas lo consultan para saber si enseñar las comparativas o decir
+ * que son parte de Golden Pro. Sin esto pintarían ceros, que parece una app
+ * rota en vez de contenido de pago.
+ */
+const CON_ESTADISTICAS = new Set<string>();
+
+export function hayEstadisticas(competicionId: string): boolean {
+  if (competicionId === 'todas') return CON_ESTADISTICAS.size > 0;
+  return CON_ESTADISTICAS.has(competicionId);
+}
+
+/**
+ * Pega las estadísticas de los partidos de una competición sobre el núcleo.
+ * Llega después y por separado, igual que el detalle de jugadores.
+ */
+export function fusionaEstadisticas(trozo: unknown): void {
+  const d = trozo as {
+    competiciones?: Record<string, { partidos?: { id: string; estadisticas?: unknown }[] }>;
+  };
+  const comps = d?.competiciones;
+  if (!comps) return;
+  for (const [id, parte] of Object.entries(comps)) {
+    const c = ARCHIVO.competiciones?.[id];
+    if (!c || !parte.partidos?.length) continue;
+    const porId = new Map(parte.partidos.map((p) => [p.id, p.estadisticas]));
+    for (const p of c.partidos ?? []) {
+      const est = porId.get(p.id);
+      if (est) (p as { estadisticas?: unknown }).estadisticas = est;
+    }
+    CON_ESTADISTICAS.add(id);
+  }
+  CACHE.clear();
+  HISTORIALES.clear();
+  INDICE = null;
+  for (const rehacer of alCambiar) rehacer();
+  for (const repinta of alLlegarMas) repinta();
+}
+
 /**
  * Pega el detalle por jugador (jugadores y registros) sobre el núcleo ya
  * cargado. Es la segunda pieza de la descarga: llega después y sin ella la app
