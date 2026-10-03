@@ -195,6 +195,107 @@ function paraElVigia() {
   vigiaReloj = null;
 }
 
+/*
+ * ¿Son el mismo partido, visto por dos fuentes que escriben distinto?
+ *
+ * Se casa por pareja de equipos y fecha cercana. Football-Data abrevia y no
+ * siempre por delante: escribe "Vallecano" donde ESPN pone "Rayo Vallecano", y
+ * "Ath Bilbao" donde pone "Athletic Club". Comparar por prefijo dejaba fuera
+ * media LaLiga, asi que se mira si uno contiene al otro. Con los dos equipos y
+ * la fecha cuadrando a la vez, un falso positivo es practicamente imposible.
+ */
+const claveDeEquipo = (n) =>
+  (n || '')
+    .toLowerCase()
+    .normalize('NFD')
+    .replace(/[̀-ͯ]/g, '')
+    .replace(/[^a-z0-9]/g, '');
+
+/*
+ * Nombres de equipo, palabra por palabra.
+ *
+ * Hace falta porque las abreviaturas de Football-Data cortan por dentro:
+ * escribe "Man United" donde ESPN pone "Manchester United", "Nott'm Forest"
+ * por "Nottingham Forest" y "Wolves" por "Wolverhampton Wanderers". Con
+ * "contiene" no encaja ninguna de las tres, y eso dejaba fuera a los dos
+ * Manchester, el Nottingham y el Wolverhampton: 352 de 810 partidos de la
+ * Premier sin precio.
+ *
+ * Por parecido tampoco: medido el 2026-10-03, a "Man United" el parecido le
+ * pone **Hull City** de primero, y a "Nott'm Forest" le pone Brentford por
+ * delante de Nottingham Forest. Un precio pegado al partido equivocado
+ * ensucia lo unico con lo que se puede medir el sistema, asi que el parecido
+ * solo se usa como ultimo recurso y cuando es alto de verdad.
+ *
+ * La regla: cada palabra del nombre corto tiene que encontrar pareja en el
+ * largo. Una pareja vale si son iguales, si una empieza por la otra, o si
+ * comparten cuatro letras de principio. Asi "man"⊂"manchester" y
+ * "nottm"~"nottingham" encajan, pero "united" no encaja con "city", que es lo
+ * que evita confundir a los dos Manchester.
+ */
+function casanLosNombres(x, y) {
+  const [p, q] = [claveDeEquipo(x), claveDeEquipo(y)];
+  if (!p || !q) return false;
+  if (p === q) return true;
+
+  const palabras = (n) =>
+    (n || '')
+      .toLowerCase()
+      .normalize('NFD')
+      .replace(/[̀-ͯ]/g, '')
+      .split(/[^a-z0-9]+/)
+      .filter((t) => t.length >= 2 && !['fc', 'cf', 'ac', 'sc', 'de', 'el', 'la'].includes(t));
+
+  const casaPalabra = (a, b) => {
+    if (a === b) return true;
+    if (a.startsWith(b) || b.startsWith(a)) return true;
+    let comun = 0;
+    while (comun < a.length && comun < b.length && a[comun] === b[comun]) comun++;
+    return comun >= 4 && a.length >= 4 && b.length >= 4;
+  };
+
+  const [cortas, largas] = (() => {
+    const a = palabras(x);
+    const b = palabras(y);
+    return a.length <= b.length ? [a, b] : [b, a];
+  })();
+  if (cortas.length && largas.length && cortas.every((t) => largas.some((u) => casaPalabra(t, u)))) {
+    return true;
+  }
+
+  // Y de ultimo, el parecido, solo cuando es casi exacto ("Tottenham" contra
+  // "Tottenham Hotspur" da 0,90; los falsos positivos de arriba no pasan de 0,31).
+  return construir.parecido(x, y) >= 0.8;
+}
+
+function esElMismoPartido(a, b, diasTope = 2) {
+  const dias = Math.abs(new Date(a.fecha) - new Date(b.fecha)) / 86400000;
+  if (!(dias <= diasTope)) return false;
+  return casanLosNombres(a.local, b.local) && casanLosNombres(a.visitante, b.visitante);
+}
+
+/*
+ * El precio de verdad, en tres numeros.
+ *
+ * Football-Data publica hasta once casas por partido, y eso son cientos de
+ * numeros por jornada que no caben en el archivo que bajan los telefonos (por
+ * eso `porCasa` se vacia en los partidos terminados, mas abajo). Pero para
+ * medir el sistema basta UN precio por resultado, el que habia antes de que se
+ * jugara. Se prefiere bet365 por ser la referencia mas comun; si no esta, la
+ * media de las casas que publicaron, que es mas honrada que la mejor cuota
+ * -nadie consigue sistematicamente la mejor de once-.
+ */
+function precioDeReferencia(porCasa) {
+  if (!porCasa) return null;
+  for (const casa of ['bet365', 'media', 'pinnacle', 'williamhill', 'bwin']) {
+    const c = porCasa[casa];
+    if (c?.local > 0 && c?.empate > 0 && c?.visitante > 0) {
+      return { local: c.local, empate: c.empate, visitante: c.visitante, casaResumen: casa };
+    }
+  }
+  return null;
+}
+
 /** Deja el archivo listo para escribir: sin ceros, sin objetos vacios y sin exceso de registros. */
 function adelgaza(acumulado) {
   // 40 y no 25: el modelo mira los 20 mas recientes para la racha, pero la
@@ -838,35 +939,10 @@ async function importaCompeticion(id, opciones, catalogo, clave, sofa) {
         process.stdout.write('  Football-Data (cuotas de casas europeas)… ');
         try {
           const deFD = await fd.proximos(fuentes, dirCache, opciones.forzar || opciones.refrescar);
-          const clave = (n) =>
-            (n || '')
-              .toLowerCase()
-              .normalize('NFD')
-              .replace(/[̀-ͯ]/g, '')
-              .replace(/[^a-z0-9]/g, '');
 
           let pegadas = 0;
           for (const p of proximos) {
-            /*
-             * Se casa por pareja de equipos y fecha cercana. Football-Data
-             * abrevia y no siempre por delante: escribe "Vallecano" donde ESPN
-             * pone "Rayo Vallecano", y "Ath Bilbao" donde pone "Athletic Club".
-             * Comparar por prefijo dejaba fuera media LaLiga, asi que se mira
-             * si uno contiene al otro. Con los dos equipos y la fecha cuadrando
-             * a la vez, un falso positivo es practicamente imposible.
-             */
-            const encaje = deFD.find((f) => {
-              const dias = Math.abs(new Date(f.fecha) - new Date(p.fecha)) / 86400000;
-              if (dias > 2) return false;
-              const casan = (x, y) => {
-                const [a, b] = [clave(x), clave(y)];
-                if (!a || !b) return false;
-                // Con menos de cuatro letras "contiene" empareja cualquier cosa.
-                const corto = Math.min(a.length, b.length);
-                return corto >= 4 && (a.includes(b) || b.includes(a));
-              };
-              return casan(f.local, p.local) && casan(f.visitante, p.visitante);
-            });
+            const encaje = deFD.find((f) => esElMismoPartido(f, p));
             if (!encaje?.cuotas?.porCasa) continue;
 
             // Las de Football-Data mandan sobre las de ESPN: son las casas con
@@ -1162,10 +1238,133 @@ async function importaCompeticion(id, opciones, catalogo, clave, sofa) {
     console.log(`${hechos} completados`);
   }
 
+  /*
+   * ── El precio que de verdad habia, en los partidos ya jugados ─────────────
+   *
+   * Sin esto no se puede decir si el sistema gana dinero, y punto.
+   *
+   * ESPN retira la cuota en cuanto el partido acaba, asi que de los terminados
+   * no quedaba ninguna: 1.037 partidos jugados de la Premier, los 1.037 con
+   * ceros. El backtest solo podia evaluar los picks cuyo precio pone el propio
+   * modelo, que es el modelo midiendose contra si mismo, y de ahi salian
+   * retornos que no existen fuera del ordenador.
+   *
+   * Football-Data publica bet365, Pinnacle, William Hill, Betfair, Bwin y
+   * 1xBet de TODOS los partidos jugados de las ligas europeas, temporada por
+   * temporada. Se estaba bajando ya... pero solo para las competiciones que no
+   * estan en ESPN (`if (fuentes.fd && !slugEspn)`, mas arriba), que son justo
+   * las que menos importan. En Premier, LaLiga, Serie A, Bundesliga y Ligue 1
+   * no se llegaba a mirar nunca.
+   *
+   * Aqui se pega encima de lo que ya trajo ESPN. Tres numeros por partido -el
+   * 1X2 de bet365, o la media si bet365 no publico- que se quedan guardados y
+   * van llenando un historial de precios reales con el que el backtest si
+   * puede decir algo. Encontrado el 2026-10-03.
+   */
+  if (fuentes.fd && slugEspn) {
+    process.stdout.write('  Football-Data (precios de los partidos jugados)… ');
+    try {
+      const jugadosFD = await fd.historial(fuentes, temporadas, dirCache, opciones.forzar);
+
+      // Por dia, para no recorrer mil filas por cada partido.
+      const porDia = new Map();
+      for (const f of jugadosFD) {
+        const dia = f.fecha.slice(0, 10);
+        if (!porDia.has(dia)) porDia.set(dia, []);
+        porDia.get(dia).push(f);
+      }
+      const candidatos = (fecha) => {
+        const t = new Date(fecha).getTime();
+        const salida = [];
+        for (const d of [-1, 0, 1]) {
+          const dia = new Date(t + d * 86400000).toISOString().slice(0, 10);
+          const lista = porDia.get(dia);
+          if (lista) salida.push(...lista);
+        }
+        return salida;
+      };
+
+      /*
+       * Los partidos ya construidos guardan `localId`, no el nombre: el nombre
+       * vive en la lista de equipos. Comparar `p.local` contra Football-Data
+       * era comparar contra `undefined`, y de ahi el "0 de 1037" de la primera
+       * version de esto.
+       */
+      const nombreDe = new Map((equipos ?? []).map((e) => [e.id, e.nombre]));
+
+      /*
+       * Un diccionario por competicion, y solo con los nombres que no dejan
+       * duda.
+       *
+       * Emparejar nombre a nombre, partido a partido, tiene una trampa: en la
+       * Serie A Football-Data escribe "Milan" por el AC Milan, y ese nombre se
+       * parece igual al "AC Milan" y al "Inter Milan" nuestros. Buscando el
+       * primero que encaje, la mitad de las veces el precio se pegaria al
+       * equipo equivocado, y un precio falso es peor que no tener precio:
+       * ensucia justo la medida que se quiere hacer honesta.
+       *
+       * Asi que primero se resuelve cada nombre de Football-Data contra los
+       * nuestros, y se acepta solo cuando encaja con UNO. Si encaja con dos o
+       * con ninguno, esa pareja se queda sin precio y se dice cuantas son.
+       */
+      const nuestros = [...new Set(nombreDe.values())].filter(Boolean);
+      const suyos = new Set();
+      for (const f of jugadosFD) {
+        if (f.local) suyos.add(f.local);
+        if (f.visitante) suyos.add(f.visitante);
+      }
+      const diccionario = new Map();
+      let conDuda = 0;
+      for (const suyo of suyos) {
+        const encajan = nuestros.filter((n) => casanLosNombres(suyo, n));
+        if (encajan.length === 1) diccionario.set(suyo, encajan[0]);
+        else if (encajan.length > 1) conDuda++;
+      }
+
+      let pegados = 0;
+      let yaTenian = 0;
+      for (const p of partidos) {
+        if (p.estado !== 'finalizado') continue;
+        if (p.cuotas?.local > 0) {
+          yaTenian++;
+          continue;
+        }
+        const miLocal = nombreDe.get(p.localId);
+        const miVisitante = nombreDe.get(p.visitanteId);
+        const encaje = candidatos(p.fecha).find(
+          (f) => diccionario.get(f.local) === miLocal && diccionario.get(f.visitante) === miVisitante,
+        );
+        const precio = precioDeReferencia(encaje?.cuotas?.porCasa);
+        if (!precio) continue;
+        p.cuotas = {
+          ...(p.cuotas ?? {}),
+          ...precio,
+          mas25: encaje.cuotas.mas25 ?? p.cuotas?.mas25 ?? 0,
+          menos25: encaje.cuotas.menos25 ?? p.cuotas?.menos25 ?? 0,
+        };
+        pegados++;
+      }
+      const jugadosTotal = partidos.filter((p) => p.estado === 'finalizado').length;
+      console.log(
+        `${pegados + yaTenian} de ${jugadosTotal} con precio real` +
+          (conDuda ? ` · ${conDuda} nombres con duda, sin precio` : ''),
+      );
+    } catch (e) {
+      console.log(`no disponible (${e.message})`);
+    }
+  }
+
   // -------------------------------------------------- 4. jugadores y registros
-  // Los partidos ya jugados no necesitan el desglose de las diez casas: nadie
-  // apuesta un partido terminado. Guardar solo el 1X2 de resumen recorta el
-  // archivo casi a la mitad y no quita nada que la app enseñe.
+  /*
+   * Los partidos ya jugados no necesitan el desglose de las once casas: nadie
+   * apuesta un partido terminado. Guardar solo el 1X2 de resumen recorta el
+   * archivo casi a la mitad y no quita nada que la app enseñe.
+   *
+   * OJO: se vacia `porCasa` y NADA MAS. El 1X2 de arriba es el precio real que
+   * acaba de pegarse y es lo unico con lo que se puede medir el sistema; si
+   * esta linea se lleva tambien eso, el backtest vuelve a quedarse sin con que
+   * comparar y no se nota hasta que alguien pregunta cuanto gana.
+   */
   for (const p of partidos) {
     if (p.estado === 'finalizado' && p.cuotas) p.cuotas.porCasa = {};
   }
