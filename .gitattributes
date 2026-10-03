@@ -1,0 +1,30 @@
+# ─────────────────────────────────────────────────────────────────────────────
+#  Finales de línea.
+#
+#  Los .cmd TIENEN que ir con finales de línea de Windows (CRLF).
+#
+#  No es manía de estilo: cmd.exe no lee el archivo de una vez, va saltando por
+#  posiciones de byte, y si los saltos de línea son de Unix (solo LF) las
+#  cuentas le salen mal y continúa A MITAD DE UNA LÍNEA. El 3 de octubre de 2026
+#  se encontró así `scripts/refrescar.cmd`: 103 líneas, ni un CRLF, y el
+#  registro lleno de errores del tipo «"calendario" no se reconoce como un
+#  comando» porque estaba intentando ejecutar trozos sueltos de los comentarios.
+#  Lo grave no son los comentarios: con los saltos mal, cmd puede también
+#  cortar o saltarse un comando de verdad, y ahí ya no hay error que mirar.
+#
+#  Con esto, git lo guarda normalizado y lo deja en disco siempre como CRLF,
+#  venga de donde venga y lo edite quien lo edite.
+# ─────────────────────────────────────────────────────────────────────────────
+
+*.cmd text eol=crlf
+*.bat text eol=crlf
+*.ps1 text eol=crlf
+
+# Lo demás, con finales de Unix: es lo que esperan Node, Vercel y las Actions.
+*.js   text eol=lf
+*.ts   text eol=lf
+*.tsx  text eol=lf
+*.json text eol=lf
+*.yml  text eol=lf
+*.sql  text eol=lf
+*.md   text eol=lf

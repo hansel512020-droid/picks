@@ -146,6 +146,55 @@ function tomaElCerrojo() {
   return true;
 }
 
+/*
+ * El vigia.
+ *
+ * El cerrojo protege de dos importaciones a la vez. No protege de UNA que no
+ * termina nunca, que es lo que pasó el 2 de octubre: el proceso se quedó
+ * esperando una descarga, la tarea de Windows siguió marcada como "en marcha"
+ * y —con `IgnoreNew`— rechazó las cinco pasadas siguientes. Catorce horas sin
+ * datos nuevos, y en el log ni una linea de error, porque no hubo error.
+ *
+ * Ahora cada paso ficha aqui. Si pasan TOPE minutos sin fichar, se da la
+ * importacion por colgada, se dice en qué se quedó y se sale con error: el
+ * cerrojo se suelta en el `exit`, Windows marca la tarea terminada y la
+ * siguiente pasada entra limpia. Mejor una pasada perdida con su aviso que un
+ * bot callado durante un dia.
+ *
+ * El reloj de cada descarga (scripts/lib/http.js) corta lo normal; esto es la
+ * red de debajo, para lo que no se previo.
+ */
+const VIGIA_TOPE = 20 * 60 * 1000;
+let vigiaPaso = 'arrancando';
+let vigiaReloj = null;
+
+function fichaPaso(que) {
+  vigiaPaso = que;
+  if (vigiaReloj) {
+    clearTimeout(vigiaReloj);
+    vigiaReloj = setTimeout(() => {
+      console.error(
+        `\n⛔ La importación lleva ${VIGIA_TOPE / 60000} min parada en «${vigiaPaso}».\n` +
+          '   Se da por colgada y se corta para no bloquear las siguientes pasadas.',
+      );
+      process.exit(1);
+    }, VIGIA_TOPE);
+    // Que el vigia no sea lo unico que mantiene vivo al proceso.
+    vigiaReloj.unref?.();
+  }
+}
+
+function arrancaElVigia() {
+  vigiaReloj = setTimeout(() => {}, VIGIA_TOPE);
+  vigiaReloj.unref?.();
+  fichaPaso('arrancando');
+}
+
+function paraElVigia() {
+  if (vigiaReloj) clearTimeout(vigiaReloj);
+  vigiaReloj = null;
+}
+
 /** Deja el archivo listo para escribir: sin ceros, sin objetos vacios y sin exceso de registros. */
 function adelgaza(acumulado) {
   // 40 y no 25: el modelo mira los 20 mas recientes para la racha, pero la
@@ -1265,6 +1314,10 @@ async function importaCompeticion(id, opciones, catalogo, clave, sofa) {
     id,
     nombre: meta.nombre,
     partidos: partidos.length,
+    // La fecha del partido mas lejano que se conoce. Es lo que delata que una
+    // fuente ha dejado de publicar: los partidos viejos siguen ahi, pero el
+    // calendario deja de crecer. Ver el aviso de «sin calendario» en el parte.
+    ultimo: partidos.reduce((a, p) => (p.fecha > a ? p.fecha : a), ''),
     jugadores: jugadores.length,
     enSofascore: !!sofared.TORNEOS[id],
     pegadosSofa: redSofa?.pegados ?? 0,
@@ -1390,8 +1443,11 @@ async function main() {
     }
   }
 
+  arrancaElVigia();
+
   for (const id of o.ligas) {
     console.log(`${catalogo[id]?.nombre ?? id}`);
+    fichaPaso(`${catalogo[id]?.nombre ?? id}`);
     try {
       const anterior = acumulado.competiciones[id];
       acumulado.competiciones[id] = conservaCuotas(
@@ -1412,16 +1468,18 @@ async function main() {
     console.log('');
   }
 
+  fichaPaso('guardando el archivo');
   acumulado.actualizado = new Date().toISOString();
   fs.mkdirSync(path.dirname(SALIDA), { recursive: true });
   fs.writeFileSync(SALIDA, JSON.stringify(adelgaza(acumulado)));
+  paraElVigia();
 
   const total = Object.keys(acumulado.competiciones).length;
   const tamano = (fs.statSync(SALIDA).size / 1024 / 1024).toFixed(2);
   console.log(`Guardado en src/datos/importado.json · ${total} competiciones · ${tamano} MB`);
   console.log('Reinicia la app para verlas con datos reales.\n');
 
-  parteFinal(tamano);
+  parteFinal(tamano, o);
 }
 
 /**
@@ -1431,7 +1489,7 @@ async function main() {
  * es que se pueda mirar el final del registro y decidir en tres segundos si hay
  * que hacer algo, sin releer cien líneas de descargas.
  */
-function parteFinal(tamanoMb) {
+function parteFinal(tamanoMb, o = {}) {
   if (!PARTE.length) return;
 
   const enSofa = PARTE.filter((c) => c.enSofascore);
@@ -1450,17 +1508,37 @@ function parteFinal(tamanoMb) {
   // El plural, bien puesto: este parte se lee con prisa y de madrugada.
   const liga = (n) => `${n} ${n === 1 ? 'competición' : 'competiciones'}`;
 
-  console.log(
-    `  SofaScore: ${conSofa.length} con datos${huella ? ` (huella ${huella})` : ''} · ` +
-      `${sinSofa.length} sin nada · ${fuera.length} fuera de SofaScore`,
-  );
+  /*
+   * SofaScore está APAGADO a propósito desde el 30 de septiembre: se decidió
+   * sacarlo todo de ESPN. Así que "SofaScore no trajo nada" dejó de ser una
+   * avería y pasó a ser lo esperado, pero el parte seguía sacándolo en el
+   * bloque de ⚠ todas las noches. Un aviso que salta siempre no es un aviso:
+   * es ruido, y acostumbra a no mirar el parte.
+   *
+   * Ahora solo se avisa cuando SofaScore está encendido y aun así no trae
+   * nada, que sí es una avería.
+   */
+  const apagado = o.sinSofascore || !o.sofascoreRed;
+  const bloqueados = sofared.nosBloquearon?.() ?? false;
+
+  if (apagado) {
+    console.log(
+      `  SofaScore: apagado (todo sale de ESPN)` +
+        (bloqueados ? ' · además nos tiene bloqueados, por si vuelve a hacer falta' : ''),
+    );
+  } else {
+    console.log(
+      `  SofaScore: ${conSofa.length} con datos${huella ? ` (huella ${huella})` : ''} · ` +
+        `${sinSofa.length} sin nada · ${fuera.length} fuera de SofaScore`,
+    );
+  }
 
   /*
    * Y aquí lo que hay que mirar. Con nombre y apellidos: "algo falló" no sirve
    * de nada a las tres de la mañana.
    */
   const problemas = [];
-  if (sinSofa.length) {
+  if (!apagado && sinSofa.length) {
     problemas.push(
       `SofaScore no trajo NADA en ${sinSofa.length} de ${enSofa.length} competiciones ` +
         `(${sinSofa.slice(0, 6).map((c) => c.id).join(', ')}${sinSofa.length > 6 ? '…' : ''}).\n` +
@@ -1468,12 +1546,39 @@ function parteFinal(tamanoMb) {
         '     Comprueba con:  node scripts/probar-sofascore.js',
     );
   }
-  if (cortadas.length) {
+  if (!apagado && cortadas.length) {
     problemas.push(`SofaScore cortó a mitad en ${liga(cortadas.length)}. Lo bajado queda en caché.`);
   }
   if (vacias.length) {
     problemas.push(
       `${liga(vacias.length)} sin un solo partido: ` + vacias.map((c) => c.id).join(', '),
+    );
+  }
+
+  /*
+   * Fuentes muertas.
+   *
+   * ESPN dejó de publicar el calendario de Suiza y Rumanía a finales de
+   * septiembre de 2025. La importación no falló ni un solo día —seguía bajando
+   * sus partidos viejos de caché y dándolos por buenos—, así que el parte dijo
+   * «todo correcto» durante un año entero mientras esas dos ligas se quedaban
+   * congeladas. Se descubrió de casualidad el 3 de octubre de 2026.
+   *
+   * Una liga viva siempre tiene algún partido por delante. Si lo más nuevo que
+   * se conoce de ella ya pasó hace más de un mes, o la temporada terminó o la
+   * fuente dejó de dar el calendario; en ambos casos hay que mirarlo, y mejor
+   * una pregunta de más que otro año en silencio.
+   */
+  const haceUnMes = new Date(Date.now() - 35 * 86400000).toISOString();
+  const congeladas = PARTE.filter((c) => c.partidos > 0 && c.ultimo && c.ultimo < haceUnMes);
+  if (congeladas.length) {
+    problemas.push(
+      `${liga(congeladas.length)} sin calendario por delante —o terminó la temporada, o la ` +
+        'fuente dejó de publicarlos:\n     ' +
+        congeladas
+          .sort((a, b) => (a.ultimo < b.ultimo ? -1 : 1))
+          .map((c) => `${c.id} (lo último, ${c.ultimo.slice(0, 10)})`)
+          .join(', '),
     );
   }
 

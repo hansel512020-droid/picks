@@ -78,6 +78,10 @@ const HUELLAS = ['safari17_0', 'firefox133', 'chrome136'];
 /** Cual se esta usando. Vale para toda la ejecucion: no se busca en cada liga. */
 let huella = 0;
 
+// Estado de la pasada entera, no de un cliente. Ver «la puerta cerrada».
+let puertaCerrada = false;
+let ligasRechazadas = 0;
+
 const peticion = (cual = huella) => ({
   impersonate: HUELLAS[cual],
   timeout: 25,
@@ -264,6 +268,22 @@ class Cliente {
     if (this.cortado) return null;
 
     /*
+     * La puerta cerrada: un corte para TODA la pasada, no para una liga.
+     *
+     * `this.cortado` vive en el cliente, y se hace un cliente por competicion.
+     * Cuando SofaScore nos tiene bloqueados de verdad —403 en las tres huellas,
+     * que es como esta desde el 2 de octubre— cada liga volvia a pagar el
+     * peaje entero: tres huellas por tres peticiones, con su pausa de 3 a 7
+     * segundos cada una. Minuto largo por liga, ocho pasadas al dia, para
+     * recibir el mismo "no" nueve veces seguidas.
+     *
+     * Con dos ligas rechazadas de pleno se da por cerrada la puerta y las
+     * demas ni lo intentan. Si manana vuelve a abrirse, la siguiente pasada
+     * empieza con la puerta abierta otra vez: esto no se guarda en disco.
+     */
+    if (puertaCerrada) return null;
+
+    /*
      * Un 403 puede ser "no te queremos aqui" o "esa huella ya no cuela". Antes
      * se daban por lo mismo y a los tres seguidos se cerraba el grifo para toda
      * la importacion; el dia que SofaScore dejo de aceptar Chrome, eso significo
@@ -313,7 +333,18 @@ class Cliente {
 
     if (respuesta.status === 403 || respuesta.status === 429) {
       this.fallos++;
-      if (this.fallos >= 3) this.cortado = true;
+      if (this.fallos >= 3) {
+        this.cortado = true;
+        // Ninguna huella colo en esta liga. A la segunda, se cierra la puerta
+        // para el resto de la pasada (ver arriba).
+        if (++ligasRechazadas >= 2 && !puertaCerrada) {
+          puertaCerrada = true;
+          console.error(
+            '  (SofaScore nos tiene bloqueados: se deja de intentar en esta pasada.\n' +
+              '   Para comprobarlo:  node scripts/probar-sofascore.js)',
+          );
+        }
+      }
       return null;
     }
     if (respuesta.status === 404) {
@@ -624,4 +655,7 @@ module.exports = {
   // Para `scripts/probar-sofascore.js`: la prueba tiene que usar exactamente
   // las mismas huellas que el bot, o no dice nada de lo que el bot hace.
   HUELLAS,
+  // Para el parte final: distinguir "SofaScore no trajo nada porque nos tiene
+  // bloqueados" de "no trajo nada y no sabemos por que".
+  nosBloquearon: () => puertaCerrada,
 };

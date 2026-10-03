@@ -85,7 +85,12 @@ class Buscador {
       this.peticiones++;
 
       try {
-        const r = await fetch(url, { headers: { 'user-agent': 'scout-picks/1.0' } });
+        // Con reloj: sin el, una respuesta que no llega cuelga la importacion
+        // entera (ver el comentario de scripts/lib/http.js).
+        const r = await fetch(url, {
+          headers: { 'user-agent': 'scout-picks/1.0' },
+          signal: AbortSignal.timeout(45_000),
+        });
         if (r.ok) {
           const datos = await r.json();
           this.cache[url] = datos;

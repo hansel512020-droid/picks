@@ -60,7 +60,10 @@ class Cliente {
       return null;
     }
 
-    const respuesta = await fetch(url, { headers: { 'x-apisports-key': this.clave } });
+    const respuesta = await fetch(url, {
+      headers: { 'x-apisports-key': this.clave },
+      signal: AbortSignal.timeout(45_000),
+    });
     this.gastadas++;
 
     if (respuesta.status === 429) {

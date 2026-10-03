@@ -13,6 +13,39 @@ function aseguraDirectorio(dir) {
   fs.mkdirSync(dir, { recursive: true });
 }
 
+/*
+ * Reloj en cada descarga.
+ *
+ * `fetch` a secas no tiene ninguno: si el otro extremo acepta la conexion y
+ * luego se calla, la promesa no se resuelve NUNCA. Eso colgó el bot catorce
+ * horas el 2 de octubre —el proceso seguia vivo, la tarea de Windows seguia
+ * marcada como "en marcha" y, por `IgnoreNew`, rechazó todas las pasadas
+ * siguientes hasta que se mató a mano.
+ *
+ * Cuarenta y cinco segundos es de sobra: ESPN responde en menos de dos. Si se
+ * pasa, se corta y se reintenta; lo que no se hace jamas es esperar sin fin.
+ */
+const ESPERA_MAX = 45_000;
+const INTENTOS = 3;
+
+const duerme = (ms) => new Promise((r) => setTimeout(r, ms));
+
+async function pideConReloj(url, cabeceras) {
+  let ultimo;
+  for (let intento = 1; intento <= INTENTOS; intento++) {
+    try {
+      return await fetch(url, { headers: cabeceras, signal: AbortSignal.timeout(ESPERA_MAX) });
+    } catch (e) {
+      ultimo = e;
+      // Un 4xx no viene por aqui (eso es una respuesta, no un fallo): esto es
+      // red caida, DNS o el reloj. Las tres mejoran esperando un poco.
+      if (intento < INTENTOS) await duerme(intento * 2000);
+    }
+  }
+  const porReloj = ultimo && (ultimo.name === 'TimeoutError' || ultimo.name === 'AbortError');
+  throw new Error(porReloj ? `sin respuesta en ${ESPERA_MAX / 1000}s` : ultimo?.message ?? 'fallo de red');
+}
+
 function nombreCache(url) {
   /*
    * ESPN se pide ahora por site.web.api (ver espn.js), pero las actas ya
@@ -60,7 +93,7 @@ async function bajaTexto(url, dirCache, { forzar = false, cabeceras = {}, soloCa
 
   let respuesta;
   try {
-    respuesta = await fetch(url, { headers: cabecerasFinales });
+    respuesta = await pideConReloj(url, cabecerasFinales);
   } catch (e) {
     // Sin conexion: si hay copia en disco se sigue con ella.
     if (fs.existsSync(rutaCuerpo)) {
