@@ -173,12 +173,34 @@ function tomaElCerrojo() {
  * El reloj de cada descarga (scripts/lib/http.js) corta lo normal; esto es la
  * red de debajo, para lo que no se previó.
  */
-const VIGIA_TOPE = 20 * 60 * 1000;
+/*
+ * Cuarenta y cinco minutos, y no veinte.
+ *
+ * Veinte era un número inventado y costó tres pasadas más: entre las 348
+ * actas de una liga y el trabajo de pegarlas —que es cuenta, no descarga— esta
+ * máquina pasa de veinte minutos sin bajar nada y sigue perfectamente viva. La
+ * avería que esto persigue duró CATORCE HORAS, así que con 45 minutos se coge
+ * igual de pronto y mucho antes de la siguiente pasada, que es a las seis.
+ *
+ * Para no volver a adivinar, el parte final dice ahora cuál fue el hueco más
+ * largo de verdad entre dos descargas. Si algún día se acerca al tope, se
+ * sube con un dato delante y no a ojo.
+ */
+const VIGIA_TOPE = 45 * 60 * 1000;
 let vigiaPaso = 'arrancando';
 let vigiaReloj = null;
+let vigiaUltimo = Date.now();
+let vigiaMayorHueco = 0;
+let vigiaDondeElHueco = '';
 
 function rearmaElVigia() {
   if (!vigiaReloj) return;
+  const hueco = Date.now() - vigiaUltimo;
+  if (hueco > vigiaMayorHueco) {
+    vigiaMayorHueco = hueco;
+    vigiaDondeElHueco = vigiaPaso;
+  }
+  vigiaUltimo = Date.now();
   clearTimeout(vigiaReloj);
   vigiaReloj = setTimeout(() => {
     console.error(
@@ -1728,6 +1750,14 @@ function parteFinal(tamanoMb, o = {}) {
     `  ${PARTE.length} competiciones · ${PARTE.reduce((a, c) => a + c.partidos, 0)} partidos · ` +
       `${PARTE.reduce((a, c) => a + c.jugadores, 0)} jugadores · ${tamanoMb} MB`,
   );
+  if (vigiaMayorHueco > 60_000) {
+    // El dato con el que ajustar VIGIA_TOPE sin adivinar.
+    console.log(
+      `  El rato más largo sin bajar nada: ${Math.round(vigiaMayorHueco / 60000)} min` +
+        `${vigiaDondeElHueco ? ` (en ${vigiaDondeElHueco})` : ''}` +
+        ` · el vigía corta a los ${VIGIA_TOPE / 60000}`,
+    );
+  }
   // El plural, bien puesto: este parte se lee con prisa y de madrugada.
   const liga = (n) => `${n} ${n === 1 ? 'competición' : 'competiciones'}`;
 
