@@ -43,6 +43,7 @@ const { Cliente, claveDelEntorno } = require('./lib/apifootball');
 const construir = require('./lib/construir');
 const espn = require('./lib/espn');
 const fd = require('./lib/footballdata');
+const http = require('./lib/http');
 const { IMPORTABLES, SIN_CLAVE, fuentesDe, temporadaActual } = require('./lib/mapa-ligas');
 const pronosticos = require('./lib/pronosticos');
 const sofascore = require('./lib/sofascore');
@@ -155,38 +156,52 @@ function tomaElCerrojo() {
  * y —con `IgnoreNew`— rechazó las cinco pasadas siguientes. Catorce horas sin
  * datos nuevos, y en el log ni una linea de error, porque no hubo error.
  *
- * Ahora cada paso ficha aqui. Si pasan TOPE minutos sin fichar, se da la
- * importacion por colgada, se dice en qué se quedó y se sale con error: el
- * cerrojo se suelta en el `exit`, Windows marca la tarea terminada y la
- * siguiente pasada entra limpia. Mejor una pasada perdida con su aviso que un
- * bot callado durante un dia.
+ * ── Lo que mide, y por qué ─────────────────────────────────────────────────
+ *
+ * Mide tiempo SIN AVANCE, no tiempo por competición. La primera versión medía
+ * por competición y fue peor que la enfermedad: mató tres pasadas sanas esa
+ * misma tarde, porque la primera bajada de la Premier son trescientas y pico
+ * actas y pasa de veinte minutos sin que nada vaya mal.
+ *
+ * Ahora late con cada descarga —de red o de caché, desde scripts/lib/http.js,
+ * por donde pasan todas—. Veinte minutos sin una sola descarga completada no
+ * es una liga lenta: es algo colgado. Entonces se dice en qué se quedó y se
+ * sale con error, el cerrojo se suelta en el `exit`, Windows marca la tarea
+ * terminada y la siguiente pasada entra limpia. Mejor una pasada perdida con
+ * su aviso que un bot callado durante un día.
  *
  * El reloj de cada descarga (scripts/lib/http.js) corta lo normal; esto es la
- * red de debajo, para lo que no se previo.
+ * red de debajo, para lo que no se previó.
  */
 const VIGIA_TOPE = 20 * 60 * 1000;
 let vigiaPaso = 'arrancando';
 let vigiaReloj = null;
 
+function rearmaElVigia() {
+  if (!vigiaReloj) return;
+  clearTimeout(vigiaReloj);
+  vigiaReloj = setTimeout(() => {
+    console.error(
+      `\n⛔ La importación lleva ${VIGIA_TOPE / 60000} min sin bajar nada, parada en «${vigiaPaso}».\n` +
+        '   Se da por colgada y se corta para no bloquear las siguientes pasadas.',
+    );
+    process.exit(1);
+  }, VIGIA_TOPE);
+  // Que el vigia no sea lo unico que mantiene vivo al proceso.
+  vigiaReloj.unref?.();
+}
+
+/** Deja dicho dónde estamos, para que el aviso diga algo útil. No es el latido. */
 function fichaPaso(que) {
   vigiaPaso = que;
-  if (vigiaReloj) {
-    clearTimeout(vigiaReloj);
-    vigiaReloj = setTimeout(() => {
-      console.error(
-        `\n⛔ La importación lleva ${VIGIA_TOPE / 60000} min parada en «${vigiaPaso}».\n` +
-          '   Se da por colgada y se corta para no bloquear las siguientes pasadas.',
-      );
-      process.exit(1);
-    }, VIGIA_TOPE);
-    // Que el vigia no sea lo unico que mantiene vivo al proceso.
-    vigiaReloj.unref?.();
-  }
+  rearmaElVigia();
 }
 
 function arrancaElVigia() {
   vigiaReloj = setTimeout(() => {}, VIGIA_TOPE);
   vigiaReloj.unref?.();
+  // El latido de verdad: cada descarga completada reinicia la cuenta.
+  http.avisaDeCadaDescarga(rearmaElVigia);
   fichaPaso('arrancando');
 }
 
@@ -1564,8 +1579,17 @@ async function main() {
 
   // Solo listar no toca el archivo; a partir de aqui si, asi que hace falta
   // tener el cerrojo antes de descargar nada.
+  /*
+   * 75 y no 1, porque no es lo mismo.
+   *
+   * Que haya otra importación en marcha no es un fallo: es el cerrojo haciendo
+   * su trabajo. Pero salía con el mismo 1 que un error de verdad, y
+   * refrescar.cmd —que no distinguía— seguía adelante y publicaba igual,
+   * subiendo el archivo que la OTRA pasada estaba escribiendo en ese momento.
+   * Con un código propio, el .cmd se para aquí y no toca nada.
+   */
   if (!tomaElCerrojo()) {
-    process.exitCode = 1;
+    process.exitCode = 75;
     return;
   }
 
@@ -1839,9 +1863,14 @@ main()
      * ensuciaba el registro y, sobre todo, dejaba el codigo de salida al azar:
      * el .cmd del refresco no podia distinguir una pasada buena de una rota.
      *
-     * Se espera a que salga el texto pendiente y se sale con un cero explicito.
+     * Se espera a que salga el texto pendiente y se sale a proposito.
+     *
+     * OJO: con el codigo que haya puesto `main`, no con un cero fijo. Estuvo
+     * clavado a cero y eso se tragaba el 75 del cerrojo: refrescar.cmd veia
+     * "todo bien" cuando en realidad no se habia importado nada porque otra
+     * pasada tenia el archivo, y publicaba encima de ella.
      */
-    process.stdout.write('', () => process.exit(0));
+    process.stdout.write('', () => process.exit(process.exitCode ?? 0));
   })
   .catch((e) => {
     console.error(`\nError: ${e.message}\n`);

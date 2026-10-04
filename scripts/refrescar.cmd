@@ -70,7 +70,17 @@ REM el catalogo que refresca sin que haya que ir a leer argumentos() en
 REM importar.js, y si algun dia se le anade un --liga delante, sigue entrando
 REM el catalogo entero y no una sola competicion.
 node --max-old-space-size=4096 scripts\importar.js --refrescar --importantes --detalles 90 >> scripts\refrescar.log 2>&1
-echo Importar: %ERRORLEVEL% >> scripts\refrescar.log
+set IMPORTAR=%ERRORLEVEL%
+echo Importar: %IMPORTAR% >> scripts\refrescar.log
+
+REM 75 significa "ya hay otra importacion en marcha" (ver el cerrojo en
+REM importar.js). No es un fallo, pero seguir seria peor que uno: publicariamos
+REM el archivo que la otra pasada esta escribiendo ahora mismo. Se sale sin
+REM tocar nada y que termine ella.
+if "%IMPORTAR%"=="75" (
+  echo Otra importacion tiene el cerrojo: no se publica nada. >> scripts\refrescar.log
+  goto :fin
+)
 
 REM Sube el archivo recortado a Supabase Storage para que los telefonos
 REM descarguen la version nueva. Necesita SUPABASE_SERVICE_ROLE_KEY en
@@ -101,3 +111,5 @@ REM copias, asi que si una fila se pierde no hay a donde volver.
 REM Va al final a proposito: si falla, los datos ya estan publicados.
 node scripts\respaldo.js >> scripts\refrescar.log 2>&1
 echo Respaldo: %ERRORLEVEL% >> scripts\refrescar.log
+
+:fin

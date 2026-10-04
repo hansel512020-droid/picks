@@ -30,6 +30,26 @@ const INTENTOS = 3;
 
 const duerme = (ms) => new Promise((r) => setTimeout(r, ms));
 
+/*
+ * El latido.
+ *
+ * Quien vigila que la importacion no se cuelgue necesita saber si sigue
+ * avanzando, y el unico sitio que lo sabe de verdad es este: por aqui pasa
+ * cada descarga y cada lectura de cache. Medirlo por competicion no vale —se
+ * intentó el 3 de octubre y mató tres pasadas sanas, porque la primera bajada
+ * de una liga grande pasa de veinte minutos sin que nada vaya mal—.
+ */
+let alLatir = null;
+
+/** Registra a quien quiera enterarse de que una descarga acaba de completarse. */
+function avisaDeCadaDescarga(fn) {
+  alLatir = fn;
+}
+
+const late = () => {
+  if (alLatir) alLatir();
+};
+
 async function pideConReloj(url, cabeceras) {
   let ultimo;
   for (let intento = 1; intento <= INTENTOS; intento++) {
@@ -75,6 +95,7 @@ async function bajaTexto(url, dirCache, { forzar = false, cabeceras = {}, soloCa
    * viene). Sin conexión ni petición condicional: cero red.
    */
   if (soloCacheSiExiste && !forzar && fs.existsSync(rutaCuerpo)) {
+    late();
     return { texto: fs.readFileSync(rutaCuerpo, 'utf8'), delCache: true };
   }
 
@@ -103,15 +124,18 @@ async function bajaTexto(url, dirCache, { forzar = false, cabeceras = {}, soloCa
   }
 
   if (respuesta.status === 304 && fs.existsSync(rutaCuerpo)) {
+    late();
     return { texto: fs.readFileSync(rutaCuerpo, 'utf8'), delCache: true };
   }
   if (!respuesta.ok) {
     if (fs.existsSync(rutaCuerpo)) {
+      late();
       return { texto: fs.readFileSync(rutaCuerpo, 'utf8'), delCache: true };
     }
     throw new Error(`${respuesta.status} ${respuesta.statusText} en ${url}`);
   }
 
+  late();
   const texto = await respuesta.text();
   fs.writeFileSync(rutaCuerpo, texto);
   fs.writeFileSync(
@@ -166,4 +190,4 @@ function leeCSV(texto) {
   });
 }
 
-module.exports = { bajaTexto, bajaJSON, leeCSV, aseguraDirectorio };
+module.exports = { bajaTexto, bajaJSON, leeCSV, aseguraDirectorio, avisaDeCadaDescarga };
