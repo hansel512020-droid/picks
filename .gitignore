@@ -73,3 +73,4 @@ scripts/refrescar-manual.log
 isolate-*.log
 src/datos/detalle/
 src/datos/estadisticas/
+scripts/refrescar.1.log

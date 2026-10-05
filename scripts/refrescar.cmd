@@ -54,6 +54,20 @@ chcp 65001 > nul
 
 cd /d "%~dp0.."
 
+REM Rotar el registro antes de abrirlo.
+REM
+REM Crecia sin fin: el 5 de octubre llevaba 36.885 lineas y 1,8 MB, con pasadas
+REM de tres semanas atras que ya no le importan a nadie. Tiene que ir AQUI y no
+REM en la limpieza semanal, porque a partir de la linea siguiente el archivo
+REM queda abierto por los ">>" hasta que termina el .cmd y ya no se puede tocar.
+REM
+REM Al pasar de 2 MB se guarda como refrescar.1.log y se empieza uno nuevo: asi
+REM siempre quedan la pasada de ahora y el historial inmediato, que es lo que se
+REM mira cuando algo falla.
+if exist scripts\refrescar.log (
+  for %%A in (scripts\refrescar.log) do if %%~zA GTR 2000000 move /y scripts\refrescar.log scripts\refrescar.1.log > nul
+)
+
 echo. >> scripts\refrescar.log
 echo ===== %DATE% %TIME% ===== >> scripts\refrescar.log
 REM 90 partidos con detalle por competicion, no 12.

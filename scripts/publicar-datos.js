@@ -81,7 +81,42 @@ async function sube(supaUrl, serviceKey, nombre, contenido, tipo) {
  * archivo sigue estando. Y hay que borrar antes de subir porque `cp` no
  * sobrescribe.
  */
+/*
+ * ── El reloj del publicado ──────────────────────────────────────────────────
+ *
+ * Publicar son unas 110 subidas, una llamada a la CLI por archivo. En un día
+ * normal cada una tarda veintitantos segundos y el paso entero ronda los 40
+ * minutos. La madrugada del 5 de octubre, con el PC ahogado de memoria (1,3 GB
+ * libres de 7,7, casi todo Chrome), cada subida pasó a tardar DIECISIETE
+ * MINUTOS: en trece horas y media solo había subido 46 archivos, le quedaban
+ * otras diecisiete, y mientras tanto la tarea seguía marcada como "en marcha",
+ * así que Windows rechazaba todas las pasadas siguientes.
+ *
+ * Es la misma avería de siempre —un paso sin final— en otro sitio. Dos relojes:
+ *
+ *  · Uno por archivo: si una sola subida pasa de 5 minutos, no es lentitud, es
+ *    que se quedó colgada. Se corta esa y se sigue con las demás.
+ *  · Uno para el paso entero: pasadas dos horas se deja lo que falte para la
+ *    siguiente pasada. No se pierde nada, porque cada archivo se sube por su
+ *    cuenta y lo ya subido se queda subido.
+ */
+const TOPE_POR_ARCHIVO = 5 * 60 * 1000;
+const TOPE_DEL_PASO = 2 * 3600 * 1000;
+const EMPEZO = Date.now();
+
+class SeAcaboElTiempo extends Error {}
+
+function quedaTiempo() {
+  return Date.now() - EMPEZO < TOPE_DEL_PASO;
+}
+
 function subeConLaCli(archivoGz, nombreDestino = 'importado.json.gz') {
+  if (!quedaTiempo()) {
+    throw new SeAcaboElTiempo(
+      `El publicado lleva ${Math.round((Date.now() - EMPEZO) / 60000)} min; se deja ` +
+        `${nombreDestino} y lo que falte para la siguiente pasada.`,
+    );
+  }
   const { spawnSync } = require('node:child_process');
   const destino = `ss:///datos/${nombreDestino}`;
   /*
@@ -94,7 +129,7 @@ function subeConLaCli(archivoGz, nombreDestino = 'importado.json.gz') {
     spawnSync(
       'npx',
       ['supabase', ...args].map((a) => (/[\s"]/.test(a) ? JSON.stringify(a) : a)),
-      { cwd: RAIZ, encoding: 'utf8', shell: true },
+      { cwd: RAIZ, encoding: 'utf8', shell: true, timeout: TOPE_POR_ARCHIVO },
     );
 
   process.stdout.write('Borrando la versión anterior… ');
@@ -115,6 +150,18 @@ function subeConLaCli(archivoGz, nombreDestino = 'importado.json.gz') {
     '--cache-control', 'public, max-age=300',
     '--experimental', '--yes',
   ]);
+  /*
+   * Una subida que se pasa de los cinco minutos se corta y se deja estar. No
+   * se tumba el publicado entero por ella: cada archivo va por su cuenta, y el
+   * que falta hoy se sube en la pasada de dentro de seis horas. Lo que no
+   * puede volver a pasar es quedarse esperando una sola subida durante horas
+   * con la tarea bloqueada detrás.
+   */
+  if (subida.error?.code === 'ETIMEDOUT' || subida.signal) {
+    console.log(`tardó más de ${TOPE_POR_ARCHIVO / 60000} min: se deja para la próxima pasada`);
+    return;
+  }
+
   const salida = `${subida.stdout ?? ''}${subida.stderr ?? ''}`;
   if (subida.status !== 0 || salida.includes('"_tag":"Error"')) {
     console.log('FALLÓ');
@@ -362,6 +409,17 @@ function publicaDetallePorLiga(datos) {
 }
 
 main().catch((e) => {
+  /*
+   * Quedarse sin tiempo no es un fallo: lo subido está subido y lo que falta
+   * se sube en la siguiente pasada, dentro de seis horas. Se cuenta y se sale
+   * con bien, para que el .cmd siga con los picks y el respaldo en vez de
+   * dejar la pasada a medias por algo que se arregla solo.
+   */
+  if (e instanceof SeAcaboElTiempo) {
+    console.log(`\n⏱ ${e.message}`);
+    console.log('   Lo ya subido se queda; el resto va en la próxima pasada.');
+    return;
+  }
   console.error(`\nError: ${e.message}`);
   process.exit(1);
 });
