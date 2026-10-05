@@ -50,58 +50,25 @@ on:
         default: false
 
 jobs:
-  # ── ¿Le toca a GitHub? ──────────────────────────────────────────────────────
+  # ── Aquí se publica, y punto ────────────────────────────────────────────────
   #
-  # Los datos buenos los publica el PC (scripts/refrescar.cmd), que puede usar
-  # SofaScore: xG real y las ligas que ESPN no tiene. Desde GitHub SofaScore no
-  # funciona, así que lo que sube este robot es más pobre. Por eso solo publica
-  # si el PC lleva más de 12 horas sin hacerlo (apagado, sin conexión…): es el
-  # respaldo, no el titular. Lanzado a mano, importa siempre.
-  turno:
-    runs-on: ubuntu-latest
-    outputs:
-      saltar: ${{ steps.mira.outputs.saltar }}
-    steps:
-      - id: mira
-        env:
-          SUPABASE_URL: ${{ secrets.SUPABASE_URL }}
-          # Con el almacén cerrado, la ruta pública ya no sirve nada. Si el
-          # secreto está, se pide con credencial; si no, por la ruta de antes.
-          # Que esto falle no es grave: se importa "por si acaso", que es el
-          # lado seguro del error.
-          SUPABASE_SECRET_KEY: ${{ secrets.SUPABASE_SECRET_KEY }}
-          EVENTO: ${{ github.event_name }}
-        run: |
-          if [ "$EVENTO" != "schedule" ]; then
-            echo "Lanzado a mano: se importa siempre."
-            echo "saltar=false" >> "$GITHUB_OUTPUT"
-            exit 0
-          fi
-          if [ -n "${SUPABASE_SECRET_KEY:-}" ]; then
-            RUTA="$SUPABASE_URL/storage/v1/object/datos/nucleo.json.gz"
-            CABECERAS=(-H "Authorization: Bearer $SUPABASE_SECRET_KEY" -H "apikey: $SUPABASE_SECRET_KEY")
-          else
-            RUTA="$SUPABASE_URL/storage/v1/object/public/datos/nucleo.json.gz"
-            CABECERAS=()
-          fi
-          if ! curl -sSf "$RUTA" "${CABECERAS[@]}" -o /tmp/nucleo.gz; then
-            echo "No se pudo leer el núcleo publicado: se importa por si acaso."
-            echo "saltar=false" >> "$GITHUB_OUTPUT"
-            exit 0
-          fi
-          node -e "
-            const fs = require('fs');
-            const j = JSON.parse(require('zlib').gunzipSync(fs.readFileSync('/tmp/nucleo.gz')));
-            const horas = (Date.now() - Date.parse(j.actualizado)) / 3600000;
-            const saltar = j.origen === 'pc' && horas < 12;
-            console.log('Último publicado por:', j.origen ?? 'desconocido', '· hace', horas.toFixed(1), 'h');
-            console.log(saltar ? 'El PC está al día: GitHub no pisa sus datos.' : 'Adelante: GitHub publica.');
-            fs.appendFileSync(process.env.GITHUB_OUTPUT, 'saltar=' + saltar + '\n');
-          "
-
+  # Hasta el 5 de octubre de 2026 el titular era el PC de casa (refrescar.cmd) y
+  # esto era solo el respaldo: había un trabajo «turno» que miraba quién había
+  # publicado el último y se saltaba la pasada si el PC llevaba menos de 12
+  # horas al día. Tenía sentido cuando el PC podía usar SofaScore —xG real y las
+  # ligas que ESPN no tiene— y GitHub no.
+  #
+  # Ya no lo tiene. SofaScore está apagado desde el 30 de septiembre y todo sale
+  # de ESPN, así que aquí no se pierde nada; al revés, esta máquina baja 400
+  # actas por liga y el PC bajaba 90. Y el PC daba problemas que no daba aquí:
+  # se colgó catorce horas el 2 de octubre y trece y media el 5, las dos veces
+  # con la tarea de Windows bloqueando las pasadas siguientes.
+  #
+  # Con el turno quitado, GitHub publica siempre. El PC ya solo guarda la copia
+  # de seguridad de quién ha pagado (scripts/respaldo.js), que es lo único que
+  # no se puede hacer desde aquí: son datos personales de clientes y este
+  # repositorio es público.
   importar:
-    needs: turno
-    if: needs.turno.outputs.saltar != 'true'
     # El Ubuntu normal, sin contenedor.
     #
     # Esto corría dentro de `node:20-alpine` creyendo que en musl sí cargaba el

@@ -74,3 +74,4 @@ isolate-*.log
 src/datos/detalle/
 src/datos/estadisticas/
 scripts/refrescar.1.log
+scripts/respaldo.log
