@@ -23,7 +23,10 @@ on:
 
 jobs:
   sofascore:
-    runs-on: ubuntu-latest
+    # La misma máquina que usa datos.yml, y clavada por lo mismo (ver allí): si
+    # la prueba corre en un Ubuntu distinto del que importa de verdad, deja de
+    # decir nada sobre lo que hace el bot.
+    runs-on: ubuntu-24.04
     timeout-minutes: 10
     steps:
       - uses: actions/checkout@v4

@@ -77,7 +77,22 @@ jobs:
     # para linux-x64-gnu, linux-arm64-gnu, macOS y Windows —comprobado con
     # `npm view curl-cffi-node optionalDependencies`—, así que en Alpine no hay
     # nada que cargar y la librería fallaba siempre. Con glibc el binario existe.
-    runs-on: ubuntu-latest
+    #
+    # ── Y la versión, clavada ─────────────────────────────────────────────
+    #
+    # `ubuntu-latest` deja de ser Ubuntu 24 y pasa a Ubuntu 26 el 19 de octubre
+    # de 2026 (lo avisa el propio runner en cada pasada). Ese cambio llega solo,
+    # sin que nadie toque nada, y a este bot ya le costó un día de datos la
+    # última vez que cambió la máquina por debajo: el salto a Alpine rompió la
+    # descarga de SofaScore y no se notó hasta el día siguiente.
+    #
+    # Ahora pesa más que entonces, porque desde el 5 de octubre el PC de casa ya
+    # no hace de respaldo: si esto se rompe, no hay quien publique.
+    #
+    # Así que la versión va escrita. Cuando se quiera subir a Ubuntu 26 se
+    # cambia a mano, se mira el parte final de esa pasada y se decide con el
+    # dato delante, en vez de enterarse por los usuarios.
+    runs-on: ubuntu-24.04
     # Pedir el acta de cada partido de 36 competiciones lleva su rato.
     timeout-minutes: 240
 
