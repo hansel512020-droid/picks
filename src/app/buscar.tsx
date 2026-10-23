@@ -9,7 +9,7 @@ import { marca } from '@/componentes/movimiento';
 import { Resplandor } from '@/componentes/marca';
 import { CabeceraAtras } from '@/componentes/navegacion';
 import { competicion, competicionesVisibles } from '@/datos/competiciones';
-import { valoracionReal } from '@/datos/importado';
+import { esBanderaDePais, valoracionReal } from '@/datos/importado';
 import { temporada } from '@/datos/motor';
 import { useTienda } from '@/estado/tienda';
 import { C, COLUMNA, E, R } from '@/tema';
@@ -21,6 +21,13 @@ import type { Equipo, Jugador } from '@/datos/tipos';
  * competicion activa para los jugadores y equipos, porque cargar las 60 a la
  * vez tardaria demasiado.
  */
+
+const POSICIONES: Record<string, string> = {
+  POR: 'Portero',
+  DEF: 'Defensa',
+  MED: 'Centrocampista',
+  DEL: 'Delantero',
+};
 
 function normaliza(s: string) {
   return s
@@ -113,6 +120,7 @@ export default function Buscar() {
       memo.set(id, nueva);
       return nueva;
     };
+    const yaEstan = new Map<string, (string | undefined)[]>();
     return {
       actividad,
       jugadores: t.jugadores.map((j) => ({
@@ -139,15 +147,50 @@ export default function Buscar() {
             (t.partidosPorEquipo.get(b.id)?.length ?? 0) -
             (t.partidosPorEquipo.get(a.id)?.length ?? 0),
         )
-        .filter((e, i, todos) => {
-          const huella = (x: typeof e) => `${normaliza(x.nombre)}|${x.bandera ?? ''}`;
-          return todos.findIndex((o) => huella(o) === huella(e)) === i;
-        })
-        .map((e) => ({ e, clave: normaliza(e.nombre) })),
+        .map((e) => ({ e, clave: normaliza(e.nombre) }))
+        .filter(({ e, clave }) => {
+          /*
+           * En las copas continentales el club no lleva la bandera de su país
+           * sino la del torneo (🌟 la Champions), así que comparar banderas
+           * dejaba dos Liverpool: el de la Premier y el de la Champions. Si una
+           * de las dos no es de país, basta con el nombre.
+           */
+          const vistas = yaEstan.get(clave) ?? [];
+          const repetido = vistas.some(
+            (b) => b === e.bandera || !esBanderaDePais(b) || !esBanderaDePais(e.bandera),
+          );
+          if (!repetido) yaEstan.set(clave, [...vistas, e.bandera]);
+          return !repetido;
+        }),
     };
   }, [competicionId]);
 
   const q = normaliza(texto.trim());
+
+  /*
+   * Antes de escribir: tus ligas y los equipos con más partidos de ellas, a un
+   * toque. Un "escribe al menos dos letras" en una pantalla vacía no ayuda a
+   * nadie a encontrar nada.
+   */
+  const ligas = useMemo(
+    () =>
+      ajustes.ligasSeguidas.flatMap((id) => {
+        const c = competicionesVisibles().find((x) => x.id === id);
+        return c ? [c] : [];
+      }),
+    [ajustes.ligasSeguidas],
+  );
+  const destacados = useMemo(() => {
+    if (!indice) return [];
+    if (competicionId !== 'todas') return indice.equipos.slice(0, 12);
+    // Unos pocos de cada liga que sigues, no doce de la primera de la lista.
+    const porLiga = ajustes.ligasSeguidas.map((id) =>
+      indice.equipos.filter(({ e }) => e.competicionId === id).slice(0, 4),
+    );
+    const mezcla = [];
+    for (let i = 0; i < 4; i++) for (const lista of porLiga) if (lista[i]) mezcla.push(lista[i]);
+    return (mezcla.length ? mezcla : indice.equipos).slice(0, 12);
+  }, [indice, competicionId, ajustes.ligasSeguidas]);
 
   const resultados = useMemo(() => {
     if (q.length < 2) return null;
@@ -208,11 +251,81 @@ export default function Buscar() {
         showsVerticalScrollIndicator={false}
       >
         {!resultados ? (
-          <Vacio
-            icono="buscar"
-            titulo="Escribe al menos dos letras"
-            detalle="Busca dentro de la competición activa. Cambia de competición para buscar en otra."
-          />
+          <View style={{ gap: E.lg }}>
+            {ligas.length ? (
+              <View style={{ gap: E.sm }}>
+                <Txt v="pequenoFuerte" color={C.texto3} style={{ paddingHorizontal: E.lg }}>
+                  TUS LIGAS
+                </Txt>
+                <View style={{ flexDirection: 'row', flexWrap: 'wrap', gap: E.sm, paddingHorizontal: E.lg }}>
+                  {ligas.map((c) => (
+                    <Pulsable
+                      key={c.id}
+                      onPress={() => {
+                        cambiaAjuste('competicionId', c.id);
+                        router.back();
+                      }}
+                      style={{
+                        flexDirection: 'row',
+                        alignItems: 'center',
+                        gap: E.sm,
+                        paddingLeft: 8,
+                        paddingRight: 14,
+                        paddingVertical: 8,
+                        borderRadius: R.pill,
+                        borderWidth: 1,
+                        borderColor: C.borde,
+                        backgroundColor: C.carta,
+                      }}
+                    >
+                      <LogoCompeticion competicionId={c.id} bandera={c.bandera} tam={20} cuadrado />
+                      <Txt v="pequeno">{c.nombre}</Txt>
+                    </Pulsable>
+                  ))}
+                </View>
+              </View>
+            ) : null}
+
+            {destacados.length ? (
+              <View style={{ gap: E.sm }}>
+                <Txt v="pequenoFuerte" color={C.texto3} style={{ paddingHorizontal: E.lg }}>
+                  EQUIPOS
+                </Txt>
+                <View style={{ flexDirection: 'row', flexWrap: 'wrap', gap: E.sm, paddingHorizontal: E.lg }}>
+                  {destacados.map(({ e }) => (
+                    <Pulsable
+                      key={e.id}
+                      onPress={() => router.push(`/equipo/${encodeURIComponent(e.id)}?comp=${competicionId}`)}
+                      marcas="eleva"
+                      style={{
+                        width: 104,
+                        alignItems: 'center',
+                        gap: 8,
+                        paddingVertical: E.md,
+                        paddingHorizontal: 6,
+                        borderRadius: R.md,
+                        borderWidth: 1,
+                        borderColor: C.borde,
+                        borderTopColor: C.bordeLuz,
+                        backgroundColor: C.carta,
+                      }}
+                    >
+                      <Escudo nombre={e.nombre} id={e.id} bandera={e.bandera} corto={e.corto} tam={40} />
+                      <Txt v="mini" numberOfLines={1} style={{ textAlign: 'center' }}>
+                        {e.nombre}
+                      </Txt>
+                    </Pulsable>
+                  ))}
+                </View>
+              </View>
+            ) : null}
+
+            <Txt v="mini" color={C.texto3} style={{ paddingHorizontal: E.lg }}>
+              {competicionId === 'todas'
+                ? 'Busca jugadores, equipos y competiciones de todas tus ligas.'
+                : `Busca jugadores y equipos de ${competicion(competicionId).nombre}. Cambia de competición para buscar en otra.`}
+            </Txt>
+          </View>
         ) : null}
 
         {resultados?.competiciones.length ? (
@@ -298,7 +411,13 @@ export default function Buscar() {
             </Txt>
             <Tarjeta style={{ marginHorizontal: E.lg, overflow: 'hidden' }}>
               {resultados.jugadores.map(({ j, equipo }, i) => (
-                <View key={j.id}>
+                /*
+                 * Con el equipo en la clave: un jugador que cambió de club a
+                 * mitad de torneo sale con el mismo identificador en los dos, y
+                 * con dos claves iguales React dejaba filas de la búsqueda
+                 * anterior pegadas en la lista.
+                 */
+                <View key={`${j.id}|${equipo.id}`}>
                   {i > 0 ? <Separador /> : null}
                   <Pulsable
                     onPress={() =>
@@ -312,12 +431,22 @@ export default function Buscar() {
                       paddingVertical: 12,
                     }}
                   >
-                    <Cara nombre={j.nombre} bandera={j.bandera} tam={30} />
-                    <View style={{ flex: 1 }}>
+                    <Cara nombre={j.nombre} bandera={j.bandera} tam={36} />
+                    <View style={{ flex: 1, gap: 2 }}>
                       <Txt v="cuerpo">{j.nombre}</Txt>
-                      <Txt v="mini" color={C.texto3}>
-                        {equipo.nombre} · {j.posicion} · #{j.dorsal}
-                      </Txt>
+                      <View style={{ flexDirection: 'row', alignItems: 'center', gap: 6 }}>
+                        <Escudo
+                          nombre={equipo.nombre}
+                          id={equipo.id}
+                          bandera={equipo.bandera}
+                          corto={equipo.corto}
+                          tam={14}
+                        />
+                        <Txt v="mini" color={C.texto3} numberOfLines={1} style={{ flexShrink: 1 }}>
+                          {equipo.nombre} · {POSICIONES[j.posicion] ?? j.posicion}
+                          {j.dorsal ? ` · #${j.dorsal}` : ''}
+                        </Txt>
+                      </View>
                     </View>
                     {valoracionReal(j.id) ? <Insignia texto={`${j.nivel}`} /> : null}
                   </Pulsable>

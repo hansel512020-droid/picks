@@ -431,7 +431,7 @@ const HISTORIALES = new Map<string, { competicionId: string; partido: Partido; e
  * bandera no es de país no sirve para separar homónimos, así que se ignora y se
  * busca solo por nombre.
  */
-function esBanderaDePais(s?: string): boolean {
+export function esBanderaDePais(s?: string): boolean {
   if (!s) return false;
   const cp = [...s].map((c) => c.codePointAt(0) ?? 0);
   if (cp.length === 2 && cp.every((c) => c >= 0x1f1e6 && c <= 0x1f1ff)) return true;

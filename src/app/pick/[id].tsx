@@ -193,6 +193,10 @@ export interface PuntoSerie {
  * ultimos de la tabla o contra el lider, que es justo lo que decide si uno se
  * fia del pick. Con el escudo, el grafico se lee solo.
  */
+/** Separación y ancho máximo de las barras del gráfico partido a partido. */
+const GAP_SERIE = 6;
+const ANCHO_BARRA = 56;
+
 function Serie({
   puntos,
   linea,
@@ -249,20 +253,21 @@ function Serie({
    * el móvil. Mientras no se ha medido el ancho se usa el 30 de siempre, así
    * que el primer pintado nunca sale roto.
    *
-   * El tope sale de dos pruebas sobre la pantalla real: con 90 px (el triple
-   * del 30 de toda la vida) los escudos pesaban más que las barras, que son el
-   * dato; con 45 se quedaban cortos. 75 es el punto de en medio, dos veces y
-   * media el original.
+   * En el escritorio las barras tienen un ancho máximo: con cuatro partidos
+   * cada una medía doscientos píxeles y el gráfico era un muro verde con un
+   * escudo de cartel debajo. Con las barras topadas, el escudo se topa con
+   * ellas y el gráfico gana altura para que las diferencias se vean.
    */
   const [ancho, setAncho] = useState(0);
-  const hueco = ancho ? (ancho - 2 * (vistos.length - 1)) / Math.max(1, vistos.length) : 0;
-  const tamEscudo = hueco ? Math.round(Math.min(75, Math.max(26, hueco * 0.66))) : 30;
+  const hueco = ancho ? (ancho - GAP_SERIE * (vistos.length - 1)) / Math.max(1, vistos.length) : 0;
+  const tamEscudo = hueco ? Math.round(Math.min(46, Math.max(26, hueco * 0.66))) : 30;
+  const altoGrafico = ancho >= 600 ? 150 : 96;
 
   return (
-    <View style={{ gap: 4 }} onLayout={(e) => setAncho(e.nativeEvent.layout.width)}>
-      <View style={{ height: 76, flexDirection: 'row', alignItems: 'flex-end', gap: 2 }}>
+    <View style={{ gap: 6 }} onLayout={(e) => setAncho(e.nativeEvent.layout.width)}>
+      <View style={{ height: altoGrafico, flexDirection: 'row', alignItems: 'flex-end', gap: GAP_SERIE }}>
         {vistos.map((p, i) => (
-          <View key={i} style={{ flex: 1, height: '100%', justifyContent: 'flex-end' }}>
+          <View key={i} style={{ flex: 1, height: '100%', justifyContent: 'flex-end', alignItems: 'center' }}>
             {/* El número encima: la barra dice la forma, el número dice el dato. */}
             <Txt
               v="mini"
@@ -275,8 +280,11 @@ function Serie({
               {...marca('sube')}
               style={[
                 {
+                  width: '100%',
+                  maxWidth: ANCHO_BARRA,
                   height: `${alto(p.valor)}%`,
-                  borderRadius: 2,
+                  borderTopLeftRadius: 5,
+                  borderTopRightRadius: 5,
                   backgroundColor: acierta(p.valor) ? C.acierto : C.neutro,
                 },
                 retraso(i * 45),
@@ -299,7 +307,7 @@ function Serie({
       </View>
 
       {/* Debajo de cada barra: contra quién fue y qué día. */}
-      <View style={{ flexDirection: 'row', gap: 2 }}>
+      <View style={{ flexDirection: 'row', gap: GAP_SERIE }}>
         {vistos.map((p, i) => (
           <View key={i} style={{ flex: 1, alignItems: 'center', gap: 1 }}>
             {p.rival ? (
