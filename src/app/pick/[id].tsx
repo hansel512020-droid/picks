@@ -237,14 +237,14 @@ function Serie({
    * el móvil. Mientras no se ha medido el ancho se usa el 30 de siempre, así
    * que el primer pintado nunca sale roto.
    *
-   * El 0,8 con tope de 90 que se probó primero se veía enorme en el portátil:
-   * los escudos pesaban más que las barras, que son el dato. A la mitad
-   * cumplen su papel —reconocer al rival de un vistazo— sin robarle la
-   * atención al gráfico.
+   * El tope sale de dos pruebas sobre la pantalla real: con 90 px (el triple
+   * del 30 de toda la vida) los escudos pesaban más que las barras, que son el
+   * dato; con 45 se quedaban cortos. 75 es el punto de en medio, dos veces y
+   * media el original.
    */
   const [ancho, setAncho] = useState(0);
   const hueco = ancho ? (ancho - 2 * (vistos.length - 1)) / Math.max(1, vistos.length) : 0;
-  const tamEscudo = hueco ? Math.round(Math.min(45, Math.max(24, hueco * 0.4))) : 30;
+  const tamEscudo = hueco ? Math.round(Math.min(75, Math.max(26, hueco * 0.66))) : 30;
 
   return (
     <View style={{ gap: 4 }} onLayout={(e) => setAncho(e.nativeEvent.layout.width)}>
