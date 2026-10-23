@@ -125,24 +125,24 @@ async function resuelveEscudosImportados(buscador, logos, archivo, ligaEnIngles)
     asignados: [],
     /** Ligas del mapa que la fuente no conoce con ese nombre: hay que corregirlas. */
     ligasSinEncontrar: [],
+    /** Por qué no contestó la fuente, si no contestó: va al parte del bot. */
+    fallo: null,
   };
   if (!faltan.length) return parte;
 
   // Las ligas que se van a necesitar, cada una con todos sus equipos.
-  const ligas = await buscador.ligas();
+  const ligas = (await buscador.ligas()) ?? [];
   /*
-   * Si ni siquiera contesta la lista de ligas, la fuente está caída: se deja
-   * para la próxima pasada. Seguir buscando uno a uno con los reintentos
-   * alargaría el bot un cuarto de hora para no encontrar nada.
+   * Sin la lista de ligas no se puede buscar por liga, pero sí por nombre: se
+   * sigue con eso. Antes se paraba aquí, y si la que fallaba era solo esa
+   * petición, no se buscaba nada nunca. Si lo que falla es la fuente entera,
+   * las búsquedas lo notan enseguida y se paran (ver abajo).
    */
-  if (!ligas?.length) {
-    parte.quedan = faltan.map((e) => e.nombre);
-    return parte;
-  }
+  if (!ligas.length) parte.fallo = buscador.ultimoFallo ?? 'la lista de ligas vino vacía';
   const idDeLiga = new Map(ligas.map((l) => [claveEstricta(l.strLeague), l.idLeague]));
   const equiposDeLaLiga = new Map();
   const todos = [];
-  for (const [competicionId, nombreLiga] of Object.entries(ligaEnIngles)) {
+  for (const [competicionId, nombreLiga] of ligas.length ? Object.entries(ligaEnIngles) : []) {
     const id = idDeLiga.get(claveEstricta(nombreLiga));
     if (!id) {
       parte.ligasSinEncontrar.push(`${competicionId} ("${nombreLiga}")`);
@@ -160,13 +160,18 @@ async function resuelveEscudosImportados(buscador, logos, archivo, ligaEnIngles)
   };
 
   let busquedas = 0;
+  let fallidasSeguidas = 0;
   for (const e of faltan) {
-    // ¿Está el nombre en dos ligas de países distintos? Entonces son clubes
-    // distintos que se llaman igual.
-    const ligasPropias = new Set(
-      e.apariciones.map((a) => a.competicionId).filter((c) => equiposDeLaLiga.has(c)),
+    /*
+     * ¿Está el nombre en dos ligas de países distintos? Entonces son clubes
+     * distintos que se llaman igual. Se mira en los datos propios y no en lo
+     * que haya contestado la fuente: si la lista de ligas no llega, un River
+     * Plate no puede acabar con el escudo del otro por buscarlo por nombre.
+     */
+    const ligasDelNombre = new Set(
+      e.apariciones.map((a) => a.competicionId).filter((c) => c in ligaEnIngles),
     );
-    if (ligasPropias.size > 1) {
+    if (ligasDelNombre.size > 1) {
       // Uno a uno, cada cual en su liga, y solo por identificador.
       let alguno = false;
       for (const a of e.apariciones) {
@@ -185,6 +190,7 @@ async function resuelveEscudosImportados(buscador, logos, archivo, ligaEnIngles)
     }
 
     // 1. En su propia liga, con margen para "FC", "Club"... y nombres largos.
+    const ligasPropias = [...ligasDelNombre].filter((c) => equiposDeLaLiga.has(c));
     let t = null;
     for (const c of ligasPropias) {
       t = mejorEn(e.nombre, equiposDeLaLiga.get(c), 0.85);
@@ -207,10 +213,22 @@ async function resuelveEscudosImportados(buscador, logos, archivo, ligaEnIngles)
     }
 
     // 3. Buscándolo, también solo exacto, y con tope.
-    if (busquedas < TOPE_BUSQUEDAS) {
+    if (busquedas < TOPE_BUSQUEDAS && fallidasSeguidas < 3) {
       busquedas++;
       parte.buscados++;
+      const fallosAntes = buscador.fallos ?? 0;
       const r = await buscador.escudo(e.nombre);
+      /*
+       * Tres búsquedas seguidas sin respuesta: la fuente está caída. Seguir,
+       * con los reintentos de cada una, alargaría el bot un cuarto de hora
+       * para no encontrar nada; lo que falte se busca la próxima noche.
+       */
+      if ((buscador.fallos ?? 0) > fallosAntes) {
+        fallidasSeguidas++;
+        parte.fallo = buscador.ultimoFallo ?? 'sin respuesta';
+      } else {
+        fallidasSeguidas = 0;
+      }
       if (r?.url && claveEstricta(r.fuente) === e.clave) {
         apunta(e, r.url, true);
         parte.asignados.push(`${e.nombre} → ${r.fuente} (búsqueda)`);
