@@ -370,6 +370,11 @@ async function plantilla(slug, idEquipo, dirCache) {
         // Una edad imposible es un dato mal puesto: mejor ninguna.
         edad: edad >= 14 && edad <= 50 ? edad : undefined,
         foto: a.headshot?.href,
+        // La nacionalidad, en inglés ("France"); y el puesto de la plantilla,
+        // que es el de verdad y no el sitio que ocupó en un partido.
+        nacionalidad: a.citizenship ?? a.flag?.alt ?? a.citizenshipCountry?.name,
+        posicion: a.position?.abbreviation,
+        puesto: a.position?.name ?? a.position?.displayName,
       };
     });
 }

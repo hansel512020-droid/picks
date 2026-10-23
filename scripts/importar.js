@@ -39,6 +39,7 @@
 const fs = require('node:fs');
 const path = require('node:path');
 
+const { banderaDe } = require('./lib/banderas');
 const { Cliente, claveDelEntorno } = require('./lib/apifootball');
 const construir = require('./lib/construir');
 const espn = require('./lib/espn');
@@ -1237,9 +1238,23 @@ async function importaCompeticion(id, opciones, catalogo, clave, sofa) {
     }
     let conEdad = 0;
     let conFoto = 0;
+    let conPais = 0;
     for (const j of jugadoresEspn) {
       const a = deLaPlantilla.get(j.id.slice(j.id.lastIndexOf(':e') + 2));
       if (!a) continue;
+      // El puesto de la plantilla manda sobre el de las alineaciones.
+      const linea = construir.lineaDe(a);
+      if (linea) j.posicion = linea;
+      /*
+       * Su bandera, no la de la competición: los de LaLiga llevaban todos 🇪🇸
+       * —Mbappé incluido— y los de la Champions, 🌟.
+       */
+      const bandera = banderaDe(a.nacionalidad);
+      if (bandera) {
+        j.bandera = bandera;
+        j.pais = a.nacionalidad;
+        conPais++;
+      }
       if (a.edad) {
         j.edad = a.edad;
         conEdad++;
@@ -1250,7 +1265,8 @@ async function importaCompeticion(id, opciones, catalogo, clave, sofa) {
       }
     }
     console.log(
-      `  ESPN (plantillas de ${conPlantilla.length} equipos): ${conEdad} de ${jugadoresEspn.length} con edad, ${conFoto} con foto`,
+      `  ESPN (plantillas de ${conPlantilla.length} equipos): ${conEdad} de ${jugadoresEspn.length} con edad, ` +
+        `${conFoto} con foto, ${conPais} con nacionalidad`,
     );
   }
 
@@ -1458,7 +1474,8 @@ async function importaCompeticion(id, opciones, catalogo, clave, sofa) {
   }
 
   // Lo que trajo ESPN es la base; API-Football, si hay clave, lo amplia.
-  let jugadores = jugadoresEspn.map((j) => ({ ...j, bandera: meta.bandera }));
+  // La bandera de la competición solo si la plantilla no dijo su nacionalidad.
+  let jugadores = jugadoresEspn.map((j) => ({ ...j, bandera: j.bandera ?? meta.bandera }));
   let registros = registrosEspn;
   if (registros.length) {
     console.log(`  ${jugadores.length} jugadores · ${registros.length} registros (ESPN)`);

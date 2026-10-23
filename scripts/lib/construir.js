@@ -755,6 +755,7 @@ function aplicaDetalleEspn(partido, detalle, equipos, competicionId) {
 }
 
 module.exports = {
+  lineaDe,
   cuotasDeAPI,
   desdeEspn,
   aplicaDetalleEspn,
