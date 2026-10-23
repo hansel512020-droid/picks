@@ -506,6 +506,7 @@ async function main() {
             `(${parte.buscados} buscados uno a uno) · siguen sin escudo ${parte.quedan.length}`,
         );
         if (parte.fallo) console.log(`    TheSportsDB no contestó bien: ${parte.fallo}`);
+        if (parte.sinTiempo) console.log('    Se acabó el tiempo de esta pasada: lo que falta se busca en la siguiente.');
         if (parte.ligasSinEncontrar.length) {
           const ligas = parte.ligasSinEncontrar.join(', ');
           console.log(`    Ligas que TheSportsDB no conoce con ese nombre: ${ligas}`);

@@ -45,6 +45,13 @@ const { claveEstricta, parecido } = require('./thesportsdb');
 const TOPE_BUSQUEDAS = 120;
 
 /**
+ * Cuánto puede durar esta parte en cada pasada. El plan gratuito de la fuente
+ * va despacio y corta con 429; lo que no entre hoy entra mañana, porque lo
+ * resuelto queda en caché y no se vuelve a pedir.
+ */
+const TIEMPO_MAXIMO = 15 * 60_000;
+
+/**
  * Los equipos de los datos importados que no traen escudo, agrupados por
  * nombre. Cada grupo lleva sus apariciones: en qué competición y con qué
  * identificador.
@@ -113,9 +120,46 @@ function mejorEn(nombre, lista, umbral) {
  * @param ligaEnIngles competición de la app → nombre de su liga en TheSportsDB
  * @returns el recuento, para el parte del bot
  */
-async function resuelveEscudosImportados(buscador, logos, archivo, ligaEnIngles) {
+async function resuelveEscudosImportados(
+  buscador,
+  logos,
+  archivo,
+  ligaEnIngles,
+  { tiempoMaximoMs = TIEMPO_MAXIMO } = {},
+) {
+  const hasta = Date.now() + tiempoMaximoMs;
+  /*
+   * Los que la app ya pinta no se buscan. Un nombre que trae escudo en otra
+   * competición del mismo archivo —Bolívar sin escudo en la Libertadores, con
+   * él en la liga boliviana— ya sale con su escudo, porque la app indexa los
+   * importados también por nombre. Las peticiones a la fuente son lo escaso:
+   * se gastan en los que de verdad salen sin escudo.
+   */
+  const conEscudo = new Set();
+  /*
+   * Y en qué ligas nacionales sale cada nombre, tenga escudo o no. Si sale en
+   * dos —el River Plate argentino y el de Montevideo— son clubes distintos:
+   * que uno traiga escudo no le sirve al otro, y el otro no se busca por
+   * nombre (ver más abajo).
+   */
+  const ligasDeCadaNombre = new Map();
+  for (const [competicionId, c] of Object.entries(archivo?.competiciones ?? {})) {
+    for (const e of c.equipos ?? []) {
+      if (!e?.nombre) continue;
+      const clave = claveEstricta(e.nombre);
+      if (e.escudo) conEscudo.add(clave);
+      if (!(competicionId in ligaEnIngles)) continue;
+      const ligasDelNombre = ligasDeCadaNombre.get(clave) ?? new Set();
+      ligasDelNombre.add(competicionId);
+      ligasDeCadaNombre.set(clave, ligasDelNombre);
+    }
+  }
+  const homonimo = (clave) => (ligasDeCadaNombre.get(clave)?.size ?? 0) > 1;
   const faltan = sinEscudo(archivo).filter(
-    (e) => !logos.equipos[e.clave] && !e.apariciones.every((a) => a.id && logos.equipos[a.id]),
+    (e) =>
+      !(conEscudo.has(e.clave) && !homonimo(e.clave)) &&
+      !logos.equipos[e.clave] &&
+      !e.apariciones.every((a) => a.id && logos.equipos[a.id]),
   );
   const parte = {
     sinEscudo: faltan.length,
@@ -129,10 +173,17 @@ async function resuelveEscudosImportados(buscador, logos, archivo, ligaEnIngles)
     ligasSinEncontrar: [],
     /** Por qué no contestó la fuente, si no contestó: va al parte del bot. */
     fallo: null,
+    /** Si se acabó el tiempo de la pasada antes de buscarlos todos. */
+    sinTiempo: false,
   };
   if (!faltan.length) return parte;
 
-  // Las ligas que se van a necesitar, cada una con todos sus equipos.
+  /*
+   * Las ligas, cada una con todos sus equipos. Todas las del mapa y no solo
+   * las de los que faltan: un club que solo sale en la Libertadores se
+   * encuentra por su nombre en su liga nacional (paso 2). Cada lista se pide
+   * una vez y queda en caché, así que esto cuesta la primera noche y luego no.
+   */
   const ligas = (await buscador.ligas()) ?? [];
   /*
    * Sin la lista de ligas no se puede buscar por liga, pero sí por nombre: se
@@ -145,6 +196,7 @@ async function resuelveEscudosImportados(buscador, logos, archivo, ligaEnIngles)
   const equiposDeLaLiga = new Map();
   const todos = [];
   for (const [competicionId, nombreLiga] of ligas.length ? Object.entries(ligaEnIngles) : []) {
+    if (Date.now() >= hasta) break;
     const id = idDeLiga.get(claveEstricta(nombreLiga));
     if (!id) {
       parte.ligasSinEncontrar.push(`${competicionId} ("${nombreLiga}")`);
@@ -170,10 +222,8 @@ async function resuelveEscudosImportados(buscador, logos, archivo, ligaEnIngles)
      * que haya contestado la fuente: si la lista de ligas no llega, un River
      * Plate no puede acabar con el escudo del otro por buscarlo por nombre.
      */
-    const ligasDelNombre = new Set(
-      e.apariciones.map((a) => a.competicionId).filter((c) => c in ligaEnIngles),
-    );
-    if (ligasDelNombre.size > 1) {
+    const ligasDelNombre = ligasDeCadaNombre.get(e.clave) ?? new Set();
+    if (homonimo(e.clave)) {
       // Uno a uno, cada cual en su liga, y solo por identificador.
       let alguno = false;
       for (const a of e.apariciones) {
@@ -215,7 +265,8 @@ async function resuelveEscudosImportados(buscador, logos, archivo, ligaEnIngles)
     }
 
     // 3. Buscándolo, también solo exacto, y con tope.
-    if (busquedas < TOPE_BUSQUEDAS && fallidasSeguidas < 3) {
+    if (Date.now() >= hasta) parte.sinTiempo = true;
+    if (busquedas < TOPE_BUSQUEDAS && fallidasSeguidas < 3 && !parte.sinTiempo) {
       busquedas++;
       parte.buscados++;
       const fallosAntes = buscador.fallos ?? 0;
@@ -245,4 +296,4 @@ async function resuelveEscudosImportados(buscador, logos, archivo, ligaEnIngles)
   return parte;
 }
 
-module.exports = { resuelveEscudosImportados, sinEscudo, mejorEn, TOPE_BUSQUEDAS };
+module.exports = { resuelveEscudosImportados, sinEscudo, mejorEn, TOPE_BUSQUEDAS, TIEMPO_MAXIMO };
