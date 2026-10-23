@@ -251,7 +251,7 @@ function FilaGuardado({ g, onQuitar }: { g: PickGuardado; onQuitar: () => void }
         }
         style={{ flexDirection: 'row', alignItems: 'center', gap: E.md, padding: E.md }}
       >
-        <Avatar imagen={g.imagen} tam={34} nombres={g.nombres} sujeto={g.sujeto} />
+        <Avatar imagen={g.imagen} tam={34} nombres={g.nombres} sujeto={g.sujeto} equipo={g.equipo} />
         <View style={{ flex: 1 }}>
           <View style={{ flexDirection: 'row', alignItems: 'center', gap: 5 }}>
             <Txt v="cuerpoFuerte" numberOfLines={1} style={{ flexShrink: 1 }}>

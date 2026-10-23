@@ -1094,6 +1094,17 @@ export function picksDePartido(
    * diferencia de goles es mayor que `-h`, así que se reutiliza el mismo
    * `evalua` con la línea cambiada de signo.
    */
+  /*
+   * "Gana" y "Gana o empata": el hándicap -0.5 y el +0.5, con su nombre.
+   *
+   * Son exactamente esos dos mercados —con +0.5 vale ganar o empatar; con
+   * -0.5 hay que ganar— pero salían como "Hándicap +0.5", que no lo entiende
+   * nadie. Y salían con el listón general, así que podían aparecer en casi
+   * cualquier partido. Ahora tienen uno propio, más alto (ver más abajo), y
+   * de cada partido sale como mucho uno: el mejor de los dos equipos.
+   */
+  let mejorResultado: Pick | null = null;
+
   for (const equipo of [local, visitante]) {
     const suyos = historialDe(equipo);
     if (suyos.length < 6) continue;
@@ -1135,7 +1146,11 @@ export function picksDePartido(
 
     for (const h of HANDICAPS) {
       const ev = evalua(margenes, -h, 'mas');
-      if (ev.aciertosL10 < 7) continue;
+      const deResultado = Math.abs(h) === 0.5;
+      // "Gana o empata" pide no haber perdido en 8 de 10; "Gana", 7 victorias.
+      if (ev.aciertosL10 < (h === 0.5 ? 8 : 7)) continue;
+      // Los de resultado, además, en racha ahora: 4 de los últimos 5.
+      if (deResultado && ev.aciertosL5 < 4) continue;
 
       /*
        * El identificador sigue el formato de todos los demás
@@ -1193,13 +1208,36 @@ export function picksDePartido(
       const ventaja = Number(((prob - 1 / cuota) * 100).toFixed(1));
       if (!admisible(cuota, ventaja, 'mas')) continue;
 
+      /*
+       * El listón de "Gana" y "Gana o empata": solo el equipo que llega como
+       * favorito o al menos igualado, y con mucha probabilidad. Un "gana" del
+       * que el partido ve por debajo es una corazonada, no un pick.
+       */
+      if (deResultado) {
+        const gana = h < 0;
+        if (margenEsperado < (gana ? 0.3 : 0)) continue;
+        if (prob < (gana ? 0.66 : 0.8)) continue;
+      }
+
       const signo = h > 0 ? `+${linea(h)}` : linea(h);
       const explica =
         h > 0
           ? `le valen ${h === 0.5 ? 'la victoria y el empate' : `la victoria, el empate y perder por ${Math.floor(h)}`}`
           : `tiene que ganar por ${Math.ceil(-h)} o más`;
+      const mercadoH =
+        h === 0.5 ? 'Gana o empata' : h === -0.5 ? 'Gana el partido' : `Hándicap ${signo}`;
+      const argumentoH =
+        h === 0.5
+          ? `${equipo.nombre} no perdió en ${ev.aciertosL10} de sus últimos 10 partidos ` +
+            `y en ${ev.aciertosL5} de los últimos 5${enCasa ? ', y hoy juega en casa' : ''}.`
+          : h === -0.5
+            ? `${equipo.nombre} ganó ${ev.aciertosL10} de sus últimos 10 partidos ` +
+              `(diferencia media de ${coma(ev.media)} goles)${enCasa ? ' y hoy juega en casa' : ''}.`
+            : `Con hándicap ${signo} a ${equipo.nombre} ${explica}. ` +
+              `Lo habría cubierto en ${ev.aciertosL10} de sus últimos 10 partidos ` +
+              `(diferencia media de ${coma(ev.media)} goles).`;
 
-      picks.push({
+      const pick: Pick = {
         id,
         partidoId,
         competicionId: compReal,
@@ -1207,12 +1245,9 @@ export function picksDePartido(
         sujetoId: equipo.id,
         titulo: equipo.nombre,
         contexto,
-        argumento:
-          `Con hándicap ${signo} a ${equipo.nombre} ${explica}. ` +
-          `Lo habría cubierto en ${ev.aciertosL10} de sus últimos 10 partidos ` +
-          `(diferencia media de ${coma(ev.media)} goles).`,
+        argumento: argumentoH,
         familia: 'resultado',
-        mercado: `Hándicap ${signo}`,
+        mercado: mercadoH,
         metrica: 'handicap',
         // La línea que se compara, no el hándicap: el rótulo ya dice "+0.5".
         linea: lineaCubrir,
@@ -1236,9 +1271,19 @@ export function picksDePartido(
         imagen: equipo.bandera,
         esBandera: true,
         nombres: [equipo.nombre],
-      });
+      };
+      if (!deResultado) {
+        picks.push(pick);
+      } else if (
+        !mejorResultado ||
+        pick.ventaja > mejorResultado.ventaja ||
+        (pick.ventaja === mejorResultado.ventaja && pick.probabilidad > mejorResultado.probabilidad)
+      ) {
+        mejorResultado = pick;
+      }
     }
   }
+  if (mejorResultado) picks.push(mejorResultado);
 
   // -------------------------------------------------------- picks de partido
   // Historial del enfrentamiento: los partidos recientes de los dos equipos.
@@ -1519,9 +1564,21 @@ export function picksDePartido(
   // picks: si no, la lista es el mismo delantero repetido cinco veces.
   const vistas = new Set<string>();
   const porSujeto = new Map<string, number>();
+  /*
+   * El "Gana" o "Gana o empata" del partido (hay uno como mucho) tiene su
+   * hueco aparte. Si no, el tope de dos por equipo lo tiraba casi siempre: el
+   * equipo ya tenía dos picks de córners o de remates por delante, y el pick
+   * más fácil de entender de todos no llegaba nunca a la lista.
+   */
+  const esDeResultado = (p: Pick) => p.metrica === 'handicap' && Math.abs(p.linea) === 0.5;
+  const reservadas = new Set(picks.filter(esDeResultado).map((p) => `${p.sujetoId}|${p.metrica}`));
   const limpios = picks.filter((p) => {
     const metricaClave = `${p.sujetoId}|${p.metrica}`;
-    if (vistas.has(metricaClave)) return false;
+    if (esDeResultado(p)) {
+      vistas.add(metricaClave);
+      return true;
+    }
+    if (vistas.has(metricaClave) || reservadas.has(metricaClave)) return false;
     const cuantos = porSujeto.get(p.sujetoId) ?? 0;
     if (cuantos >= 2) return false;
     vistas.add(metricaClave);

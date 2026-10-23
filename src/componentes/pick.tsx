@@ -501,11 +501,14 @@ export function Avatar({
   tam = 38,
   nombres,
   sujeto,
+  equipo,
 }: {
   imagen: string;
   tam?: number;
   nombres?: string[];
   sujeto?: SujetoPick;
+  /** El club del jugador: sin foto se enseña su escudo, no una bandera. */
+  equipo?: string;
 }) {
   const trozos = Array.from(imagen);
   // Un emoji de bandera son dos code points: si hay mas, es un enfrentamiento.
@@ -516,7 +519,7 @@ export function Avatar({
     : [imagen];
 
   if (sujeto === 'jugador' && nombres?.[0]) {
-    return <Cara nombre={nombres[0]} bandera={imagen} tam={tam} />;
+    return <Cara nombre={nombres[0]} bandera={imagen} equipo={equipo} tam={tam} />;
   }
   if (sujeto === 'equipo' && nombres?.[0]) {
     return <Escudo nombre={nombres[0]} bandera={imagen} tam={tam} />;
@@ -846,7 +849,12 @@ export function TarjetaPick({
           <Avatar imagen={pick.imagen} nombres={pick.nombres} sujeto={pick.sujeto} />
         ) : (
           <View style={[est.aro, !bloqueado && pick.probabilidad >= 0.7 ? est.aroFuerte : null]}>
-            <Avatar imagen={pick.imagen} nombres={pick.nombres} sujeto={pick.sujeto} />
+            <Avatar
+              imagen={pick.imagen}
+              nombres={pick.nombres}
+              sujeto={pick.sujeto}
+              equipo={pick.equipo}
+            />
           </View>
         )}
         <View style={{ flex: 1 }}>
