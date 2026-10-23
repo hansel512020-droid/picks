@@ -115,7 +115,17 @@ async function resuelveEscudosImportados(buscador, logos, archivo, ligaEnIngles)
   const faltan = sinEscudo(archivo).filter(
     (e) => !logos.equipos[e.clave] && !e.apariciones.every((a) => a.id && logos.equipos[a.id]),
   );
-  const parte = { sinEscudo: faltan.length, porLiga: 0, porNombre: 0, buscados: 0, quedan: [] };
+  const parte = {
+    sinEscudo: faltan.length,
+    porLiga: 0,
+    porNombre: 0,
+    buscados: 0,
+    quedan: [],
+    /** Qué equipo de la fuente se le ha asignado a cada uno, para revisarlo a ojo. */
+    asignados: [],
+    /** Ligas del mapa que la fuente no conoce con ese nombre: hay que corregirlas. */
+    ligasSinEncontrar: [],
+  };
   if (!faltan.length) return parte;
 
   // Las ligas que se van a necesitar, cada una con todos sus equipos.
@@ -134,7 +144,10 @@ async function resuelveEscudosImportados(buscador, logos, archivo, ligaEnIngles)
   const todos = [];
   for (const [competicionId, nombreLiga] of Object.entries(ligaEnIngles)) {
     const id = idDeLiga.get(claveEstricta(nombreLiga));
-    if (!id) continue;
+    if (!id) {
+      parte.ligasSinEncontrar.push(`${competicionId} ("${nombreLiga}")`);
+      continue;
+    }
     const equipos = await buscador.equiposDeLiga(id);
     equiposDeLaLiga.set(competicionId, equipos);
     todos.push(...equipos);
@@ -162,6 +175,7 @@ async function resuelveEscudosImportados(buscador, logos, archivo, ligaEnIngles)
           : null;
         if (t && a.id) {
           logos.equipos[a.id] = escudoDe(t);
+          parte.asignados.push(`${e.nombre} [${a.competicionId}] → ${t.strTeam}`);
           alguno = true;
         }
       }
@@ -178,6 +192,7 @@ async function resuelveEscudosImportados(buscador, logos, archivo, ligaEnIngles)
     }
     if (t) {
       apunta(e, escudoDe(t), true);
+      parte.asignados.push(`${e.nombre} → ${t.strTeam} (su liga)`);
       parte.porLiga++;
       continue;
     }
@@ -186,6 +201,7 @@ async function resuelveEscudosImportados(buscador, logos, archivo, ligaEnIngles)
     t = mejorEn(e.nombre, todos, 2);
     if (t) {
       apunta(e, escudoDe(t), true);
+      parte.asignados.push(`${e.nombre} → ${t.strTeam} (otra liga, nombre exacto)`);
       parte.porNombre++;
       continue;
     }
@@ -197,6 +213,7 @@ async function resuelveEscudosImportados(buscador, logos, archivo, ligaEnIngles)
       const r = await buscador.escudo(e.nombre);
       if (r?.url && claveEstricta(r.fuente) === e.clave) {
         apunta(e, r.url, true);
+        parte.asignados.push(`${e.nombre} → ${r.fuente} (búsqueda)`);
         parte.porNombre++;
         continue;
       }

@@ -505,9 +505,16 @@ async function main() {
             `${parte.porLiga} encontrados en su liga, ${parte.porNombre} por nombre exacto ` +
             `(${parte.buscados} buscados uno a uno) · siguen sin escudo ${parte.quedan.length}`,
         );
+        if (parte.ligasSinEncontrar.length) {
+          const ligas = parte.ligasSinEncontrar.join(', ');
+          console.log(`    Ligas que TheSportsDB no conoce con ese nombre: ${ligas}`);
+        }
+        // Lo asignado, entero: es lo que hay que mirar para estar seguro de que
+        // ningún club ha recibido el escudo de otro.
+        for (const linea of parte.asignados) console.log(`    ${linea}`);
         if (parte.quedan.length) {
-          const muestra = parte.quedan.slice(0, 40).join(', ');
-          console.log(`    Sin escudo: ${muestra}${parte.quedan.length > 40 ? '…' : ''}`);
+          const muestra = parte.quedan.slice(0, 60).join(', ');
+          console.log(`    Sin escudo: ${muestra}${parte.quedan.length > 60 ? '…' : ''}`);
         }
       } catch (error) {
         console.log(`  Importados: no se pudieron resolver (${error.message})`);
