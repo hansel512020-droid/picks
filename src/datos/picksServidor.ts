@@ -57,6 +57,15 @@ let cargados = false;
  */
 let intentado = false;
 let cargando: Promise<void> | null = null;
+/*
+ * Si lo que hay es solo la primera tanda y el resto sigue llegando.
+ *
+ * Son más de diez mil picks —unos 13 MB— y se pedían de mil en mil, uno
+ * detrás de otro, antes de enseñar nada: la portada se quedaba medio minuto en
+ * "Trayendo los picks de hoy". Ahora se pinta con la primera tanda, que va
+ * ordenada por hora y por tanto trae los de hoy, y el resto llega por detrás.
+ */
+let parcial = false;
 
 const avisos: (() => void)[] = [];
 
@@ -74,30 +83,97 @@ export function hayPicksDelServidor(): boolean {
   return intentado;
 }
 
+/** Si ya está la lista entera, no solo la primera tanda. */
+export function picksCompletos(): boolean {
+  return !parcial;
+}
+
+/** PostgREST no entrega más de mil filas por petición. */
+const TAMANO = 1000;
+/** Cuántas tandas se piden a la vez después de la primera. */
+const A_LA_VEZ = 4;
+
 /**
- * Los trae del servidor. Se pide de mil en mil porque PostgREST no entrega
- * más de golpe, y una liga con sus partidos de diez días pasa de eso.
+ * Una tanda de mil, por orden de hora. Con `contar`, también cuántas hay en
+ * total (sale de la cabecera Content-Range: "0-999/10436").
  */
-async function pide(token: string): Promise<FilaServidor[]> {
-  const filas: FilaServidor[] = [];
-  const TAMANO = 1000;
-  for (let desde = 0; ; desde += TAMANO) {
-    const r = await fetch(
-      `${URL}/rest/v1/picks_visibles?select=*&order=cuando.asc`,
-      {
-        headers: {
-          apikey: CLAVE ?? '',
-          Authorization: `Bearer ${token}`,
-          Range: `${desde}-${desde + TAMANO - 1}`,
-        },
-      },
-    );
-    if (!r.ok) throw new Error(`picks_visibles respondió ${r.status}`);
-    const tanda = (await r.json()) as FilaServidor[];
-    filas.push(...tanda);
-    if (tanda.length < TAMANO) break;
+async function tanda(
+  token: string,
+  desde: number,
+  contar = false,
+): Promise<{ filas: FilaServidor[]; total?: number }> {
+  const r = await fetch(`${URL}/rest/v1/picks_visibles?select=*&order=cuando.asc,id.asc`, {
+    headers: {
+      apikey: CLAVE ?? '',
+      Authorization: `Bearer ${token}`,
+      Range: `${desde}-${desde + TAMANO - 1}`,
+      ...(contar ? { Prefer: 'count=exact' } : {}),
+    },
+  });
+  if (!r.ok) throw new Error(`picks_visibles respondió ${r.status}`);
+  const filas = (await r.json()) as FilaServidor[];
+  const total = Number(/\/(\d+)$/.exec(r.headers.get('content-range') ?? '')?.[1]);
+  return { filas, total: Number.isFinite(total) ? total : undefined };
+}
+
+/**
+ * Lo que falta después de la primera tanda. Sabiendo el total se piden varias
+ * a la vez; sin él (si la cabecera no llega), una detrás de otra como antes.
+ */
+async function resto(token: string, total: number | undefined): Promise<FilaServidor[]> {
+  if (total === undefined) {
+    const filas: FilaServidor[] = [];
+    for (let desde = TAMANO; ; desde += TAMANO) {
+      const { filas: suyas } = await tanda(token, desde);
+      filas.push(...suyas);
+      if (suyas.length < TAMANO) break;
+    }
+    return filas;
   }
-  return filas;
+  const desdes: number[] = [];
+  for (let desde = TAMANO; desde < total; desde += TAMANO) desdes.push(desde);
+  const tandas: FilaServidor[][] = new Array(desdes.length);
+  let siguiente = 0;
+  const obrero = async () => {
+    while (siguiente < desdes.length) {
+      const i = siguiente++;
+      tandas[i] = (await tanda(token, desdes[i])).filas;
+    }
+  };
+  await Promise.all(Array.from({ length: Math.min(A_LA_VEZ, desdes.length) }, obrero));
+  return tandas.flat();
+}
+
+/**
+ * Deja las filas listas para las pantallas.
+ *
+ * El candado se decide aquí y no en la pantalla. Antes cada tarjeta miraba los
+ * derechos del usuario para saber si taparse. Ahora el servidor ya ha decidido
+ * —y además solo ha mandado el contenido de lo que toca—, así que `pro` pasa a
+ * significar exactamente "esto te llegó vacío".
+ */
+function aplica(filas: FilaServidor[]) {
+  const picks = filas.map((f) => ({ ...f.datos, pro: !f.desbloqueado }) as Pick);
+
+  const porPartido = new Map<string, Pick[]>();
+  for (const p of picks) {
+    const suyos = porPartido.get(p.partidoId);
+    if (suyos) suyos.push(p);
+    else porPartido.set(p.partidoId, [p]);
+  }
+
+  PICKS = picks;
+  PORPARTIDO = porPartido;
+  /*
+   * El gratis, por su posición: las filas y los picks van en el mismo orden.
+   * Antes se buscaba cada pick entre todas las filas, y con diez mil eso eran
+   * cien millones de comparaciones con el navegador congelado.
+   *
+   * Nunca de una competición escondida: el gratis es lo primero que ve quien
+   * llega, y un partido del Mundial ahí contradice todo lo demás.
+   */
+  const i = filas.findIndex((f, k) => f.gratis && !SOLO_RELLENO.has(picks[k].competicionId));
+  GRATIS = i >= 0 ? picks[i] : null;
 }
 
 /**
@@ -114,35 +190,18 @@ export async function cargaPicks(forzar = false): Promise<void> {
       const sesion = await sesionGuardada();
       if (!sesion?.token) return;
 
-      const filas = await pide(sesion.token);
+      const primera = await tanda(sesion.token, 0, true);
+      aplica(primera.filas);
 
-      /*
-       * El candado se decide aquí y no en la pantalla.
-       *
-       * Antes cada tarjeta miraba los derechos del usuario para saber si
-       * taparse. Ahora el servidor ya ha decidido —y además solo ha mandado
-       * el contenido de lo que toca—, así que `pro` pasa a significar
-       * exactamente "esto te llegó vacío".
-       */
-      const picks = filas.map((f) => ({ ...f.datos, pro: !f.desbloqueado }) as Pick);
-
-      const porPartido = new Map<string, Pick[]>();
-      for (const p of picks) {
-        const suyos = porPartido.get(p.partidoId);
-        if (suyos) suyos.push(p);
-        else porPartido.set(p.partidoId, [p]);
+      if (primera.filas.length === TAMANO) {
+        // Las pantallas se pintan ya con los de hoy; el resto, por detrás.
+        parcial = true;
+        intentado = true;
+        for (const repinta of avisos) repinta();
+        aplica([...primera.filas, ...(await resto(sesion.token, primera.total))]);
       }
 
-      PICKS = picks;
-      PORPARTIDO = porPartido;
-      // Nunca de una competición escondida: el gratis es lo primero que ve
-      // quien llega, y un partido del Mundial ahí contradice todo lo demás.
-      GRATIS =
-        picks.find(
-          (p) => !SOLO_RELLENO.has(p.competicionId) && filas.find((f) => f.id === p.id)?.gratis,
-        ) ?? null;
       cargados = true;
-      for (const repinta of avisos) repinta();
     } catch {
       /*
        * Sin red o con el servidor caído no se rompe nada: quien llame verá la
@@ -151,6 +210,8 @@ export async function cargaPicks(forzar = false): Promise<void> {
        * vuelve a intentar.
        */
     } finally {
+      // Si el resto falla, se queda lo que llegó: mejor eso que seguir esperando.
+      parcial = false;
       intentado = true;
       cargando = null;
       for (const repinta of avisos) repinta();
