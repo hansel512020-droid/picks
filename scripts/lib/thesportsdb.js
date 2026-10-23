@@ -95,6 +95,8 @@ class Buscador {
     /** Peticiones que agotaron sus intentos, y por qué falló la última. */
     this.fallos = 0;
     this.ultimoFallo = null;
+    /** Si es true, no se pide nada nuevo: se contesta solo con la caché. */
+    this.soloCache = false;
   }
 
   guarda() {
@@ -104,6 +106,8 @@ class Buscador {
   async pide(url) {
     const clave = sinClave(url);
     if (this.cache[clave] !== undefined) return this.cache[clave];
+    // Con el tiempo de la pasada agotado solo vale lo que ya está en caché.
+    if (this.soloCache) return null;
 
     // Hasta tres intentos, esperando cada vez mas. La API comunitaria corta
     // cuando se le pide rapido, y un fallo NO se cachea: si se guardara, el
@@ -223,15 +227,28 @@ class Buscador {
     return null;
   }
 
-  /** Foto de un jugador, preferiendo el recorte con fondo transparente. */
-  async cara(nombre, equipo = null) {
+  /**
+   * Foto de un jugador, preferiendo el recorte con fondo transparente.
+   *
+   * `estricto` es para los jugadores importados, que no ha revisado nadie: la
+   * app busca la cara por el nombre, y la de otro jugador es peor que ninguna.
+   * Vale el nombre exacto o, si solo se parece, que juegue en el mismo equipo;
+   * y un nombre de una sola palabra ("Danilo", "Pedro"), siempre con el equipo.
+   */
+  async cara(nombre, equipo = null, { estricto = false } = {}) {
     const datos = await this.pide(`${API}/searchplayers.php?p=${encodeURIComponent(nombre)}`);
     const jugadores = datos?.player ?? [];
     for (const j of jugadores) {
       if (j.strSport !== 'Soccer') continue;
       if (parecido(nombre, j.strPlayer) < 0.8) continue;
+      const mismoEquipo = !!(equipo && j.strTeam && parecido(equipo, j.strTeam) >= 0.5);
       // Con muchos homonimos, el equipo desempata.
-      if (equipo && j.strTeam && parecido(equipo, j.strTeam) < 0.5 && jugadores.length > 1) continue;
+      if (equipo && j.strTeam && !mismoEquipo && jugadores.length > 1) continue;
+      if (estricto) {
+        const exacto = claveEstricta(nombre) === claveEstricta(j.strPlayer);
+        const unaPalabra = !nombre.trim().includes(' ');
+        if (unaPalabra ? !mismoEquipo : !(exacto || mismoEquipo)) continue;
+      }
       const foto = j.strCutout || j.strThumb || j.strRender;
       if (foto) return { url: foto, fuente: j.strPlayer, equipo: j.strTeam };
     }
