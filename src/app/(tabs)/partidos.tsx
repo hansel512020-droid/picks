@@ -5,11 +5,11 @@ import { useSafeAreaInsets } from 'react-native-safe-area-context';
 import { Chip, Insignia, Pulsable, Txt, Vacio } from '@/componentes/base';
 import { BotonCompeticion } from '@/componentes/carruseles';
 import { Icono } from '@/componentes/iconos';
-import { Escudo } from '@/componentes/imagen';
+import { Escudo, LogoCompeticion } from '@/componentes/imagen';
 import { Aparece, marca } from '@/componentes/movimiento';
 import { FundidoInferior, Resplandor } from '@/componentes/marca';
 import { TiraChips } from '@/componentes/navegacion';
-import { competicion } from '@/datos/competiciones';
+import { competicion, competicionOpcional, COMPETICIONES } from '@/datos/competiciones';
 import { claveDelPartido , seJuegaAhora } from '@/datos/envivo';
 import { temporada } from '@/datos/motor';
 import type { Equipo, Partido } from '@/datos/tipos';
@@ -17,6 +17,10 @@ import { useTienda } from '@/estado/tienda';
 import { usePartidoVivoDe, useVivo } from '@/estado/vivo';
 import { C, COLUMNA, E, HUECO_PESTANAS, R } from '@/tema';
 import { useCalculo } from '@/utiles/carga';
+import { useAnchoContenido } from '@/utiles/pantalla';
+
+/** El orden de la tabla de competiciones: primero las grandes. */
+const ORDEN_COMPETICION = new Map(COMPETICIONES.map((c, i) => [c.id, i]));
 
 type Filtro = 'todos' | 'vivo' | 'hoy' | 'proximos' | 'jugados';
 
@@ -57,11 +61,14 @@ export function FilaPartido({
   local,
   visitante,
   competicionId,
+  enLinea,
 }: {
   partido: Partido;
   local: Equipo;
   visitante: Equipo;
   competicionId: string;
+  /** En pantalla ancha: local y visitante en la misma línea, el marcador en medio. */
+  enLinea?: boolean;
 }) {
   // Lo que dice ESPN ahora mismo manda sobre lo que se importó: el archivo es
   // una foto del momento de la descarga y el marcador cambia cada minuto.
@@ -83,10 +90,18 @@ export function FilaPartido({
         alignItems: 'center',
         gap: E.md,
         paddingHorizontal: E.md,
-        paddingVertical: 13,
+        paddingVertical: 12,
       }}
     >
-      <View style={{ width: 48, alignItems: 'center' }}>
+      <View
+        style={{
+          width: 50,
+          alignItems: 'center',
+          paddingRight: E.sm,
+          borderRightWidth: 1,
+          borderRightColor: C.bordeSuave,
+        }}
+      >
         {vivo ? (
           <View style={{ alignItems: 'center', gap: 3 }}>
             <View
@@ -98,38 +113,87 @@ export function FilaPartido({
             </Txt>
           </View>
         ) : (
-          <Txt v="pequeno" color={jugado ? C.texto3 : C.texto2}>
+          <Txt v={jugado ? 'mini' : 'pequenoFuerte'} color={jugado ? C.texto3 : C.texto}>
             {jugado ? 'FIN' : hora(partido.fecha)}
           </Txt>
         )}
       </View>
 
-      <View style={{ flex: 1, gap: 7 }}>
-        {[
-          { e: local, g: golesLocal },
-          { e: visitante, g: golesVisitante },
-        ].map(({ e, g }) => {
-          const gana = jugado && g > (e.id === local.id ? golesVisitante : golesLocal);
-          return (
-            <View key={e.id} style={{ flexDirection: 'row', alignItems: 'center', gap: 9 }}>
-              <Escudo nombre={e.nombre} id={e.id} bandera={e.bandera} corto={e.corto} tam={24} />
-              <Txt
-                v={gana ? 'cuerpoFuerte' : 'cuerpo'}
-                color={jugado && !gana ? C.texto2 : C.texto}
-                numberOfLines={1}
-                style={{ flex: 1 }}
+      {enLinea ? (
+        <View style={{ flex: 1, flexDirection: 'row', alignItems: 'center', gap: E.md }}>
+          {[local, visitante].map((e, i) => {
+            const g = i ? golesVisitante : golesLocal;
+            const otro = i ? golesLocal : golesVisitante;
+            const gana = jugado && g > otro;
+            const lado = (
+              <View
+                key={e.id}
+                style={{ flex: 1, flexDirection: i ? 'row' : 'row-reverse', alignItems: 'center', gap: 10 }}
               >
-                {e.nombre}
-              </Txt>
-              {jugado || vivo ? (
-                <Txt v="cuerpoFuerte" color={gana ? C.texto : C.texto2}>
-                  {g}
+                <Escudo nombre={e.nombre} id={e.id} bandera={e.bandera} corto={e.corto} tam={26} />
+                <Txt
+                  v={gana ? 'cuerpoFuerte' : 'cuerpo'}
+                  color={jugado && !gana ? C.texto2 : C.texto}
+                  numberOfLines={1}
+                  style={{ flexShrink: 1, textAlign: i ? 'left' : 'right' }}
+                >
+                  {e.nombre}
                 </Txt>
-              ) : null}
-            </View>
-          );
-        })}
-      </View>
+              </View>
+            );
+            if (i) return lado;
+            return [
+              lado,
+              <View
+                key="marcador"
+                style={{
+                  minWidth: 64,
+                  paddingVertical: 5,
+                  paddingHorizontal: 10,
+                  borderRadius: R.sm,
+                  alignItems: 'center',
+                  backgroundColor: vivo ? C.rojoTenue : C.carta2,
+                }}
+              >
+                <Txt v="cuerpoFuerte" color={vivo ? C.rojo : jugado ? C.texto : C.texto3}>
+                  {jugado || vivo ? `${golesLocal} - ${golesVisitante}` : 'vs'}
+                </Txt>
+              </View>,
+            ];
+          })}
+        </View>
+      ) : (
+        <View style={{ flex: 1, gap: 7 }}>
+          {[
+            { e: local, g: golesLocal },
+            { e: visitante, g: golesVisitante },
+          ].map(({ e, g }) => {
+            const gana = jugado && g > (e.id === local.id ? golesVisitante : golesLocal);
+            return (
+              <View key={e.id} style={{ flexDirection: 'row', alignItems: 'center', gap: 9 }}>
+                <Escudo nombre={e.nombre} id={e.id} bandera={e.bandera} corto={e.corto} tam={24} />
+                <Txt
+                  v={gana ? 'cuerpoFuerte' : 'cuerpo'}
+                  color={jugado && !gana ? C.texto2 : C.texto}
+                  numberOfLines={1}
+                  style={{ flex: 1 }}
+                >
+                  {e.nombre}
+                </Txt>
+                {jugado || vivo ? (
+                  <Txt
+                    v="cuerpoFuerte"
+                    color={vivo ? C.rojo : gana ? C.texto : C.texto2}
+                    style={{ minWidth: 18, textAlign: 'right' }}
+                  >
+                    {g}
+                  </Txt>
+                ) : null}
+              </View>
+            );
+          })}
+        </View>
+      )}
 
       <Icono nombre="flechaDerecha" tam={16} color={C.texto3} />
     </Pulsable>
@@ -142,6 +206,7 @@ export default function Partidos() {
   const [filtro, setFiltro] = useState<Filtro>('todos');
   const competicionId = ajustes.competicionId;
   const { porEspn } = useVivo();
+  const enLinea = useAnchoContenido() >= 760;
 
   const datos = useCalculo(() => {
     const t = temporada(competicionId);
@@ -210,12 +275,35 @@ export default function Partidos() {
       lista.push(item);
       mapa.set(clave, lista);
     }
-    return [...mapa.entries()].map(([clave, lista]) => ({
-      title: tituloDia(lista[0].partido.fecha),
-      clave,
-      data: lista,
-    }));
-  }, [datos, filtro, porEspn]);
+    /*
+     * Dentro de cada día, un bloque por competición, como en las apps de
+     * resultados: antes eran trescientas tarjetas sueltas, cada una con su
+     * bandera, y para encontrar los de LaLiga había que leerlas todas. Las
+     * ligas que sigues van primero; las demás, por su orden de siempre.
+     */
+    const seguidas = ajustes.ligasSeguidas;
+    const peso = (id: string) => {
+      const i = seguidas.indexOf(id);
+      return i >= 0 ? i - 1000 : (ORDEN_COMPETICION.get(id) ?? 999);
+    };
+    return [...mapa.entries()].map(([clave, lista]) => {
+      const porComp = new Map<string, typeof lista>();
+      for (const item of lista) {
+        const id = item.partido.competicionId;
+        const grupo = porComp.get(id) ?? [];
+        grupo.push(item);
+        porComp.set(id, grupo);
+      }
+      return {
+        title: tituloDia(lista[0].partido.fecha),
+        clave,
+        total: lista.length,
+        data: [...porComp.entries()]
+          .sort((a, b) => peso(a[0]) - peso(b[0]))
+          .map(([id, partidos]) => ({ id: `${clave}:${id}`, competicionId: id, partidos })),
+      };
+    });
+  }, [datos, filtro, porEspn, ajustes.ligasSeguidas]);
 
   const comp = competicion(competicionId);
 
@@ -261,7 +349,7 @@ export default function Partidos() {
         <SectionList
           {...marca('pagina')}
           sections={secciones}
-          keyExtractor={(item) => item.partido.id}
+          keyExtractor={(item) => item.id}
           stickySectionHeadersEnabled={false}
           contentContainerStyle={[
             { paddingBottom: HUECO_PESTANAS + insets.bottom },
@@ -283,30 +371,59 @@ export default function Partidos() {
                 {section.title}
               </Txt>
               <View style={{ flex: 1, height: 1, backgroundColor: C.bordeSuave }} />
-              <Insignia texto={`${section.data.length}`} />
+              <Insignia texto={`${section.total}`} />
             </View>
           )}
-          renderItem={({ item, index }) => (
-            <Aparece
-              orden={index}
-              style={{
-                marginHorizontal: E.lg,
-                borderRadius: R.md,
-                backgroundColor: C.carta,
-                borderWidth: 1,
-                borderColor: C.borde,
-                borderTopColor: C.bordeLuz,
-                marginBottom: E.sm,
-              }}
-            >
-              <FilaPartido
-                partido={item.partido}
-                local={item.local}
-                visitante={item.visitante}
-                competicionId={competicionId}
-              />
-            </Aparece>
-          )}
+          renderItem={({ item, index }) => {
+            const comp = competicionOpcional(item.competicionId);
+            return (
+              <Aparece
+                orden={index}
+                style={{
+                  marginHorizontal: E.lg,
+                  marginBottom: E.md,
+                  borderRadius: R.lg,
+                  backgroundColor: C.carta,
+                  borderWidth: 1,
+                  borderColor: C.borde,
+                  borderTopColor: C.bordeLuz,
+                  overflow: 'hidden',
+                }}
+              >
+                {comp ? (
+                  <View
+                    style={{
+                      flexDirection: 'row',
+                      alignItems: 'center',
+                      gap: E.sm,
+                      paddingHorizontal: E.md,
+                      paddingVertical: 10,
+                      backgroundColor: C.carta2,
+                    }}
+                  >
+                    <LogoCompeticion competicionId={comp.id} bandera={comp.bandera} tam={20} cuadrado />
+                    <Txt v="pequenoFuerte" numberOfLines={1} style={{ flex: 1 }}>
+                      {comp.nombre}
+                    </Txt>
+                    <Txt v="mini" color={C.texto3}>
+                      {comp.pais.toUpperCase()}
+                    </Txt>
+                  </View>
+                ) : null}
+                {item.partidos.map((p, i) => (
+                  <View key={p.partido.id} style={i ? { borderTopWidth: 1, borderTopColor: C.bordeSuave } : undefined}>
+                    <FilaPartido
+                      partido={p.partido}
+                      local={p.local}
+                      visitante={p.visitante}
+                      competicionId={competicionId}
+                      enLinea={enLinea}
+                    />
+                  </View>
+                ))}
+              </Aparece>
+            );
+          }}
           ListEmptyComponent={
             <Vacio icono="calendario" titulo="No hay partidos" detalle="Cambia de filtro o de competición." />
           }

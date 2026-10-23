@@ -3,13 +3,14 @@ import { useMemo, useState } from 'react';
 import { ActivityIndicator, ScrollView, Text, View } from 'react-native';
 import { useSafeAreaInsets } from 'react-native-safe-area-context';
 import { Chip, Insignia, Pulsable, Separador, Tarjeta, Txt, Vacio } from '@/componentes/base';
-import { Escudo, LogoCompeticion } from '@/componentes/imagen';
+import { FilaComparada } from '@/componentes/comparativa';
+import { Cara, Escudo, LogoCompeticion } from '@/componentes/imagen';
 import { Resplandor } from '@/componentes/marca';
 import { marca } from '@/componentes/movimiento';
-import { CabeceraAtras, FilaDato, Segmentado } from '@/componentes/navegacion';
+import { CabeceraAtras, Segmentado } from '@/componentes/navegacion';
 import { competicion, competicionOpcional } from '@/datos/competiciones';
 import { partidoConEstadisticas, partidosDelEquipoEnTodas, valoracionReal } from '@/datos/importado';
-import { registrosDelJugador, temporada } from '@/datos/motor';
+import { posicionesEnLiga, registrosDelJugador, temporada } from '@/datos/motor';
 import { coma } from '@/datos/picks';
 import type { Partido } from '@/datos/tipos';
 import { useTienda } from '@/estado/tienda';
@@ -20,6 +21,48 @@ import { useCalculo } from '@/utiles/carga';
 
 type Vista = 'forma' | 'plantilla' | 'calendario';
 type Donde = 'todos' | 'local' | 'visitante';
+
+/**
+ * Lo que se compara del equipo con el resto de su liga. `conEstadisticas`: solo
+ * cuenta en los partidos que las traen. `alReves`: cuanto menos, mejor.
+ */
+interface Metrica {
+  etiqueta: string;
+  f: (p: Partido, esLocal: boolean) => number;
+  decimales: number;
+  sufijo?: string;
+  conEstadisticas?: boolean;
+  alReves?: boolean;
+  destacado?: boolean;
+}
+
+const lado = (p: Partido, l: boolean) => (l ? p.estadisticas.local : p.estadisticas.visitante);
+const METRICAS: Metrica[] = [
+  { etiqueta: 'Goles a favor', f: (p, l) => (l ? p.golesLocal : p.golesVisitante), decimales: 2, destacado: true },
+  { etiqueta: 'Goles en contra', f: (p, l) => (l ? p.golesVisitante : p.golesLocal), decimales: 2, alReves: true },
+  { etiqueta: 'Goles totales del partido', f: (p) => p.golesLocal + p.golesVisitante, decimales: 2 },
+  { etiqueta: 'Remates', f: (p, l) => lado(p, l).remates, decimales: 1, conEstadisticas: true },
+  { etiqueta: 'Remates a puerta', f: (p, l) => lado(p, l).rematesPuerta, decimales: 1, conEstadisticas: true },
+  { etiqueta: 'Posesión', f: (p, l) => lado(p, l).posesion, decimales: 0, sufijo: '%', conEstadisticas: true },
+  { etiqueta: 'Córners', f: (p, l) => lado(p, l).corners, decimales: 1, conEstadisticas: true },
+  { etiqueta: 'Faltas', f: (p, l) => lado(p, l).faltas, decimales: 1, conEstadisticas: true, alReves: true },
+  { etiqueta: 'Tarjetas', f: (p, l) => lado(p, l).amarillas, decimales: 1, conEstadisticas: true, alReves: true },
+  { etiqueta: 'xG estimado', f: (p, l) => lado(p, l).xg, decimales: 2, conEstadisticas: true },
+  {
+    etiqueta: 'Córners del partido',
+    f: (p) => p.estadisticas.local.corners + p.estadisticas.visitante.corners,
+    decimales: 1,
+    conEstadisticas: true,
+  },
+];
+
+/** Cómo queda un equipo en una métrica dentro de su liga. */
+interface EnLiga {
+  puesto: number;
+  total: number;
+  media: number;
+  mejor: number;
+}
 
 export default function PantallaEquipo() {
   const { id, comp } = useLocalSearchParams<{ id: string; comp: string }>();
@@ -59,8 +102,52 @@ export default function PantallaEquipo() {
       porCompeticion.set(otra, r);
     }
 
+    /*
+     * Su liga, para dar contexto: el puesto en la tabla y, en cada
+     * estadística, dónde queda entre los equipos de la liga. Se calcula con
+     * los partidos de la liga en la temporada que se está jugando.
+     */
+    const ligaId = equipo.competicionId;
+    const esLiga = competicionOpcional(ligaId)?.tipo === 'liga';
+    let puestoEnLiga: number | undefined;
+    let equiposEnLiga = 0;
+    const enLiga = new Map<string, EnLiga>();
+    if (esLiga) {
+      const tl = ligaId === competicionId ? t : temporada(ligaId);
+      const posiciones = posicionesEnLiga(tl, ligaId);
+      puestoEnLiga = posiciones.get(equipo.id);
+      equiposEnLiga = posiciones.size;
+      const jugadosLiga = tl.partidos.filter((p) => p.estado === 'finalizado');
+      const conEstLiga = jugadosLiga.filter(partidoConEstadisticas);
+      for (const m of METRICAS) {
+        const base = m.conEstadisticas ? conEstLiga : jugadosLiga;
+        const suma = new Map<string, { total: number; n: number }>();
+        for (const p of base) {
+          for (const [id, l] of [[p.localId, true], [p.visitanteId, false]] as const) {
+            const a = suma.get(id) ?? { total: 0, n: 0 };
+            a.total += m.f(p, l);
+            a.n++;
+            suma.set(id, a);
+          }
+        }
+        const medias = [...suma.entries()]
+          .filter(([, a]) => a.n >= 3)
+          .map(([id, a]) => ({ id, v: a.total / a.n }));
+        const propia = medias.find((x) => x.id === equipo.id);
+        if (!propia || medias.length < 4) continue;
+        const ordenadas = [...medias].sort((a, b) => (m.alReves ? a.v - b.v : b.v - a.v));
+        enLiga.set(m.etiqueta, {
+          puesto: ordenadas.findIndex((x) => x.id === equipo.id) + 1,
+          total: ordenadas.length,
+          media: medias.reduce((a, x) => a + x.v, 0) / medias.length,
+          mejor: Math.max(...medias.map((x) => x.v)),
+        });
+      }
+    }
+
     return {
       equipo,
+      liga: esLiga ? { id: ligaId, puesto: puestoEnLiga, total: equiposEnLiga, metricas: enLiga } : null,
       jugados: suyos.filter((p) => p.estado === 'finalizado'),
       proximos: suyos.filter((p) => p.estado !== 'finalizado').slice(0, 8),
       /*
@@ -164,21 +251,57 @@ export default function PantallaEquipo() {
         contentContainerStyle={[{ paddingBottom: E.xxxl, gap: E.lg }, COLUMNA.lectura]}
         showsVerticalScrollIndicator={false}
       >
-        <View style={{ alignItems: 'center', gap: E.sm }}>
-          <Escudo
-            nombre={equipo.nombre}
-            id={equipo.id}
-            bandera={equipo.bandera}
-            corto={equipo.corto}
-            color={equipo.color}
-            tam={72}
-          />
-          <Txt v="titulo">{equipo.nombre}</Txt>
-          <Txt v="pequeno" color={C.texto3}>
-            {equipo.estadio}
-            {equipo.ciudad ? ` · ${equipo.ciudad}` : ''}
-          </Txt>
-          {equipo.grupo ? <Insignia texto={`GRUPO ${equipo.grupo}`} /> : null}
+        {/* -------------------------------------------------- cabecera */}
+        <View style={{ paddingHorizontal: E.lg }}>
+          <Tarjeta style={{ padding: E.lg, gap: E.md, overflow: 'hidden' }}>
+            {/* Un velo con el color del club detrás del escudo. */}
+            <View
+              style={{
+                pointerEvents: 'none',
+                position: 'absolute',
+                top: -60,
+                left: -40,
+                width: 220,
+                height: 220,
+                borderRadius: 110,
+                backgroundColor: equipo.color || C.lima,
+                opacity: 0.16,
+              }}
+            />
+            <View style={{ flexDirection: 'row', alignItems: 'center', gap: E.lg }}>
+              <Escudo
+                nombre={equipo.nombre}
+                id={equipo.id}
+                bandera={equipo.bandera}
+                corto={equipo.corto}
+                color={equipo.color}
+                tam={76}
+              />
+              <View style={{ flex: 1, gap: 4 }}>
+                <Txt v="display" titular numberOfLines={2}>
+                  {equipo.nombre}
+                </Txt>
+                {equipo.estadio || equipo.ciudad ? (
+                  <Txt v="pequeno" color={C.texto2} numberOfLines={1}>
+                    {[equipo.estadio, equipo.ciudad].filter(Boolean).join(' · ')}
+                  </Txt>
+                ) : null}
+              </View>
+            </View>
+            <View style={{ flexDirection: 'row', flexWrap: 'wrap', gap: 6 }}>
+              {datos.liga?.puesto ? (
+                <Insignia
+                  texto={`${datos.liga.puesto}º EN ${competicion(datos.liga.id).corto.toUpperCase()}`}
+                  color={datos.liga.puesto <= 4 ? C.lima : C.texto}
+                  fondo={datos.liga.puesto <= 4 ? C.limaTenue : C.carta2}
+                />
+              ) : null}
+              {equipo.grupo ? <Insignia texto={`GRUPO ${equipo.grupo}`} /> : null}
+              {datos.jugados.length ? (
+                <Insignia texto={`${datos.jugados.length} PARTIDOS JUGADOS`} />
+              ) : null}
+            </View>
+          </Tarjeta>
         </View>
 
         <View style={{ paddingHorizontal: E.lg }}>
@@ -293,33 +416,33 @@ export default function PantallaEquipo() {
                 </View>
               </Tarjeta>
 
-              <Tarjeta style={{ paddingHorizontal: E.md }}>
-                <FilaDato etiqueta="Goles a favor" valor={coma(media((p, l) => (l ? p.golesLocal : p.golesVisitante)), 2)} destacado />
-                <Separador />
-                <FilaDato etiqueta="Goles en contra" valor={coma(media((p, l) => (l ? p.golesVisitante : p.golesLocal)), 2)} />
-                <Separador />
-                <FilaDato etiqueta="Goles totales del partido" valor={coma(media((p) => p.golesLocal + p.golesVisitante), 2)} />
-                {conEstadisticas.length ? (
-                  <>
-                    <Separador />
-                    <FilaDato etiqueta="Remates" valor={coma(mediaEst((p, l) => (l ? p.estadisticas.local : p.estadisticas.visitante).remates), 1)} />
-                    <Separador />
-                    <FilaDato etiqueta="Remates a puerta" valor={coma(mediaEst((p, l) => (l ? p.estadisticas.local : p.estadisticas.visitante).rematesPuerta), 1)} />
-                    <Separador />
-                    <FilaDato etiqueta="Posesión" valor={coma(mediaEst((p, l) => (l ? p.estadisticas.local : p.estadisticas.visitante).posesion), 0)} sufijo="%" />
-                    <Separador />
-                    <FilaDato etiqueta="Córners" valor={coma(mediaEst((p, l) => (l ? p.estadisticas.local : p.estadisticas.visitante).corners), 1)} />
-                    <Separador />
-                    <FilaDato etiqueta="Faltas" valor={coma(mediaEst((p, l) => (l ? p.estadisticas.local : p.estadisticas.visitante).faltas), 1)} />
-                    <Separador />
-                    <FilaDato etiqueta="Tarjetas" valor={coma(mediaEst((p, l) => (l ? p.estadisticas.local : p.estadisticas.visitante).amarillas), 1)} />
-                    <Separador />
-                    <FilaDato etiqueta="xG estimado" valor={coma(mediaEst((p, l) => (l ? p.estadisticas.local : p.estadisticas.visitante).xg), 2)} />
-                    <Separador />
-                    <FilaDato etiqueta="Córners del partido" valor={coma(mediaEst((p) => p.estadisticas.local.corners + p.estadisticas.visitante.corners), 1)} />
-                  </>
-                ) : null}
+              <Tarjeta style={{ paddingHorizontal: E.md, paddingVertical: E.xs }}>
+                {METRICAS.filter((m) => !m.conEstadisticas || conEstadisticas.length > 0).map((m, i) => {
+                  const valor = m.conEstadisticas ? mediaEst(m.f) : media(m.f);
+                  const ctx = datos.liga?.metricas.get(m.etiqueta);
+                  return (
+                    <View key={m.etiqueta}>
+                      {i > 0 ? <Separador /> : null}
+                      <FilaComparada
+                        etiqueta={m.etiqueta}
+                        valor={coma(valor, m.decimales)}
+                        sufijo={m.sufijo}
+                        destacado={m.destacado}
+                        fraccion={ctx ? (ctx.mejor ? Math.min(1, valor / ctx.mejor) : 0) : undefined}
+                        puesto={ctx?.puesto}
+                        total={ctx?.total}
+                        media={ctx ? coma(ctx.media, m.decimales) : undefined}
+                      />
+                    </View>
+                  );
+                })}
               </Tarjeta>
+              {datos.liga?.metricas.size ? (
+                <Txt v="mini" color={C.texto3}>
+                  La barra y el puesto comparan con los equipos de{' '}
+                  {competicion(datos.liga.id).nombre} esta temporada.
+                </Txt>
+              ) : null}
             </View>
           </>
         ) : null}
@@ -354,13 +477,21 @@ export default function PantallaEquipo() {
                               paddingVertical: 11,
                             }}
                           >
-                            <Txt v="mini" color={C.texto3} style={{ width: 22 }}>
-                              {j.dorsal}
-                            </Txt>
-                            <View style={{ flex: 1 }}>
-                              <Txt v="cuerpo">{j.nombre}</Txt>
-                              <Txt v="mini" color={C.texto3}>
-                                {regs.length} partidos · {goles} goles · {asis} asistencias
+                            <Cara nombre={j.nombre} bandera={j.bandera} tam={38} />
+                            <View style={{ flex: 1, gap: 2 }}>
+                              <Txt v="cuerpoFuerte" numberOfLines={1}>
+                                {j.nombre}
+                              </Txt>
+                              <Txt v="mini" color={C.texto3} numberOfLines={1}>
+                                {[
+                                  j.dorsal ? `#${j.dorsal}` : null,
+                                  j.edad > 0 ? `${j.edad} años` : null,
+                                  `${regs.length} PJ`,
+                                  `${goles} G`,
+                                  `${asis} A`,
+                                ]
+                                  .filter(Boolean)
+                                  .join(' · ')}
                               </Txt>
                             </View>
                             {valoracionReal(j.id) ? (

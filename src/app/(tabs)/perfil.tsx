@@ -93,9 +93,12 @@ function Interruptor({
         <Switch
           value={valor}
           onValueChange={(v) => cambiaAjuste(clave, v as never)}
-          trackColor={{ false: C.carta2, true: C.limaOscuro }}
-          thumbColor={valor ? C.lima : C.texto3}
+          trackColor={{ false: C.carta2, true: C.lima }}
+          thumbColor={valor ? C.fondo : C.texto3}
           ios_backgroundColor={C.carta2}
+          // En la web el botón encendido tiene su propio color, verde azulado
+          // por defecto: sobre el lima quedaba como de otra app.
+          {...({ activeThumbColor: C.fondo } as object)}
         />
       }
     />
