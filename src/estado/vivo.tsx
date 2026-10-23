@@ -11,7 +11,7 @@ import {
   type ReactNode,
 } from 'react';
 import { AppState, Platform } from 'react-native';
-import { competicion } from '@/datos/competiciones';
+import { competicion, SOLO_RELLENO } from '@/datos/competiciones';
 import { claveDelPartido, partidosDeHoy, slugDe, type PartidoVivo , seJuegaAhora } from '@/datos/envivo';
 import { competicionesImportadas } from '@/datos/importado';
 import { temporada } from '@/datos/motor';
@@ -426,7 +426,10 @@ export function ProveedorVivo({ children }: { children: ReactNode }) {
       await cargaPicks();
       const mejorPorLiga = new Map<string, Pick>();
       for (const p of picksDelServidor()) {
-        if (p.pro) continue;
+        // Ni los de pago sin comprar ni los de una competición escondida: un
+        // "Nuevo pick en Mundial" en la campana de alguien que no lo ve en
+        // ningún otro sitio de la app.
+        if (p.pro || SOLO_RELLENO.has(p.competicionId)) continue;
         const mejor = mejorPorLiga.get(p.competicionId);
         if (!mejor || p.probabilidad > mejor.probabilidad) mejorPorLiga.set(p.competicionId, p);
       }

@@ -135,7 +135,12 @@ export async function cargaPicks(forzar = false): Promise<void> {
 
       PICKS = picks;
       PORPARTIDO = porPartido;
-      GRATIS = picks.find((p) => filas.find((f) => f.id === p.id)?.gratis) ?? null;
+      // Nunca de una competición escondida: el gratis es lo primero que ve
+      // quien llega, y un partido del Mundial ahí contradice todo lo demás.
+      GRATIS =
+        picks.find(
+          (p) => !SOLO_RELLENO.has(p.competicionId) && filas.find((f) => f.id === p.id)?.gratis,
+        ) ?? null;
       cargados = true;
       for (const repinta of avisos) repinta();
     } catch {
