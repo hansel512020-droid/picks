@@ -29,6 +29,7 @@ import { detalleResuelto } from '@/datos/importado';
 import { logosResueltos } from '@/datos/imagenes';
 import { temporada } from '@/datos/motor';
 import { FAMILIAS, picksDeCompeticionPorTrozos, reparteVariedad } from '@/datos/picks';
+import { cargaPicks } from '@/datos/picksServidor';
 import type { Familia, Pick } from '@/datos/tipos';
 import { useComunidad } from '@/estado/comunidad';
 import { useDerechos } from '@/estado/derechos';
@@ -37,7 +38,7 @@ import { usePicksVigentes, useVivo } from '@/estado/vivo';
 import { brillo, C, COLUMNA, E, HUECO_PESTANAS, R } from '@/tema';
 import { useCalculo } from '@/utiles/carga';
 import { useHayLateral } from '@/utiles/pantalla';
-import { usePicksDelServidor } from '@/utiles/picks';
+import { usePicksDelServidor, usePicksFallaron } from '@/utiles/picks';
 import { useRejilla } from '@/utiles/rejilla';
 import { useOcultaPestanas } from './_layout';
 
@@ -450,6 +451,7 @@ export default function Inicio() {
    * no. De paso la portada abre sin analizar nada.
    */
   const picks = usePicksDelServidor(competicionId);
+  const fallaron = usePicksFallaron();
 
   /** Partidos que entran en el filtro del carrusel (un grupo o un equipo). */
   const partidosDelFiltro = useCalculo(() => {
@@ -850,11 +852,38 @@ export default function Inicio() {
         ListEmptyComponent={
           /* Aquí ya no hay "analizando": si se está calculando, lo que se ve es
              la pantalla de carga entera y no se llega a pintar la lista. */
-          <Vacio
-            icono="filtro"
-            titulo="Sin picks con estos filtros"
-            detalle="Prueba a quitar algún filtro o cambia de competición."
-          />
+          fallaron ? (
+            // Sin red o con el servidor sin contestar: se dice, y se ofrece
+            // volver a probar en vez de culpar a los filtros.
+            <View style={{ alignItems: 'center', gap: E.md }}>
+              <Vacio
+                icono="recarga"
+                titulo="No se pudieron traer los picks"
+                detalle="Puede ser la conexión. Vuelve a intentarlo en un momento."
+              />
+              <Pulsable
+                onPress={() => void cargaPicks(true)}
+                marcas="brillo"
+                style={{
+                  paddingHorizontal: 20,
+                  paddingVertical: 12,
+                  borderRadius: R.md,
+                  backgroundColor: C.lima,
+                  boxShadow: brillo.limaFuerte,
+                }}
+              >
+                <Txt v="cuerpoFuerte" color={C.fondo}>
+                  Reintentar
+                </Txt>
+              </Pulsable>
+            </View>
+          ) : (
+            <Vacio
+              icono="filtro"
+              titulo="Sin picks con estos filtros"
+              detalle="Prueba a quitar algún filtro o cambia de competición."
+            />
+          )
         }
       />
 

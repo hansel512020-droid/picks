@@ -1,9 +1,10 @@
-import { useEffect, useMemo, useState } from 'react';
+import { useEffect, useMemo, useState, useSyncExternalStore } from 'react';
 import {
   cargaPicks,
   cuandoLleguenLosPicks,
   hayPicksDelServidor,
   picksCompletos,
+  picksFallaron,
   picksDeCompeticionServidor,
   picksDePartidoServidor,
   pickGratisDelServidor,
@@ -69,6 +70,11 @@ export function usePicksDelServidor(competicionId: string): Pick[] | undefined {
 /** Los de un partido concreto. */
 export function usePicksDelPartido(partidoId: string): Pick[] | undefined {
   return usePicks(() => picksDePartidoServidor(partidoId), partidoId);
+}
+
+/** Si el último intento de traer los picks falló. Se repinta al reintentar. */
+export function usePicksFallaron(): boolean {
+  return useSyncExternalStore(cuandoLleguenLosPicks, picksFallaron, () => false);
 }
 
 /** El gratis de hoy. */
