@@ -176,6 +176,13 @@ export const SOLO_RELLENO = new Set([
   'dinamarca', 'suecia', 'suiza', 'austria', 'polonia', 'chequia',
   'serbia', 'ucrania', 'rumania', 'noruega', 'croacia',
   'eslovenia', 'eslovaquia',
+  /*
+   * El Mundial 2026 acabó en julio y el siguiente es en 2030. Sus partidos se
+   * quedan para el historial de las selecciones, pero no se enseña: con datos
+   * descargados salía en la portada, en el buscador y en el selector como si
+   * se estuviera jugando. Cuando empiece el de 2030, se quita de aquí.
+   */
+  'mundial',
 ]);
 
 /**

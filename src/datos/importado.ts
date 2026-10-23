@@ -282,6 +282,30 @@ export function competicionesImportadas(): string[] {
   return Object.keys(ARCHIVO.competiciones ?? {});
 }
 
+/**
+ * Si un partido trae sus estadísticas (remates, córners, posesión…) o solo el
+ * marcador. Los que no las traen —actas que no se bajaron, ligas sin comprar—
+ * van con ceros, y meterlos en una media la hundía: el Real Madrid salía con
+ * 6 remates por partido. Las medias de estadísticas se hacen solo con estos.
+ */
+export function partidoConEstadisticas(p: Partido): boolean {
+  const l = p.estadisticas?.local;
+  const v = p.estadisticas?.visitante;
+  return (
+    (l?.remates ?? 0) + (v?.remates ?? 0) + (l?.corners ?? 0) + (v?.corners ?? 0) + (l?.posesion ?? 0) > 0
+  );
+}
+
+/**
+ * Si la valoración de 0 a 100 de un jugador es de verdad. Los que llegan con
+ * los datos importados la traen siempre a 75: es un relleno para el motor, no
+ * una nota, y en una insignia le ponía "75" igual a Mbappé que al tercer
+ * portero. Solo la tienen de verdad los escritos a mano.
+ */
+export function valoracionReal(jugadorId: string): boolean {
+  return !hayDatosReales(jugadorId.split(':')[0]);
+}
+
 export function hayDatosReales(competicionId: string): boolean {
   const c = ARCHIVO.competiciones?.[competicionId];
   return !!c && c.partidos.length > 0;
@@ -576,6 +600,7 @@ const RELLENO = new Set([
   'dinamarca', 'suecia', 'suiza', 'austria', 'polonia', 'chequia',
   'serbia', 'ucrania', 'rumania', 'noruega', 'croacia',
   'eslovenia', 'eslovaquia',
+  'mundial',
 ]);
 
 /**

@@ -25,7 +25,12 @@ import { SelloCasa, TarjetaPick } from '@/componentes/pick';
 import { alineacionesDelPartido, type OnceEquipo } from '@/datos/alineaciones';
 import { ANTIGUOS_POR_PERFIL, CASAS, casa as casaPorId } from '@/datos/casas';
 import { competicion } from '@/datos/competiciones';
-import { equiposImportados, hayEstadisticas, partidosDelEquipoEnTodas } from '@/datos/importado';
+import {
+  equiposImportados,
+  hayEstadisticas,
+  partidoConEstadisticas,
+  partidosDelEquipoEnTodas,
+} from '@/datos/importado';
 import { extrasDelPartido, type Extras } from '@/datos/penales';
 import { alineacion, lesiones, posicionesEnLiga, temporada } from '@/datos/motor';
 import { coma, desglose1x2, FAMILIAS } from '@/datos/picks';
@@ -1360,17 +1365,23 @@ function Duelo({
       const n = Math.max(1, suyos.length);
       const acumula = (f: (p: (typeof suyos)[number], esLocal: boolean) => number) =>
         suyos.reduce((a, p) => a + f(p, p.localId === equipoId), 0) / n;
+      // Las estadísticas, solo de los partidos que las traen: los demás van
+      // con ceros y hundían la media (ver `partidoConEstadisticas`).
+      const conEst = suyos.filter(partidoConEstadisticas);
+      const acumulaEst = (f: (p: (typeof suyos)[number], esLocal: boolean) => number) =>
+        conEst.reduce((a, p) => a + f(p, p.localId === equipoId), 0) / Math.max(1, conEst.length);
       return {
         equipo: t.porEquipo.get(equipoId)!,
         partidos: suyos.length,
+        conEstadisticas: conEst.length,
         goles: acumula((p, l) => (l ? p.golesLocal : p.golesVisitante)),
         encajados: acumula((p, l) => (l ? p.golesVisitante : p.golesLocal)),
-        remates: acumula((p, l) => (l ? p.estadisticas.local : p.estadisticas.visitante).remates),
-        puerta: acumula((p, l) => (l ? p.estadisticas.local : p.estadisticas.visitante).rematesPuerta),
-        posesion: acumula((p, l) => (l ? p.estadisticas.local : p.estadisticas.visitante).posesion),
-        corners: acumula((p, l) => (l ? p.estadisticas.local : p.estadisticas.visitante).corners),
-        tarjetas: acumula((p, l) => (l ? p.estadisticas.local : p.estadisticas.visitante).amarillas),
-        xg: acumula((p, l) => (l ? p.estadisticas.local : p.estadisticas.visitante).xg),
+        remates: acumulaEst((p, l) => (l ? p.estadisticas.local : p.estadisticas.visitante).remates),
+        puerta: acumulaEst((p, l) => (l ? p.estadisticas.local : p.estadisticas.visitante).rematesPuerta),
+        posesion: acumulaEst((p, l) => (l ? p.estadisticas.local : p.estadisticas.visitante).posesion),
+        corners: acumulaEst((p, l) => (l ? p.estadisticas.local : p.estadisticas.visitante).corners),
+        tarjetas: acumulaEst((p, l) => (l ? p.estadisticas.local : p.estadisticas.visitante).amarillas),
+        xg: acumulaEst((p, l) => (l ? p.estadisticas.local : p.estadisticas.visitante).xg),
         /*
          * El balance entero, no solo las victorias.
          *
@@ -1485,7 +1496,10 @@ function Duelo({
         </Txt>
       </View>
 
-      {(datos.conEstadisticas ? filas : filas.filter((f) => f.etiqueta.includes('Goles'))).map((f) => {
+      {(datos.conEstadisticas && datos.a.conEstadisticas + datos.b.conEstadisticas > 0
+        ? filas
+        : filas.filter((f) => f.etiqueta.includes('Goles'))
+      ).map((f) => {
         const total = f.a + f.b || 1;
         const pa = (f.a / total) * 100;
         return (

@@ -1,4 +1,5 @@
 import { sesionGuardada } from './cuenta';
+import { SOLO_RELLENO } from './competiciones';
 import type { Pick } from './tipos';
 
 /**
@@ -161,7 +162,8 @@ export function picksDelServidor(): Pick[] {
 
 /** Los de una competición. `todas` devuelve la lista entera. */
 export function picksDeCompeticionServidor(competicionId: string): Pick[] {
-  if (competicionId === 'todas') return PICKS;
+  // "Todas" son las que se enseñan: ni las de relleno ni el Mundial, que ya acabó.
+  if (competicionId === 'todas') return PICKS.filter((p) => !SOLO_RELLENO.has(p.competicionId));
   return PICKS.filter((p) => p.competicionId === competicionId);
 }
 

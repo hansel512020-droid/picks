@@ -903,6 +903,8 @@ async function importaCompeticion(id, opciones, catalogo, clave, sofa) {
   const slugEspn = espn.LIGAS[id];
   const slugPrevia = PREVIA_ESPN[id];
   let detallesEspn = [];
+  /** El identificador de ESPN de cada equipo, por su nombre: para pedir su plantilla. */
+  const idsEquipoEspn = new Map();
   // Los idEspn de la fase previa, para pedir sus cuotas con el slug correcto.
   const idsPrevia = new Set();
 
@@ -929,6 +931,10 @@ async function importaCompeticion(id, opciones, catalogo, clave, sofa) {
         idsPrevia.add(m.idEspn);
       }
       calendario = calendario.concat(previa);
+    }
+    for (const m of calendario) {
+      if (m.idLocal) idsEquipoEspn.set(m.local, m.idLocal);
+      if (m.idVisitante) idsEquipoEspn.set(m.visitante, m.idVisitante);
     }
     const convertido = construir.desdeEspn(calendario);
     historial = convertido.historial;
@@ -1199,8 +1205,53 @@ async function importaCompeticion(id, opciones, catalogo, clave, sofa) {
       registrosEspn.push(...salida.registros);
       jugadoresEspn.push(...salida.jugadores);
     }
-    // Un jugador sale en varios partidos: se queda una ficha por jugador.
-    jugadoresEspn = [...new Map(jugadoresEspn.map((j) => [j.id, j])).values()];
+    /*
+     * Un jugador sale en varios partidos: se queda una ficha por jugador. El
+     * equipo, el del último partido (los partidos van en orden de fecha, así
+     * que es el suyo de ahora si lo han traspasado); la línea, la que más se
+     * repite entre los partidos en que se supo —de suplente ESPN no la da—.
+     */
+    const lineas = new Map();
+    for (const j of jugadoresEspn) {
+      if (!j.posicion) continue;
+      const cuenta = lineas.get(j.id) ?? {};
+      cuenta[j.posicion] = (cuenta[j.posicion] ?? 0) + 1;
+      lineas.set(j.id, cuenta);
+    }
+    jugadoresEspn = [...new Map(jugadoresEspn.map((j) => [j.id, j])).values()].map((j) => {
+      const cuenta = lineas.get(j.id);
+      const linea = cuenta ? Object.entries(cuenta).sort((a, b) => b[1] - a[1])[0][0] : 'MED';
+      return { ...j, posicion: linea };
+    });
+
+    /*
+     * La edad, y la foto si ESPN la tiene, de la plantilla de cada equipo. Las
+     * actas no traen la edad y todos los importados salían con "0 años".
+     */
+    const deLaPlantilla = new Map();
+    const conPlantilla = equipos.filter((e) => idsEquipoEspn.has(e.nombre));
+    for (const e of conPlantilla) {
+      for (const a of await espn.plantilla(slugEspn, idsEquipoEspn.get(e.nombre), dirCache)) {
+        deLaPlantilla.set(a.idEspn, a);
+      }
+    }
+    let conEdad = 0;
+    let conFoto = 0;
+    for (const j of jugadoresEspn) {
+      const a = deLaPlantilla.get(j.id.slice(j.id.lastIndexOf(':e') + 2));
+      if (!a) continue;
+      if (a.edad) {
+        j.edad = a.edad;
+        conEdad++;
+      }
+      if (a.foto) {
+        j.foto = a.foto;
+        conFoto++;
+      }
+    }
+    console.log(
+      `  ESPN (plantillas de ${conPlantilla.length} equipos): ${conEdad} de ${jugadoresEspn.length} con edad, ${conFoto} con foto`,
+    );
   }
 
   /*

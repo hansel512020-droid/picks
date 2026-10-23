@@ -199,6 +199,9 @@ async function calendario(slug, desde, hasta, dirCache, forzar) {
         temporada: evento.season?.year,
         local: local.team?.displayName ?? local.team?.name,
         visitante: visitante.team?.displayName ?? visitante.team?.name,
+        // Para pedir luego la plantilla de cada equipo (ver `plantilla`).
+        idLocal: local.team?.id,
+        idVisitante: visitante.team?.id,
         // El escudo viene en la misma respuesta: asi cada equipo importado
         // trae el suyo sin tener que buscarlo por nombre en otra fuente.
         escudoLocal: local.team?.logo,
@@ -240,6 +243,9 @@ function jugadorDe(entrada) {
     nombre: entrada.athlete?.displayName,
     dorsal: num(entrada.jersey),
     posicion: entrada.position?.abbreviation,
+    // El nombre largo ("Center Defender", "Left Winger"): la abreviatura de
+    // ESPN va por sitio en la alineación ("CD-L") y no siempre dice la línea.
+    puesto: entrada.position?.name ?? entrada.position?.displayName,
     titular: !!entrada.starter,
     minutos: entrada.starter ? 90 : 25,
     goles: s('totalGoals'),
@@ -311,17 +317,61 @@ async function detalle(slug, idEspn, dirCache, forzar, soloCacheSiExiste = false
     return null;
   }
 
+  /*
+   * De qué lado es cada bloque, según ESPN: `homeAway`. Es lo que decide a
+   * qué equipo van las estadísticas y los jugadores (ver `aplicaDetalleEspn`).
+   */
+  const lado = (x) => (x?.homeAway === 'home' ? true : x?.homeAway === 'away' ? false : undefined);
+
   const equipos = (datos?.boxscore?.teams ?? []).map((t) => ({
     nombre: t.team?.displayName ?? t.team?.name,
+    local: lado(t),
     estadisticas: estadisticasDe(t),
   }));
 
   const plantillas = (datos?.rosters ?? []).map((r) => ({
     nombre: r.team?.displayName ?? r.team?.name,
+    local: lado(r),
     jugadores: (r.roster ?? []).map(jugadorDe).filter((j) => j.nombre),
   }));
 
   return { equipos, plantillas };
 }
 
-module.exports = { LIGAS, IMPORTABLES, calendario, detalle, cuotas, aDecimal, aFecha };
+/** Años cumplidos a partir de una fecha de nacimiento ISO, o `undefined`. */
+function edadDesde(fecha) {
+  const nacio = Date.parse(fecha ?? '');
+  if (!Number.isFinite(nacio)) return undefined;
+  return Math.floor((Date.now() - nacio) / (365.2425 * 86_400_000));
+}
+
+/**
+ * La plantilla de un equipo: la edad y la foto de cada jugador.
+ *
+ * Las actas de los partidos no traen la edad —por eso todos los importados
+ * salían con "0 años"—; la plantilla del equipo sí, con la fecha de nacimiento
+ * y, en muchas ligas, la foto. Una petición por equipo.
+ */
+async function plantilla(slug, idEquipo, dirCache) {
+  let datos;
+  try {
+    ({ datos } = await bajaJSON(`${RAIZ}/${slug}/teams/${idEquipo}/roster`, dirCache, {}));
+  } catch {
+    return [];
+  }
+  // En fútbol es una lista; en otros deportes ESPN la agrupa por puestos.
+  const atletas = (datos?.athletes ?? []).flatMap((a) => (Array.isArray(a?.items) ? a.items : [a]));
+  return atletas
+    .filter((a) => a?.id)
+    .map((a) => {
+      const edad = Number.isFinite(a.age) ? a.age : edadDesde(a.dateOfBirth);
+      return {
+        idEspn: String(a.id),
+        // Una edad imposible es un dato mal puesto: mejor ninguna.
+        edad: edad >= 14 && edad <= 50 ? edad : undefined,
+        foto: a.headshot?.href,
+      };
+    });
+}
+
+module.exports = { LIGAS, IMPORTABLES, calendario, detalle, plantilla, cuotas, aDecimal, aFecha };
