@@ -201,19 +201,36 @@ export function LogoCompeticion({
   const falla = !!url && fallida === url;
 
   if (url && !falla) {
+    /*
+     * Sobre una base clara, siempre: los logos son para fondo blanco y los
+     * oscuros desaparecían en el negro de la app. Suelto ("cuadrado") va en un
+     * recuadro redondeado del mismo tamaño, con el logo un poco más pequeño.
+     */
+    const lado = cuadrado ? tam * 0.76 : tam;
     const imagen = (
       <Image
         source={{ uri: url }}
-        style={{ width: tam, height: tam }}
+        style={{ width: lado, height: lado }}
         contentFit="contain"
         transition={TRANSICION}
         onError={() => setFallida(url)}
         cachePolicy="disk"
       />
     );
-    if (cuadrado) return imagen;
+    if (cuadrado) {
+      return (
+        <View
+          style={[
+            est.redondo,
+            { width: tam, height: tam, borderRadius: tam * 0.24, backgroundColor: C.papel },
+          ]}
+        >
+          {imagen}
+        </View>
+      );
+    }
     return (
-      <Redondo tam={tam * 1.35}>
+      <Redondo tam={tam * 1.35} fondo={C.papel} borde={C.papel}>
         <View style={{ width: tam, height: tam }}>{imagen}</View>
       </Redondo>
     );

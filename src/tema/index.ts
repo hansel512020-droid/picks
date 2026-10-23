@@ -56,6 +56,13 @@ export const C = {
   /** Fondo de una tarjeta cuyo partido se está jugando: la carta teñida de rojo. */
   cartaVivo: '#1C1419',
 
+  /**
+   * Detrás de los logos de competición. Vienen dibujados para fondo blanco y
+   * varios son oscuros —la Champions azul marino, la Premier morada—: sobre
+   * el negro de la app se veían como un círculo vacío.
+   */
+  papel: '#EEF1F5',
+
   transparente: 'transparent',
 } as const;
 

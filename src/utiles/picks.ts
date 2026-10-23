@@ -3,6 +3,7 @@ import {
   cargaPicks,
   cuandoLleguenLosPicks,
   hayPicksDelServidor,
+  picksCompletos,
   picksDeCompeticionServidor,
   picksDePartidoServidor,
   pickGratisDelServidor,
@@ -45,8 +46,19 @@ function usePicks<T>(lee: () => T, clave: string): T | undefined {
    * —por cualquier motivo— volvía a ordenar todos los picks y a pintar la lista
    * de cero aunque no hubiera cambiado nada.
    */
-  // eslint-disable-next-line react-hooks/exhaustive-deps
-  return useMemo(() => (listo ? lee() : undefined), [listo, vuelta, clave]);
+  /*
+   * Con solo la primera tanda (los picks más cercanos), un "no hay" puede ser
+   * que todavía no han llegado: los de una liga que juega el domingo vienen en
+   * las tandas de detrás. En ese caso se sigue cargando en vez de decir que no
+   * hay nada.
+   */
+  return useMemo(() => {
+    if (!listo) return undefined;
+    const leido = lee();
+    const vacio = leido === null || (Array.isArray(leido) && leido.length === 0);
+    return vacio && !picksCompletos() ? undefined : leido;
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [listo, vuelta, clave]);
 }
 
 /** Los de una competición ('todas' para la lista entera). */
