@@ -167,15 +167,28 @@ export function hayEstadisticas(competicionId: string): boolean {
 }
 
 /**
- * Pega las estadísticas de los partidos de una competición sobre el núcleo.
- * Llega después y por separado, igual que el detalle de jugadores.
+ * Tira lo calculado con los datos de antes y avisa a quien tenga que rehacerlo.
+ *
+ * Es caro: cada aviso hace que la app entera vuelva a calcular lo que tiene en
+ * pantalla. Por eso lo que llega a trozos se pega junto (`fusionaLigas`) y se
+ * avisa una vez, no una por trozo.
  */
-export function fusionaEstadisticas(trozo: unknown): void {
+function rehaz(): void {
+  CACHE.clear();
+  HISTORIALES.clear();
+  INDICE = null;
+  for (const rehacer of alCambiar) rehacer();
+  for (const repinta of alLlegarMas) repinta();
+}
+
+/** Pega las estadísticas de los partidos sobre el núcleo, sin avisar. */
+function pegaEstadisticas(trozo: unknown): boolean {
   const d = trozo as {
     competiciones?: Record<string, { partidos?: { id: string; estadisticas?: unknown }[] }>;
   };
   const comps = d?.competiciones;
-  if (!comps) return;
+  if (!comps) return false;
+  let pegado = false;
   for (const [id, parte] of Object.entries(comps)) {
     const c = ARCHIVO.competiciones?.[id];
     if (!c || !parte.partidos?.length) continue;
@@ -185,12 +198,23 @@ export function fusionaEstadisticas(trozo: unknown): void {
       if (est) (p as { estadisticas?: unknown }).estadisticas = est;
     }
     CON_ESTADISTICAS.add(id);
+    pegado = true;
   }
-  CACHE.clear();
-  HISTORIALES.clear();
-  INDICE = null;
-  for (const rehacer of alCambiar) rehacer();
-  for (const repinta of alLlegarMas) repinta();
+  return pegado;
+}
+
+/** Pega jugadores y registros sobre el núcleo, sin avisar. */
+function pegaDetalle(detalle: unknown): boolean {
+  const d = detalle as { competiciones?: Record<string, Partial<CompeticionImportada>> };
+  const comps = d?.competiciones;
+  if (!comps) return false;
+  for (const [id, parte] of Object.entries(comps)) {
+    const c = ARCHIVO.competiciones?.[id];
+    if (!c) continue;
+    if (parte.jugadores) c.jugadores = parte.jugadores as CompeticionImportada['jugadores'];
+    if (parte.registros) c.registros = parte.registros as CompeticionImportada['registros'];
+  }
+  return true;
 }
 
 /**
@@ -199,21 +223,29 @@ export function fusionaEstadisticas(trozo: unknown): void {
  * ya funciona, solo que sin picks de jugador.
  */
 export function fusionaDetalle(detalle: unknown): void {
-  const d = detalle as { competiciones?: Record<string, Partial<CompeticionImportada>> };
-  const comps = d?.competiciones;
-  if (!comps) return;
-  for (const [id, parte] of Object.entries(comps)) {
-    const c = ARCHIVO.competiciones?.[id];
-    if (!c) continue;
-    if (parte.jugadores) c.jugadores = parte.jugadores as CompeticionImportada['jugadores'];
-    if (parte.registros) c.registros = parte.registros as CompeticionImportada['registros'];
-  }
-  CACHE.clear();
-  HISTORIALES.clear();
-  INDICE = null;
+  if (!pegaDetalle(detalle)) return;
   DETALLE_RESUELTO = true;
-  for (const rehacer of alCambiar) rehacer();
-  for (const repinta of alLlegarMas) repinta();
+  rehaz();
+}
+
+/**
+ * Pega de una vez lo de varias ligas: las estadísticas de sus partidos y sus
+ * jugadores. Llegan después del núcleo y por separado, cada liga en su archivo.
+ *
+ * Se pegaban de una en una, y cada pegado tiraba todas las cachés y repintaba
+ * la app: con "Todas" compradas eran más de cien repintados seguidos al abrir,
+ * cada uno rehaciendo temporadas, clasificaciones y picks guardados, y la app
+ * iba a tirones durante varios segundos. Juntas es un repintado.
+ */
+export function fusionaLigas(estadisticas: unknown[], detalles: unknown[]): void {
+  let pegado = false;
+  for (const trozo of estadisticas) pegado = pegaEstadisticas(trozo) || pegado;
+  for (const trozo of detalles) {
+    if (!pegaDetalle(trozo)) continue;
+    DETALLE_RESUELTO = true;
+    pegado = true;
+  }
+  if (pegado) rehaz();
 }
 
 /**
@@ -226,13 +258,9 @@ export function fusionaDetalle(detalle: unknown): void {
  */
 export function aplicaDatos(nuevo: unknown): void {
   ARCHIVO = nuevo as Archivo;
-  CACHE.clear();
-  HISTORIALES.clear();
-  INDICE = null;
-  for (const rehacer of alCambiar) rehacer();
   // También repinta: quien resuelve los picks guardados o calcula la portada
   // necesita rehacerlo con los datos nuevos, no solo tirar sus cachés.
-  for (const repinta of alLlegarMas) repinta();
+  rehaz();
 }
 
 /** Cuántas competiciones trae lo que hay cargado. Para comprobar que llegó. */

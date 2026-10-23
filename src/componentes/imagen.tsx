@@ -1,7 +1,8 @@
 import { Image } from 'expo-image';
-import { useState } from 'react';
+import { useState, useSyncExternalStore } from 'react';
 import { StyleSheet, Text, View, type StyleProp, type ViewStyle } from 'react-native';
 import { caraJugador, escudoEquipo, logoCompeticion } from '@/datos/imagenes';
+import { cuandoLlegueMasDato } from '@/datos/importado';
 import { C, T } from '@/tema';
 
 /**
@@ -11,6 +12,20 @@ import { C, T } from '@/tema';
  */
 
 const TRANSICION = 180;
+
+/**
+ * Una dirección del catálogo de imágenes, siempre al día.
+ *
+ * El catálogo cambia en caliente: el del servidor llega unos segundos después
+ * de abrir y los escudos de los datos cambian con cada núcleo. Leída a pelo al
+ * pintar, el compilador de React guardaba la primera respuesta como si solo
+ * dependiera del nombre del equipo: un escudo pintado antes de que llegara el
+ * catálogo se quedaba en siglas hasta salir de la pantalla y volver a entrar.
+ * Así cada imagen se repinta cuando cambia su dirección, y solo entonces.
+ */
+function useDireccion(lee: () => string | undefined): string | undefined {
+  return useSyncExternalStore(cuandoLlegueMasDato, lee, lee);
+}
 
 /*
  * Lo fijo del círculo, compilado una vez: es lo que más se repite de la app
@@ -73,7 +88,7 @@ export function Escudo({
   tam?: number;
   estilo?: StyleProp<ViewStyle>;
 }) {
-  const url = escudoEquipo(nombre, id);
+  const url = useDireccion(() => escudoEquipo(nombre, id));
   /*
    * Se recuerda QUÉ dirección falló, no solo que algo falló. Con un sí/no, si
    * la primera imagen no cargaba el escudo se quedaba en siglas para siempre,
@@ -122,7 +137,7 @@ export function Cara({
   tam?: number;
   estilo?: StyleProp<ViewStyle>;
 }) {
-  const url = caraJugador(nombre);
+  const url = useDireccion(() => caraJugador(nombre));
   const [fallida, setFallida] = useState<string>();
   const falla = !!url && fallida === url;
 
@@ -181,7 +196,7 @@ export function LogoCompeticion({
   /** Sin circulo alrededor: para las rejillas y el carrusel. */
   cuadrado?: boolean;
 }) {
-  const url = logoCompeticion(competicionId);
+  const url = useDireccion(() => logoCompeticion(competicionId));
   const [fallida, setFallida] = useState<string>();
   const falla = !!url && fallida === url;
 

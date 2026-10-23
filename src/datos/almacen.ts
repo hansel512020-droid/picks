@@ -78,3 +78,23 @@ export async function leeGrande(clave: string): Promise<string | null> {
     return null;
   }
 }
+
+/** Borra lo guardado con esa clave. Como las otras, nunca lanza. */
+export async function borraGrande(clave: string): Promise<void> {
+  try {
+    if (!hayIndexedDB()) {
+      await AsyncStorage.removeItem(clave);
+      return;
+    }
+    const bd = await abre();
+    await new Promise<void>((resuelve, rechaza) => {
+      const t = bd.transaction(ALMACEN, 'readwrite');
+      t.objectStore(ALMACEN).delete(clave);
+      t.oncomplete = () => resuelve();
+      t.onerror = () => rechaza(t.error);
+    });
+    bd.close();
+  } catch {
+    // Lo que no se pudo borrar no se usa: solo vale lo que está en el índice.
+  }
+}
