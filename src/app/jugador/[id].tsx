@@ -10,7 +10,7 @@ import { CabeceraAtras, FilaDato, Segmentado, TiraChips } from '@/componentes/na
 import { BarraL10 } from '@/componentes/pick';
 import { competicion } from '@/datos/competiciones';
 import { probMercadoJugador } from '@/datos/mercado';
-import { temporada } from '@/datos/motor';
+import { registrosDelJugador, temporada } from '@/datos/motor';
 import { coma, linea as formatoLinea, METRICAS_JUGADOR } from '@/datos/picks';
 import type { RegistroJugador } from '@/datos/tipos';
 import { useTienda } from '@/estado/tienda';
@@ -115,7 +115,8 @@ export default function PantallaJugador() {
     const jugador = t.porJugador.get(jugadorId);
     if (!jugador) return null;
     const equipo = t.porEquipo.get(jugador.equipoId)!;
-    const registros = (t.registrosPorJugador.get(jugadorId) ?? []).filter((r) => r.minutos > 0);
+    // Con "Todas", los de todas sus competiciones: Liga y Champions juntas.
+    const registros = registrosDelJugador(t, jugadorId).filter((r) => r.minutos > 0);
     // Para "tras derrota" hace falta saber como acabo el partido anterior.
     const suyos = (t.partidosPorEquipo.get(equipo.id) ?? [])
       .filter((p) => p.estado === 'finalizado')
