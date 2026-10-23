@@ -129,8 +129,8 @@ export default function LayoutPestanas() {
                 right: lado,
                 bottom: Math.max(insets.bottom, MARGEN_TABS),
                 height: ALTO_TABS,
-                paddingTop: 6,
-                paddingBottom: 6,
+                paddingTop: 5,
+                paddingBottom: 5,
                 paddingHorizontal: 4,
                 borderRadius: R.xl,
                 borderWidth: 1,
@@ -138,16 +138,18 @@ export default function LayoutPestanas() {
                 borderColor: C.bordeLuz,
                 boxShadow: '0 16px 36px -10px rgba(0,0,0,0.85)',
               },
-          // El cristal: fondo translúcido y, en la web, lo de detrás desenfocado.
+          /*
+           * El fondo de la cápsula, casi opaco. Llevaba además un desenfoque de
+           * lo de detrás (backdrop-filter), pero el navegador tiene que rehacerlo
+           * en cada fotograma del scroll y en ordenadores modestos lo volvía
+           * lento; con el fundido de las pantallas no hace falta.
+           */
           tabBarBackground: () => (
-            <View
-              {...marca('cristal')}
-              style={{ flex: 1, borderRadius: R.xl, backgroundColor: 'rgba(14,19,27,0.86)' }}
-            />
+            <View style={{ flex: 1, borderRadius: R.xl, backgroundColor: 'rgba(14,19,27,0.96)' }} />
           ),
           // Siempre el icono encima del nombre: al lado no cabe en la cápsula.
           tabBarLabelPosition: 'below-icon',
-          tabBarLabelStyle: { ...T.mini, fontSize: 10 },
+          tabBarLabelStyle: { ...T.mini, fontSize: 10, lineHeight: 13 },
           sceneStyle: { backgroundColor: C.fondo },
         }}
       >

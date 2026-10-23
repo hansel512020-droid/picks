@@ -19,7 +19,7 @@ import { PantallaCargando } from '@/componentes/cargando';
 import { CarruselCompeticion, CarruselProximos } from '@/componentes/carruseles';
 import { Icono } from '@/componentes/iconos';
 import { Escudo } from '@/componentes/imagen';
-import { Logo, Resplandor, Simbolo } from '@/componentes/marca';
+import { FundidoInferior, Logo, Resplandor, Simbolo } from '@/componentes/marca';
 import { Aparece, marca } from '@/componentes/movimiento';
 import { TiraChips } from '@/componentes/navegacion';
 import { TarjetaPick } from '@/componentes/pick';
@@ -34,7 +34,7 @@ import { useComunidad } from '@/estado/comunidad';
 import { useDerechos } from '@/estado/derechos';
 import { useTienda } from '@/estado/tienda';
 import { usePicksVigentes, useVivo } from '@/estado/vivo';
-import { brillo, C, COLUMNA, E, HUECO_PESTANAS, LISTA_LIGERA, R } from '@/tema';
+import { brillo, C, COLUMNA, E, HUECO_PESTANAS, R } from '@/tema';
 import { useCalculo } from '@/utiles/carga';
 import { usePicksDelServidor } from '@/utiles/picks';
 import { useRejilla } from '@/utiles/rejilla';
@@ -456,6 +456,14 @@ export default function Inicio() {
     );
   }, [competicionId, grupo]);
 
+  /*
+   * Los guardados solo deciden el orden en "Más guardados". En los demás
+   * órdenes no se miran, y tenerlos de dependencia hacía que la lista entera
+   * se reordenara cada vez que llegaba un contador nuevo —cada medio minuto y
+   * en mitad del scroll—.
+   */
+  const comunidadParaOrden = orden === 'fuego' ? comunidad : undefined;
+
   const visibles = useMemo(() => {
     if (!picks) return [];
     let lista = picks;
@@ -469,15 +477,15 @@ export default function Inicio() {
      * acierto, así que los hándicaps —que aciertan casi siempre y suben todos
      * juntos— acababan otra vez pegados: cuatro de cada cinco tarjetas.
      */
-    return reparteVariedad(ordena(lista, orden, (p) => comunidad.cuenta(p.id)));
-  }, [picks, familias, grupo, orden, partidosDelFiltro, comunidad]);
+    return reparteVariedad(ordena(lista, orden, (p) => comunidadParaOrden?.cuenta(p.id)));
+  }, [picks, familias, grupo, orden, partidosDelFiltro, comunidadParaOrden]);
 
   // Un partido que acaba de terminar deja de dar picks al momento.
   const enCartel = usePicksVigentes(visibles);
   // El cartel entero, sin los filtros de abajo, para el resumen del día.
   const delDia = usePicksVigentes(picks ?? SIN_PICKS);
   // Una, dos o tres tarjetas por fila según el ancho (ver `useRejilla`).
-  const { columnas, fila, celda } = useRejilla();
+  const { columnas, fila, celda, lista } = useRejilla();
 
   const comp = competicion(competicionId);
   const familiasVisibles = todasFamilias ? FAMILIAS : FAMILIAS.slice(0, 5);
@@ -537,7 +545,7 @@ export default function Inicio() {
           COLUMNA.amplia,
         ]}
         showsVerticalScrollIndicator={false}
-        {...LISTA_LIGERA}
+        {...lista}
         ListHeaderComponent={
           <View style={{ gap: E.lg, marginBottom: E.xs }}>
             {/*
@@ -826,6 +834,8 @@ export default function Inicio() {
       {/* Flota abajo, sobre la lista, y se cierra con la equis. Va en Inicio
           porque al perfil se entra poco y un aviso que nadie ve no es un
           aviso. Se pinta después de la lista para quedar por encima. */}
+      {/* La lista se desvanece antes de llegar a la barra flotante. */}
+      <FundidoInferior />
       <AvisoCobroFallido flotante />
     </View>
   );

@@ -5,7 +5,7 @@ import { useSafeAreaInsets } from 'react-native-safe-area-context';
 import { Descargo, Insignia, Pulsable, Separador, Tarjeta, Txt } from '@/componentes/base';
 import { Icono, type NombreIcono } from '@/componentes/iconos';
 import { LogoCompeticion } from '@/componentes/imagen';
-import { Resplandor, Simbolo } from '@/componentes/marca';
+import { FundidoInferior, Resplandor, Simbolo } from '@/componentes/marca';
 import { marca } from '@/componentes/movimiento';
 import { SelloCasa } from '@/componentes/pick';
 import { casa as buscaCasa } from '@/datos/casas';
@@ -514,6 +514,8 @@ export default function Perfil() {
 
         <Descargo style={{ paddingHorizontal: E.xl }} />
       </ScrollView>
+      {/* La lista se desvanece antes de llegar a la barra flotante. */}
+      <FundidoInferior />
     </View>
   );
 }

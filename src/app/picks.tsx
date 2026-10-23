@@ -9,7 +9,7 @@ import { competicion } from '@/datos/competiciones';
 import { FAMILIAS } from '@/datos/picks';
 import type { Familia } from '@/datos/tipos';
 import { useTienda } from '@/estado/tienda';
-import { C, COLUMNA, E, LISTA_LIGERA } from '@/tema';
+import { C, COLUMNA, E } from '@/tema';
 import { usePicksDelServidor } from '@/utiles/picks';
 import { useRejilla } from '@/utiles/rejilla';
 
@@ -26,7 +26,7 @@ export default function TodosLosPicks() {
     () => (picks ?? []).filter((p) => !familias.length || familias.includes(p.familia)),
     [picks, familias],
   );
-  const { columnas, fila, celda } = useRejilla();
+  const { columnas, fila, celda, lista } = useRejilla();
 
   return (
     <View style={{ flex: 1, backgroundColor: C.fondo, paddingTop: insets.top + E.sm }}>
@@ -59,7 +59,7 @@ export default function TodosLosPicks() {
         keyExtractor={(p) => p.id}
         contentContainerStyle={[{ paddingBottom: E.xxxl, gap: E.md }, COLUMNA.amplia]}
         showsVerticalScrollIndicator={false}
-        {...LISTA_LIGERA}
+        {...lista}
         renderItem={({ item, index }) => (
           <Aparece orden={index} style={celda ?? { paddingHorizontal: E.lg }}>
             <TarjetaPick pick={item} />

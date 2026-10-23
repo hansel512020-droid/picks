@@ -4,14 +4,14 @@ import { useSafeAreaInsets } from 'react-native-safe-area-context';
 import { Chip, Fuego, Tarjeta, TituloSeccion, Txt, Vacio } from '@/componentes/base';
 import { BotonCompeticion } from '@/componentes/carruseles';
 import { Aparece } from '@/componentes/movimiento';
-import { Resplandor } from '@/componentes/marca';
+import { FundidoInferior, Resplandor } from '@/componentes/marca';
 import { TiraChips } from '@/componentes/navegacion';
 import { TarjetaPick } from '@/componentes/pick';
 import { competicion } from '@/datos/competiciones';
 import type { Familia, Pick } from '@/datos/tipos';
 import { useComunidad } from '@/estado/comunidad';
 import { useTienda } from '@/estado/tienda';
-import { C, COLUMNA, E, HUECO_PESTANAS, LISTA_LIGERA } from '@/tema';
+import { C, COLUMNA, E, HUECO_PESTANAS } from '@/tema';
 import { usePicksDelServidor } from '@/utiles/picks';
 import { useRejilla } from '@/utiles/rejilla';
 
@@ -66,7 +66,7 @@ export default function Comunidad() {
   );
 
   const comp = competicion(competicionId);
-  const { columnas, fila, celda } = useRejilla();
+  const { columnas, fila, celda, lista } = useRejilla();
 
   return (
     <View style={{ flex: 1, backgroundColor: C.fondo, paddingTop: insets.top }}>
@@ -82,7 +82,7 @@ export default function Comunidad() {
           COLUMNA.amplia,
         ]}
         showsVerticalScrollIndicator={false}
-        {...LISTA_LIGERA}
+        {...lista}
         ListHeaderComponent={
           <View style={{ gap: E.lg, marginBottom: E.xs }}>
             <View
@@ -152,6 +152,8 @@ export default function Comunidad() {
           )
         }
       />
+      {/* La lista se desvanece antes de llegar a la barra flotante. */}
+      <FundidoInferior />
     </View>
   );
 }

@@ -1,4 +1,4 @@
-import { useEffect, useState } from 'react';
+import { useEffect, useMemo, useState } from 'react';
 import {
   cargaPicks,
   cuandoLleguenLosPicks,
@@ -17,8 +17,8 @@ import type { Pick } from '@/datos/tipos';
  * que es lo que distingue "cargando" de "no hay picks hoy": la portada enseña
  * la pantalla de carga con el primero y un "sin picks" con el segundo.
  */
-function usePicks<T>(lee: () => T): T | undefined {
-  const [, refresca] = useState(0);
+function usePicks<T>(lee: () => T, clave: string): T | undefined {
+  const [vuelta, refresca] = useState(0);
   const [listo, setListo] = useState(hayPicksDelServidor());
 
   useEffect(() => {
@@ -37,20 +37,29 @@ function usePicks<T>(lee: () => T): T | undefined {
     };
   }, []);
 
-  return listo ? lee() : undefined;
+  /*
+   * La lectura se guarda hasta que llegan picks nuevos o cambia lo que se pide.
+   *
+   * Leer filtra la lista entera y devuelve una lista nueva cada vez; las
+   * pantallas la tienen de dependencia de sus cálculos, así que cada repintado
+   * —por cualquier motivo— volvía a ordenar todos los picks y a pintar la lista
+   * de cero aunque no hubiera cambiado nada.
+   */
+  // eslint-disable-next-line react-hooks/exhaustive-deps
+  return useMemo(() => (listo ? lee() : undefined), [listo, vuelta, clave]);
 }
 
 /** Los de una competición ('todas' para la lista entera). */
 export function usePicksDelServidor(competicionId: string): Pick[] | undefined {
-  return usePicks(() => picksDeCompeticionServidor(competicionId));
+  return usePicks(() => picksDeCompeticionServidor(competicionId), competicionId);
 }
 
 /** Los de un partido concreto. */
 export function usePicksDelPartido(partidoId: string): Pick[] | undefined {
-  return usePicks(() => picksDePartidoServidor(partidoId));
+  return usePicks(() => picksDePartidoServidor(partidoId), partidoId);
 }
 
 /** El gratis de hoy. */
 export function usePickGratis(): Pick | null | undefined {
-  return usePicks(() => pickGratisDelServidor());
+  return usePicks(() => pickGratisDelServidor(), 'gratis');
 }

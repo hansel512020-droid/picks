@@ -7,7 +7,7 @@ import { BotonCompeticion } from '@/componentes/carruseles';
 import { Icono } from '@/componentes/iconos';
 import { Escudo } from '@/componentes/imagen';
 import { Aparece, marca } from '@/componentes/movimiento';
-import { Resplandor } from '@/componentes/marca';
+import { FundidoInferior, Resplandor } from '@/componentes/marca';
 import { TiraChips } from '@/componentes/navegacion';
 import { competicion } from '@/datos/competiciones';
 import { claveDelPartido , seJuegaAhora } from '@/datos/envivo';
@@ -312,6 +312,8 @@ export default function Partidos() {
           }
         />
       )}
+      {/* La lista se desvanece antes de llegar a la barra flotante. */}
+      <FundidoInferior />
     </View>
   );
 }
