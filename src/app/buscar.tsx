@@ -9,10 +9,12 @@ import { marca } from '@/componentes/movimiento';
 import { Resplandor } from '@/componentes/marca';
 import { CabeceraAtras } from '@/componentes/navegacion';
 import { competicion, competicionesVisibles } from '@/datos/competiciones';
+import { valoracionReal } from '@/datos/importado';
 import { temporada } from '@/datos/motor';
 import { useTienda } from '@/estado/tienda';
 import { C, COLUMNA, E, R } from '@/tema';
 import { useCalculo } from '@/utiles/carga';
+import type { Equipo, Jugador } from '@/datos/tipos';
 
 /**
  * Buscador de jugadores, equipos y competiciones. Solo mira dentro de la
@@ -27,6 +29,66 @@ function normaliza(s: string) {
     .replace(/[̀-ͯ]/g, '');
 }
 
+interface Actividad {
+  /** Partidos con registro en los datos. */
+  partidos: number;
+  /** Fecha del último, en ISO; vacía si no hay ninguno. */
+  ultimo: string;
+}
+
+/** Si dos fichas del mismo nombre pueden ser la misma persona en equipos distintos. */
+const MESES_SIN_JUGAR = 4;
+
+/**
+ * Un jugador una vez, no una por competición.
+ *
+ * Con "Todas" el mismo jugador está dado de alta en cada competición que
+ * juega —su liga, la Champions, la copa, el Mundial—, cada vez con su propio
+ * identificador y a veces con otro dorsal o puesto. Buscando "mbappé" salían
+ * ocho fichas, y entre ellas el Mbappé del PSG: la liga francesa guarda tres
+ * temporadas y en las viejas seguía allí.
+ *
+ * Se agrupan por nombre. Dentro del grupo:
+ *
+ * · Se descartan las fichas que llevan meses sin jugar cuando hay otra que sí
+ *   juega: es el mismo jugador en un equipo que ya no es el suyo.
+ * · De cada equipo queda la ficha con más partidos, que es la de su liga: ahí
+ *   está su historial entero.
+ *
+ * Dos jugadores distintos que se llaman igual y juegan ahora en equipos
+ * distintos —hay varios "Danilo"— siguen saliendo los dos, cada uno con su
+ * equipo debajo.
+ */
+function sinRepetir<T extends { j: Jugador; clave: string; equipo?: Equipo }>(
+  lista: T[],
+  actividad: (id: string) => Actividad,
+): T[] {
+  const porNombre = new Map<string, T[]>();
+  for (const x of lista) {
+    const grupo = porNombre.get(x.clave);
+    if (grupo) grupo.push(x);
+    else porNombre.set(x.clave, [x]);
+  }
+  const salida: { x: T; partidos: number }[] = [];
+  for (const grupo of porNombre.values()) {
+    const fichas = grupo.map((x) => ({ x, ...actividad(x.j.id) }));
+    const ultimo = fichas.reduce((m, f) => (f.ultimo > m ? f.ultimo : m), '');
+    const corte = ultimo
+      ? new Date(Date.parse(ultimo) - MESES_SIN_JUGAR * 30 * 86_400_000).toISOString()
+      : '';
+    const porEquipo = new Map<string, (typeof fichas)[number]>();
+    for (const f of fichas) {
+      if (corte && f.ultimo < corte) continue;
+      const equipo = normaliza(f.x.equipo?.nombre ?? '');
+      const ya = porEquipo.get(equipo);
+      if (!ya || f.partidos > ya.partidos) porEquipo.set(equipo, f);
+    }
+    salida.push(...porEquipo.values());
+  }
+  // Los que más juegan primero: entre dos que encajan, el que se busca suele ser ese.
+  return salida.sort((a, b) => b.partidos - a.partidos).map((f) => f.x);
+}
+
 export default function Buscar() {
   const { ajustes, cambiaAjuste } = useTienda();
   const insets = useSafeAreaInsets();
@@ -35,7 +97,24 @@ export default function Buscar() {
 
   const indice = useCalculo(() => {
     const t = temporada(competicionId);
+    // Se calcula al buscar y solo para las fichas que encajan: hacerlo para
+    // los miles de jugadores de "Todas" de entrada retrasaría el buscador.
+    const memo = new Map<string, Actividad>();
+    const actividad = (id: string): Actividad => {
+      const guardada = memo.get(id);
+      if (guardada) return guardada;
+      const registros = t.registrosPorJugador.get(id) ?? [];
+      let ultimo = '';
+      for (const r of registros) {
+        const fecha = t.porPartido.get(r.partidoId)?.fecha ?? '';
+        if (fecha > ultimo) ultimo = fecha;
+      }
+      const nueva = { partidos: registros.length, ultimo };
+      memo.set(id, nueva);
+      return nueva;
+    };
     return {
+      actividad,
       jugadores: t.jugadores.map((j) => ({
         j,
         clave: normaliza(j.nombre),
@@ -77,7 +156,12 @@ export default function Buscar() {
         (c) => normaliza(c.nombre).includes(q) || normaliza(c.pais).includes(q),
       ).slice(0, 6),
       equipos: (indice?.equipos ?? []).filter((x) => x.clave.includes(q)).slice(0, 8),
-      jugadores: (indice?.jugadores ?? []).filter((x) => x.clave.includes(q)).slice(0, 20),
+      jugadores: indice
+        ? sinRepetir(
+            indice.jugadores.filter((x) => x.clave.includes(q)),
+            indice.actividad,
+          ).slice(0, 20)
+        : [],
     };
   }, [q, indice]);
 
@@ -235,7 +319,7 @@ export default function Buscar() {
                         {equipo.nombre} · {j.posicion} · #{j.dorsal}
                       </Txt>
                     </View>
-                    <Insignia texto={`${j.nivel}`} />
+                    {valoracionReal(j.id) ? <Insignia texto={`${j.nivel}`} /> : null}
                   </Pulsable>
                 </View>
               ))}

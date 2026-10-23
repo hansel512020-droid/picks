@@ -8,7 +8,7 @@ import { Resplandor } from '@/componentes/marca';
 import { marca } from '@/componentes/movimiento';
 import { CabeceraAtras, FilaDato, Segmentado } from '@/componentes/navegacion';
 import { competicion, competicionOpcional } from '@/datos/competiciones';
-import { partidosDelEquipoEnTodas } from '@/datos/importado';
+import { partidoConEstadisticas, partidosDelEquipoEnTodas, valoracionReal } from '@/datos/importado';
 import { temporada } from '@/datos/motor';
 import { coma } from '@/datos/picks';
 import type { Partido } from '@/datos/tipos';
@@ -63,9 +63,22 @@ export default function PantallaEquipo() {
       equipo,
       jugados: suyos.filter((p) => p.estado === 'finalizado'),
       proximos: suyos.filter((p) => p.estado !== 'finalizado').slice(0, 8),
-      plantilla: t.jugadores
-        .filter((j) => j.equipoId === equipoId)
-        .sort((a, b) => b.nivel - a.nivel),
+      /*
+       * Los que han jugado, los que más primero.
+       *
+       * La lista traía a todos los convocados alguna vez: canteranos que se
+       * sentaron en el banquillo un día y no salieron, con "0 partidos · 0
+       * goles · 0 asistencias", media plantilla así. Si de este equipo no hay
+       * registros de nadie (datos sin actas), se enseñan todos como antes.
+       */
+      plantilla: (() => {
+        const suyosJugadores = t.jugadores.filter((j) => j.equipoId === equipoId);
+        const jugados = (id: string) => t.registrosPorJugador.get(id)?.length ?? 0;
+        const conPartidos = suyosJugadores.filter((j) => jugados(j.id) > 0);
+        return (conPartidos.length ? conPartidos : suyosJugadores).sort(
+          (a, b) => jugados(b.id) - jugados(a.id) || b.nivel - a.nivel,
+        );
+      })(),
       equipos: t.porEquipo,
       registros: t.registrosPorJugador,
       // Partidos de otras competiciones, listos para mezclar con los de esta.
@@ -124,6 +137,12 @@ export default function PantallaEquipo() {
     'esLocalEnOtra' in p ? !!(p as { esLocalEnOtra?: boolean }).esLocalEnOtra : p.localId === equipoId;
   const media = (f: (p: Partido, l: boolean) => number) =>
     filtrados.length ? filtrados.reduce((a, p) => a + f(p, esLocal(p)), 0) / filtrados.length : 0;
+  // Las estadísticas, solo de los partidos que las traen (ver `partidoConEstadisticas`).
+  const conEstadisticas = filtrados.filter(partidoConEstadisticas);
+  const mediaEst = (f: (p: Partido, l: boolean) => number) =>
+    conEstadisticas.length
+      ? conEstadisticas.reduce((a, p) => a + f(p, esLocal(p)), 0) / conEstadisticas.length
+      : 0;
 
   const resultado = (p: Partido) => {
     const gf = esLocal(p) ? p.golesLocal : p.golesVisitante;
@@ -188,7 +207,8 @@ export default function PantallaEquipo() {
 
               {/* El equipo juega más de una competición: se puede mirar solo
                   esta o sumar todo lo que hace, que es más representativo. */}
-              {datos.resumenOtras.length ? (
+              {/* Con "Todas" activa ya se ve todo: los dos chips decían lo mismo. */}
+              {datos.resumenOtras.length && competicionId !== 'todas' ? (
                 <View style={{ flexDirection: 'row', gap: E.sm }}>
                   <Chip
                     texto={competicion(competicionId).corto}
@@ -278,22 +298,26 @@ export default function PantallaEquipo() {
                 <FilaDato etiqueta="Goles en contra" valor={coma(media((p, l) => (l ? p.golesVisitante : p.golesLocal)), 2)} />
                 <Separador />
                 <FilaDato etiqueta="Goles totales del partido" valor={coma(media((p) => p.golesLocal + p.golesVisitante), 2)} />
-                <Separador />
-                <FilaDato etiqueta="Remates" valor={coma(media((p, l) => (l ? p.estadisticas.local : p.estadisticas.visitante).remates), 1)} />
-                <Separador />
-                <FilaDato etiqueta="Remates a puerta" valor={coma(media((p, l) => (l ? p.estadisticas.local : p.estadisticas.visitante).rematesPuerta), 1)} />
-                <Separador />
-                <FilaDato etiqueta="Posesión" valor={coma(media((p, l) => (l ? p.estadisticas.local : p.estadisticas.visitante).posesion), 0)} sufijo="%" />
-                <Separador />
-                <FilaDato etiqueta="Córners" valor={coma(media((p, l) => (l ? p.estadisticas.local : p.estadisticas.visitante).corners), 1)} />
-                <Separador />
-                <FilaDato etiqueta="Faltas" valor={coma(media((p, l) => (l ? p.estadisticas.local : p.estadisticas.visitante).faltas), 1)} />
-                <Separador />
-                <FilaDato etiqueta="Tarjetas" valor={coma(media((p, l) => (l ? p.estadisticas.local : p.estadisticas.visitante).amarillas), 1)} />
-                <Separador />
-                <FilaDato etiqueta="xG estimado" valor={coma(media((p, l) => (l ? p.estadisticas.local : p.estadisticas.visitante).xg), 2)} />
-                <Separador />
-                <FilaDato etiqueta="Córners del partido" valor={coma(media((p) => p.estadisticas.local.corners + p.estadisticas.visitante.corners), 1)} />
+                {conEstadisticas.length ? (
+                  <>
+                    <Separador />
+                    <FilaDato etiqueta="Remates" valor={coma(mediaEst((p, l) => (l ? p.estadisticas.local : p.estadisticas.visitante).remates), 1)} />
+                    <Separador />
+                    <FilaDato etiqueta="Remates a puerta" valor={coma(mediaEst((p, l) => (l ? p.estadisticas.local : p.estadisticas.visitante).rematesPuerta), 1)} />
+                    <Separador />
+                    <FilaDato etiqueta="Posesión" valor={coma(mediaEst((p, l) => (l ? p.estadisticas.local : p.estadisticas.visitante).posesion), 0)} sufijo="%" />
+                    <Separador />
+                    <FilaDato etiqueta="Córners" valor={coma(mediaEst((p, l) => (l ? p.estadisticas.local : p.estadisticas.visitante).corners), 1)} />
+                    <Separador />
+                    <FilaDato etiqueta="Faltas" valor={coma(mediaEst((p, l) => (l ? p.estadisticas.local : p.estadisticas.visitante).faltas), 1)} />
+                    <Separador />
+                    <FilaDato etiqueta="Tarjetas" valor={coma(mediaEst((p, l) => (l ? p.estadisticas.local : p.estadisticas.visitante).amarillas), 1)} />
+                    <Separador />
+                    <FilaDato etiqueta="xG estimado" valor={coma(mediaEst((p, l) => (l ? p.estadisticas.local : p.estadisticas.visitante).xg), 2)} />
+                    <Separador />
+                    <FilaDato etiqueta="Córners del partido" valor={coma(mediaEst((p) => p.estadisticas.local.corners + p.estadisticas.visitante.corners), 1)} />
+                  </>
+                ) : null}
               </Tarjeta>
             </View>
           </>
@@ -338,11 +362,13 @@ export default function PantallaEquipo() {
                                 {regs.length} partidos · {goles} goles · {asis} asistencias
                               </Txt>
                             </View>
-                            <Insignia
-                              texto={`${j.nivel}`}
-                              color={j.nivel >= 82 ? C.lima : C.texto2}
-                              fondo={j.nivel >= 82 ? C.limaTenue : C.carta2}
-                            />
+                            {valoracionReal(j.id) ? (
+                              <Insignia
+                                texto={`${j.nivel}`}
+                                color={j.nivel >= 82 ? C.lima : C.texto2}
+                                fondo={j.nivel >= 82 ? C.limaTenue : C.carta2}
+                              />
+                            ) : null}
                           </Pulsable>
                         </View>
                       );

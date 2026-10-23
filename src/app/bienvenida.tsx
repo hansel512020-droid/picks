@@ -14,7 +14,7 @@ import { Icono, type NombreIcono } from '@/componentes/iconos';
 import { Resplandor, Simbolo } from '@/componentes/marca';
 import { marca } from '@/componentes/movimiento';
 import { BarraL10, FilaMercado } from '@/componentes/pick';
-import { COMPETICIONES } from '@/datos/competiciones';
+import { competicionesVisibles, SOLO_RELLENO } from '@/datos/competiciones';
 import { competicionesImportadas } from '@/datos/importado';
 import { useTienda } from '@/estado/tienda';
 import { anchoLienzo, C, COLUMNA, E, R } from '@/tema';
@@ -154,7 +154,7 @@ function EjemploRendimiento() {
 function EjemploCompeticiones() {
   return (
     <View style={{ flexDirection: 'row', flexWrap: 'wrap', gap: E.sm, justifyContent: 'center' }}>
-      {COMPETICIONES.slice(0, 16).map((c) => (
+      {competicionesVisibles().slice(0, 16).map((c) => (
         <View
           key={c.id}
           style={{
@@ -188,7 +188,11 @@ function EjemploCompeticiones() {
  * catálogo; en cuanto llegan, el árbol se repinta entero y sale el número real.
  */
 function cuantasCompeticiones(): number {
-  return competicionesImportadas().length || COMPETICIONES.length;
+  // Sin las de relleno ni el Mundial: se importan pero no se enseñan.
+  return (
+    competicionesImportadas().filter((id) => !SOLO_RELLENO.has(id)).length ||
+    competicionesVisibles().length
+  );
 }
 
 function resumen(): { icono: NombreIcono; texto: string }[] { return [

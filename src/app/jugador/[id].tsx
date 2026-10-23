@@ -43,6 +43,9 @@ const POSICIONES = { POR: 'Portero', DEF: 'Defensa', MED: 'Centrocampista', DEL:
  */
 type FilaMetrica = [string, (r: RegistroJugador) => number, number?, string?];
 
+/** Lo que solo tiene sentido en un portero: a un delantero no se le cuentan goles encajados. */
+const SOLO_PORTERO = new Set(['Paradas', 'Goles encajados']);
+
 const GRUPOS: { titulo: string; filas: FilaMetrica[] }[] = [
   {
     titulo: 'Ataque',
@@ -127,18 +130,48 @@ export default function PantallaJugador() {
           : anterior.golesVisitante < anterior.golesLocal;
       if (perdio) trasDerrota.add(p.id);
     });
-    // Ranking de defensas de la competicion: contexto del emparejamiento.
-    const defensas = [...t.equipos].sort((a, b) => b.defensa - a.defensa);
+    /*
+     * El próximo partido de verdad: el más cercano que no se ha jugado. Antes
+     * era el primero marcado como "previa" en el orden del archivo, que podía
+     * ser uno de hace semanas que se quedó sin actualizar.
+     */
+    const corte = new Date(Date.now() - 2.25 * 3_600_000).toISOString();
+    const proximo = (t.partidosPorEquipo.get(equipo.id) ?? [])
+      .filter((p) => p.estado === 'previa' && p.fecha >= corte)
+      .sort((a, b) => a.fecha.localeCompare(b.fecha))[0];
+    /*
+     * El rival se compara con los de SU competición, la del partido. Con
+     * "Todas" se comparaba con los 1.800 equipos de todas las ligas a la vez:
+     * "su defensa es la 1059ª de 1804" no dice nada.
+     */
+    const tc = proximo?.competicionId && proximo.competicionId !== competicionId
+      ? temporada(proximo.competicionId)
+      : t;
+    const defensas = [...tc.equipos].sort((a, b) => b.defensa - a.defensa);
+    /*
+     * Qué publica la fuente en los partidos de este jugador.
+     *
+     * ESPN no da pases, regates, entradas, duelos ni xG, y la ficha los
+     * enseñaba todos a 0,0 —media pantalla de ceros, y unos props de "pases
+     * completados" al 0 % con cuota de 94—. Se mira en todos los jugadores de
+     * sus partidos, no solo en él: un defensa que no ha marcado tiene sus 0
+     * goles, que es un dato; una métrica que nadie tiene en esos partidos es
+     * que no se publica, y no se enseña.
+     */
+    const deSusPartidos = registros.flatMap((r) => t.registrosPorPartido.get(r.partidoId) ?? []);
+    const publicada = (f: (r: RegistroJugador) => number) => deSusPartidos.some((r) => f(r) > 0);
     return {
       jugador,
       equipo,
       registros,
       trasDerrota,
+      publicada,
       rivales: t.porEquipo,
       partidos: t.porPartido,
       rankingDefensa: new Map(defensas.map((e, i) => [e.id, i + 1])),
-      totalEquipos: t.equipos.length,
-      proximo: (t.partidosPorEquipo.get(equipo.id) ?? []).find((p) => p.estado === 'previa'),
+      totalEquipos: tc.equipos.length,
+      competicionRival: competicion(tc.competicionId).corto,
+      proximo,
     };
   }, [competicionId, jugadorId]);
 
@@ -198,7 +231,8 @@ export default function PantallaJugador() {
             <View style={{ flexDirection: 'row', gap: 6, flexWrap: 'wrap' }}>
               <Insignia texto={`#${jugador.dorsal}`} />
               <Insignia texto={POSICIONES[jugador.posicion].toUpperCase()} />
-              <Insignia texto={`${jugador.edad} AÑOS`} />
+              {/* Los importados llegan sin edad: un "0 AÑOS" parece un fallo. */}
+              {jugador.edad > 0 ? <Insignia texto={`${jugador.edad} AÑOS`} /> : null}
               <Insignia
                 texto={jugador.rol === 'titular' ? 'TITULAR' : jugador.rol.toUpperCase()}
                 color={jugador.rol === 'titular' ? C.lima : C.texto2}
@@ -282,7 +316,7 @@ export default function PantallaJugador() {
                       <>
                         <Txt v="pequeno" color={C.texto2}>
                           Próximo rival: {rival?.nombre}. Su defensa es la {puesto}ª de{' '}
-                          {datos.totalEquipos} de la competición.
+                          {datos.totalEquipos} en {datos.competicionRival}.
                         </Txt>
                         <Insignia
                           texto={facil ? 'EMPAREJAMIENTO FAVORABLE' : 'EMPAREJAMIENTO DURO'}
@@ -296,7 +330,15 @@ export default function PantallaJugador() {
               </View>
             ) : null}
 
-            {GRUPOS.map((g) => (
+            {GRUPOS.map((g) => ({
+              ...g,
+              filas: g.filas.filter(
+                ([etiqueta, f]) =>
+                  (!SOLO_PORTERO.has(etiqueta) || jugador.posicion === 'POR') && datos.publicada(f),
+              ),
+            }))
+              .filter((g) => g.filas.length > 0)
+              .map((g) => (
               <View key={g.titulo} style={{ gap: E.sm }}>
                 <Txt v="pequenoFuerte" color={C.texto3} style={{ paddingHorizontal: E.lg }}>
                   {g.titulo.toUpperCase()}
@@ -326,7 +368,9 @@ export default function PantallaJugador() {
               mercado.
             </Txt>
             {METRICAS_JUGADOR.filter(
-              (m) => !m.posiciones || m.posiciones.includes(jugador.posicion),
+              (m) =>
+                (!m.posiciones || m.posiciones.includes(jugador.posicion)) &&
+                datos.publicada(m.extractor),
             ).map((m) => {
               const valores = filtrados.map(m.extractor);
               const mediaMetrica = valores.reduce((a, b) => a + b, 0) / valores.length;
@@ -448,18 +492,22 @@ export default function PantallaJugador() {
                       </View>
                     </View>
                     <View style={{ flexDirection: 'row', flexWrap: 'wrap', gap: 6 }}>
-                      {[
-                        [`${r.minutos}'`, 'min'],
-                        [`${r.goles}`, 'gol'],
-                        [`${r.asistencias}`, 'asis'],
-                        [`${r.remates}`, 'rem'],
-                        [`${r.rematesPuerta}`, 'a puerta'],
-                        [`${r.pasesClave}`, 'p. clave'],
-                        [`${r.regates}`, 'reg'],
-                        [`${r.entradas}`, 'ent'],
-                        [`${r.duelosGanados}`, 'duelos'],
-                        [`${r.pasesCompletados}`, 'pases'],
-                      ].map(([v, e]) => (
+                      {(
+                        [
+                          [`${r.minutos}'`, 'min', null],
+                          [`${r.goles}`, 'gol', null],
+                          [`${r.asistencias}`, 'asis', null],
+                          [`${r.remates}`, 'rem', (x: RegistroJugador) => x.remates],
+                          [`${r.rematesPuerta}`, 'a puerta', (x: RegistroJugador) => x.rematesPuerta],
+                          [`${r.pasesClave}`, 'p. clave', (x: RegistroJugador) => x.pasesClave],
+                          [`${r.regates}`, 'reg', (x: RegistroJugador) => x.regates],
+                          [`${r.entradas}`, 'ent', (x: RegistroJugador) => x.entradas],
+                          [`${r.duelosGanados}`, 'duelos', (x: RegistroJugador) => x.duelosGanados],
+                          [`${r.pasesCompletados}`, 'pases', (x: RegistroJugador) => x.pasesCompletados],
+                        ] as const
+                      )
+                        .filter(([, , f]) => !f || datos.publicada(f))
+                        .map(([v, e]) => (
                         <View
                           key={e}
                           style={{

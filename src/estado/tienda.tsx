@@ -9,7 +9,7 @@ import {
   type ReactNode,
 } from 'react';
 import { CASA_POR_DEFECTO } from '@/datos/casas';
-import { competicionesVisibles } from '@/datos/competiciones';
+import { competicionesVisibles, SOLO_RELLENO } from '@/datos/competiciones';
 import { claveEquipo, competicionVisible, cuandoLlegueMasDato } from '@/datos/importado';
 import { temporada } from '@/datos/motor';
 import { METRICAS_EQUIPO, METRICAS_JUGADOR } from '@/datos/picks';
@@ -52,8 +52,9 @@ interface Estado {
 const INICIAL: Estado = {
   ajustes: {
     casaId: CASA_POR_DEFECTO,
-    competicionId: 'mundial',
-    ligasSeguidas: ['mundial', 'champions', 'premier', 'laliga', 'ligamx'],
+    // Todas: el atajo para no tener que elegir. Era el Mundial, que ya acabó.
+    competicionId: 'todas',
+    ligasSeguidas: ['champions', 'premier', 'laliga', 'ligamx'],
     notificarPicks: true,
     notificarPartidos: true,
     notificarResultados: true,
@@ -331,7 +332,15 @@ export function ProveedorTienda({ children }: { children: ReactNode }) {
           // usuario escogió una a mano, se respeta aunque no tenga datos
           // descargados, porque para eso está el catálogo completo.
           const eraLaDefecto = ajustes.competicionId === INICIAL.ajustes.competicionId;
-          if (eraLaDefecto && !competicionVisible(ajustes.competicionId)) {
+          /*
+           * Una competición que ya no se enseña —el Mundial, que fue la de por
+           * defecto— no se puede seguir teniendo elegida: no saldría en el
+           * selector y no habría forma de volver a ella ni de salir.
+           */
+          ajustes.ligasSeguidas = (ajustes.ligasSeguidas ?? []).filter((l) => !SOLO_RELLENO.has(l));
+          if (SOLO_RELLENO.has(ajustes.competicionId)) {
+            ajustes.competicionId = INICIAL.ajustes.competicionId;
+          } else if (eraLaDefecto && !competicionVisible(ajustes.competicionId)) {
             ajustes.competicionId = competicionesVisibles()[0]?.id ?? ajustes.competicionId;
           }
           setEstado({ ...INICIAL, ...leido, ajustes, guardados: leido.guardados ?? [] });
