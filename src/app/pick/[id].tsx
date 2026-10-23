@@ -222,6 +222,14 @@ function Serie({
   const alto = (v: number) => Math.min(100, Math.max(6, (v / maximo) * 100));
   const acierta = (v: number) => (sentido === 'menos' || sentido === 'no' ? v < linea : v > linea);
   const dia = (f?: string) => (f ? `${f.slice(8, 10)}/${f.slice(5, 7)}` : '');
+  /*
+   * Escudos a 60 px, el doble de los 30 de antes: a 30 se veían pero no se
+   * reconocían. En un móvil estrecho cada columna mide unos 30 px, así que el
+   * escudo se recorta al ancho de su columna para no pisar al de al lado.
+   */
+  const [anchoFila, setAnchoFila] = useState(0);
+  const columna = vistos.length ? (anchoFila - 2 * (vistos.length - 1)) / vistos.length : 0;
+  const tamEscudo = columna > 0 ? Math.max(20, Math.min(60, Math.floor(columna))) : 30;
 
   return (
     <View style={{ gap: 4 }}>
@@ -260,7 +268,10 @@ function Serie({
       </View>
 
       {/* Debajo de cada barra: contra quién fue y qué día. */}
-      <View style={{ flexDirection: 'row', gap: 2 }}>
+      <View
+        style={{ flexDirection: 'row', gap: 2 }}
+        onLayout={(e) => setAnchoFila(e.nativeEvent.layout.width)}
+      >
         {vistos.map((p, i) => (
           <View key={i} style={{ flex: 1, alignItems: 'center', gap: 1 }}>
             {p.rival ? (
@@ -270,10 +281,10 @@ function Serie({
                 bandera={p.rival.bandera}
                 corto={p.rival.corto}
                 color={p.rival.color}
-                tam={30}
+                tam={tamEscudo}
               />
             ) : (
-              <View style={{ width: 30, height: 30 }} />
+              <View style={{ width: tamEscudo, height: tamEscudo }} />
             )}
             <Txt v="mini" color={C.texto3} style={{ fontSize: 9, lineHeight: 11 }}>
               {dia(p.fecha)}
