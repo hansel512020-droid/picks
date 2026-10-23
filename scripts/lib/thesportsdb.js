@@ -139,6 +139,12 @@ class Buscador {
     return (datos?.teams ?? []).filter((e) => e.strSport === 'Soccer');
   }
 
+  /** Los equipos de fútbol que devuelve la búsqueda por nombre, sin elegir entre ellos. */
+  async equiposPorNombre(nombre) {
+    const datos = await this.pide(`${API}/searchteams.php?t=${encodeURIComponent(nombre)}`);
+    return (datos?.teams ?? []).filter((e) => e.strSport === 'Soccer');
+  }
+
   /** Catálogo completo de ligas de TheSportsDB. */
   async ligas() {
     const datos = await this.pide(`${API}/all_leagues.php`);
