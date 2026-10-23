@@ -20,8 +20,10 @@
  * 2. Si no está ahí —equipos de las copas o de ligas sin mapear—, en todas las
  *    ligas cargadas, pero solo si el nombre coincide entero.
  * 3. Y como último recurso, buscándolo por nombre, también solo si coincide
- *    entero, y con un tope por pasada para no eternizar el bot. Lo que no
- *    entre esta noche entra la siguiente: las respuestas quedan en caché.
+ *    entero —con el nombre o con uno de los alternativos que da la propia
+ *    fuente: "Floriana FC" es un alternativo de "Floriana"— y sin empates, con
+ *    un tope por pasada para no eternizar el bot. Lo que no entre esta noche
+ *    entra la siguiente: las respuestas quedan en caché.
  *
  * Un escudo que no se encuentra se deja sin poner. Mejor las siglas que el
  * escudo de otro equipo.
@@ -217,7 +219,7 @@ async function resuelveEscudosImportados(buscador, logos, archivo, ligaEnIngles)
       busquedas++;
       parte.buscados++;
       const fallosAntes = buscador.fallos ?? 0;
-      const r = await buscador.escudo(e.nombre);
+      const candidatos = await buscador.equiposPorNombre(e.nombre);
       /*
        * Tres búsquedas seguidas sin respuesta: la fuente está caída. Seguir,
        * con los reintentos de cada una, alargaría el bot un cuarto de hora
@@ -229,9 +231,11 @@ async function resuelveEscudosImportados(buscador, logos, archivo, ligaEnIngles)
       } else {
         fallidasSeguidas = 0;
       }
-      if (r?.url && claveEstricta(r.fuente) === e.clave) {
-        apunta(e, r.url, true);
-        parte.asignados.push(`${e.nombre} → ${r.fuente} (búsqueda)`);
+      // Lo mismo que en el paso 2: nombre o alternativo exacto, sin empates.
+      t = mejorEn(e.nombre, candidatos ?? [], 2);
+      if (t) {
+        apunta(e, escudoDe(t), true);
+        parte.asignados.push(`${e.nombre} → ${t.strTeam} (búsqueda)`);
         parte.porNombre++;
         continue;
       }
