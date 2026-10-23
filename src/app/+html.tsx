@@ -69,17 +69,28 @@ const ESTILOS = `
   src: url(/fuentes/space-grotesk.woff2) format('woff2-variations'), url(/fuentes/space-grotesk.woff2) format('woff2');
   unicode-range: U+0000-00FF,U+0131,U+0152-0153,U+02BB-02BC,U+02C6,U+02DA,U+02DC,U+0304,U+0308,U+0329,U+2000-206F,U+20AC,U+2122,U+2191,U+2193,U+2212,U+2215,U+FEFF,U+FFFD;
 }
+/* Banderas de país. Windows no trae dibujo para ellas y en Chrome y Edge
+   salían dos letras ("FR", "ES") en vez de la bandera, en toda la app. Es el
+   subconjunto de banderas de Twemoji (78 kB, CC-BY 4.0, ver
+   public/fuentes/LICENCIA-banderas.txt) y solo cubre esos caracteres: el
+   navegador no lo baja hasta que una página pinta una bandera, y el resto del
+   texto sigue con su fuente. */
+@font-face {
+  font-family: 'Twemoji Country Flags'; font-style: normal; font-display: swap;
+  src: url(/fuentes/banderas.woff2) format('woff2');
+  unicode-range: U+1F1E6-1F1FF, U+1F3F4, U+E0062-E0063, U+E0065, U+E0067, U+E006C, U+E006E, U+E0073-E0074, U+E0077, U+E007F;
+}
 /* React Native Web pone su propia fuente a cada texto con una clase; con
    "html body" delante esta regla pesa más y la sustituye sin !important. Los
-   emoji (banderas, 🔥) no están en estas fuentes y caen solos en los del
-   sistema. Las cifras van todas del mismo ancho: así los porcentajes de una
+   emoji (🔥, 🏆) no están en estas fuentes y caen solos en los del sistema;
+   las banderas, en la suya de arriba. Las cifras van todas del mismo ancho: así los porcentajes de una
    columna quedan alineados. */
 html body, html body [dir], html body input, html body textarea {
-  font-family: 'Inter Variable', -apple-system, BlinkMacSystemFont, 'Segoe UI', Roboto, Helvetica, Arial, sans-serif;
+  font-family: 'Twemoji Country Flags', 'Inter Variable', -apple-system, BlinkMacSystemFont, 'Segoe UI', Roboto, Helvetica, Arial, sans-serif;
   font-feature-settings: 'tnum' 1, 'cv11' 1;
 }
 html body [data-gp~="titular"] {
-  font-family: 'Space Grotesk Variable', 'Inter Variable', -apple-system, BlinkMacSystemFont, 'Segoe UI', sans-serif;
+  font-family: 'Twemoji Country Flags', 'Space Grotesk Variable', 'Inter Variable', -apple-system, BlinkMacSystemFont, 'Segoe UI', sans-serif;
   font-feature-settings: 'tnum' 1;
 }
 
