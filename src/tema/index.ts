@@ -4,24 +4,29 @@
  * Todo el aspecto de la app sale de aqui: un fondo casi negro, tarjetas
  * apenas mas claras con borde de un pixel y un lima muy saturado como unico
  * color de marca. Las pantallas nunca escriben un color a mano.
+ *
+ * Los negros tiran a azul noche y no a gris: con el gris el lima quedaba
+ * sobre un fondo apagado, casi de ceniza; sobre azul muy oscuro el lima
+ * resalta más y el conjunto se lee como una pantalla de datos, no como un
+ * fondo vacío.
  */
 
 export const C = {
   /** Fondo de la app. */
-  fondo: '#0A0B0D',
+  fondo: '#070A0F',
   /** Fondo de las cabeceras y barras, un punto por encima del fondo. */
-  fondo2: '#101215',
+  fondo2: '#0C1118',
   /** Tarjetas. */
-  carta: '#15171B',
+  carta: '#111720',
   /** Tarjetas dentro de tarjetas (fila de mercado, cajas de stats). */
-  carta2: '#1B1E23',
+  carta2: '#18202B',
   /** Superficie pulsada. */
-  cartaActiva: '#22262C',
+  cartaActiva: '#202A37',
   /** Borde de un pixel de casi todo. */
-  borde: '#23262C',
-  bordeSuave: '#1A1D21',
+  borde: '#202A36',
+  bordeSuave: '#161E28',
   /** El canto de arriba de las tarjetas, donde da la luz. */
-  bordeLuz: '#2D3138',
+  bordeLuz: '#2E3A4A',
 
   /** Lima de marca. */
   lima: '#C9FF3D',
@@ -31,8 +36,8 @@ export const C = {
   limaBorde: 'rgba(201,255,61,0.45)',
 
   texto: '#FFFFFF',
-  texto2: '#9AA1AA',
-  texto3: '#646B75',
+  texto2: '#9AA6B6',
+  texto3: '#617084',
 
   verde: '#2FD35F',
   verdeTenue: 'rgba(47,211,95,0.14)',
@@ -46,7 +51,10 @@ export const C = {
   /** Barra L10: acierto / fallo. */
   acierto: '#2FD35F',
   fallo: '#F0524B',
-  neutro: '#3A3F46',
+  neutro: '#34404F',
+
+  /** Fondo de una tarjeta cuyo partido se está jugando: la carta teñida de rojo. */
+  cartaVivo: '#1C1419',
 
   transparente: 'transparent',
 } as const;
@@ -136,6 +144,18 @@ export const LISTA_LIGERA = {
 
 /** Altura reservada para la barra de pestanas flotante. */
 export const ALTO_TABS = 62;
+
+/** Separación de la barra flotante con el borde de abajo de la pantalla. */
+export const MARGEN_TABS = 12;
+
+/**
+ * Lo que tienen que dejar libre abajo las pantallas de pestañas.
+ *
+ * La barra flota por encima del contenido, así que la lista corre por debajo
+ * de ella: sin este hueco la última tarjeta se quedaría tapada sin manera de
+ * subirla. Es la barra, su margen y un respiro.
+ */
+export const HUECO_PESTANAS = ALTO_TABS + MARGEN_TABS + 28;
 
 /**
  * Ancho máximo del lienzo de la app. En móvil y tablet se ocupa la pantalla

@@ -3,6 +3,7 @@ import * as Haptics from 'expo-haptics';
 import { router } from 'expo-router';
 import { useEffect, useState } from 'react';
 import { Platform, StyleSheet, Text, View } from 'react-native';
+import Svg, { Circle } from 'react-native-svg';
 import { casa as buscaCasa } from '@/datos/casas';
 import { competicion } from '@/datos/competiciones';
 import { esPickDelDia } from '@/datos/picks';
@@ -358,6 +359,50 @@ export function BarraL10({
   );
 }
 
+/**
+ * La confianza del modelo como un anillo que se llena.
+ *
+ * Era una etiqueta pequeña con el número, y es el dato que decide si alguien
+ * se fija en un pick: el anillo se ve de reojo y el número va dentro.
+ */
+export function AnilloConfianza({ valor, tam = 42 }: { valor: number; tam?: number }) {
+  const alta = valor >= 0.7;
+  const color = alta ? C.acierto : C.ambar;
+  const grosor = 3.5;
+  const radio = (tam - grosor) / 2;
+  const vuelta = 2 * Math.PI * radio;
+  const parte = Math.max(0, Math.min(1, valor));
+  return (
+    <View style={{ width: tam, height: tam, alignItems: 'center', justifyContent: 'center' }}>
+      <Svg width={tam} height={tam} style={{ position: 'absolute' }}>
+        <Circle
+          cx={tam / 2}
+          cy={tam / 2}
+          r={radio}
+          stroke={C.carta2}
+          strokeWidth={grosor}
+          fill="none"
+        />
+        <Circle
+          cx={tam / 2}
+          cy={tam / 2}
+          r={radio}
+          stroke={color}
+          strokeWidth={grosor}
+          strokeLinecap="round"
+          strokeDasharray={`${vuelta * parte} ${vuelta}`}
+          // Empieza arriba, como un reloj, y no a la derecha.
+          transform={`rotate(-90 ${tam / 2} ${tam / 2})`}
+          fill="none"
+        />
+      </Svg>
+      <Text {...marca('titular')} style={{ fontSize: tam * 0.27, fontWeight: '700', color }}>
+        {Math.round(parte * 100)}%
+      </Text>
+    </View>
+  );
+}
+
 /** Chip cuadrado con las siglas de la fuente del precio. */
 export function SelloCasa({ casaId, tam = 18 }: { casaId: string; tam?: number }) {
   const c = buscaCasa(casaId);
@@ -402,11 +447,22 @@ export function FilaMercado({
   precioReal?: boolean;
 }) {
   return (
-    <View style={est.mercado}>
-      <Icono nombre={bloqueado ? 'candado' : 'grafico'} tam={15} color={C.texto3} />
+    <View style={[est.mercado, bloqueado ? null : est.mercadoAbierto]}>
+      {/* Una barrita lima en el canto: la fila del mercado es lo que se juega,
+          y tiene que distinguirse del texto de alrededor. */}
+      {bloqueado ? null : <View style={est.acento} />}
+      <Icono
+        nombre={bloqueado ? 'candado' : 'grafico'}
+        tam={15}
+        color={bloqueado ? C.texto3 : C.lima}
+      />
       <Text
         numberOfLines={1}
-        style={{ ...T.cuerpo, color: bloqueado ? C.texto3 : C.texto, flex: 1 }}
+        style={{
+          ...(bloqueado ? T.cuerpo : T.cuerpoFuerte),
+          color: bloqueado ? C.texto3 : C.texto,
+          flex: 1,
+        }}
       >
         {/* Con el candado puesto tampoco se enseña el mercado: si se ve "Más de
             1.5 entradas" el pick ya está dado y Golden Pro no aporta nada. */}
@@ -772,7 +828,7 @@ export function TarjetaPick({
             paddingHorizontal: E.md,
             paddingTop: 8,
             paddingBottom: 2,
-            backgroundColor: '#1A1315',
+            backgroundColor: C.cartaVivo,
           }}
         >
           <MarchaEnVivo marcha={marcha} />
@@ -781,7 +837,18 @@ export function TarjetaPick({
 
       <View style={{ padding: E.md, gap: E.md }}>
       <Pulsable onPress={abrir} plano style={est.cabecera}>
-        <Avatar imagen={pick.imagen} nombres={pick.nombres} sujeto={pick.sujeto} />
+        {/*
+          Un aro alrededor de la cara o el escudo, lima cuando el histórico es
+          fuerte. Solo en los redondos: en un partido van dos escudos montados
+          y un aro alrededor no encaja.
+        */}
+        {pick.sujeto === 'partido' ? (
+          <Avatar imagen={pick.imagen} nombres={pick.nombres} sujeto={pick.sujeto} />
+        ) : (
+          <View style={[est.aro, !bloqueado && pick.probabilidad >= 0.7 ? est.aroFuerte : null]}>
+            <Avatar imagen={pick.imagen} nombres={pick.nombres} sujeto={pick.sujeto} />
+          </View>
+        )}
         <View style={{ flex: 1 }}>
           {/* Un pick de partido lleva los dos clubes enteros en el título y no
               cabe con el cuerpo grande: se baja un escalón para que entre. Un
@@ -871,18 +938,7 @@ export function TarjetaPick({
             sin abrir nada. Verde a partir del 70%, ámbar por debajo: un 55% no
             merece el mismo color que un 80%.
           */}
-          {bloqueado ? null : (
-            <View
-              style={[
-                est.confianza,
-                pick.probabilidad >= 0.7 ? est.confianzaAlta : est.confianzaMedia,
-              ]}
-            >
-              <Txt v="pequenoFuerte" color={pick.probabilidad >= 0.7 ? C.acierto : C.ambar}>
-                {Math.round(pick.probabilidad * 100)}%
-              </Txt>
-            </View>
-          )}
+          {bloqueado ? null : <AnilloConfianza valor={pick.probabilidad} />}
           {/*
             La llama guarda y desguarda, igual que el marcador de la derecha:
             es lo que la gente intenta hacer al verla, y antes no hacía nada.
@@ -962,11 +1018,15 @@ export function TarjetaPick({
  */
 const est = StyleSheet.create({
   tarjeta: { padding: 0, gap: 0, overflow: 'hidden' },
-  tarjetaVivo: { borderColor: C.rojo, borderTopColor: C.rojo, borderWidth: 1.5, backgroundColor: '#1A1315' },
+  tarjetaVivo: {
+    borderColor: C.rojo,
+    borderTopColor: C.rojo,
+    borderWidth: 1.5,
+    backgroundColor: C.cartaVivo,
+  },
   cabecera: { flexDirection: 'row', alignItems: 'center', gap: E.md },
-  confianza: { paddingHorizontal: 7, paddingVertical: 3, borderRadius: R.sm, borderWidth: 1 },
-  confianzaAlta: { backgroundColor: C.acierto + '22', borderColor: C.acierto + '40' },
-  confianzaMedia: { backgroundColor: C.ambarTenue, borderColor: C.ambar + '40' },
+  aro: { padding: 2, borderRadius: 999, borderWidth: 1.5, borderColor: C.borde },
+  aroFuerte: { borderColor: C.limaBorde, boxShadow: '0 0 14px -2px rgba(201,255,61,0.45)' },
   guardar: {
     width: 30,
     height: 30,
@@ -983,7 +1043,19 @@ const est = StyleSheet.create({
     backgroundColor: C.carta2,
     borderRadius: R.md,
     paddingHorizontal: E.md,
-    paddingVertical: 11,
+    paddingVertical: 12,
+    overflow: 'hidden',
+  },
+  mercadoAbierto: { borderWidth: 1, borderColor: C.borde, borderTopColor: C.bordeLuz },
+  acento: {
+    position: 'absolute',
+    left: 0,
+    top: 8,
+    bottom: 8,
+    width: 3,
+    borderTopRightRadius: 2,
+    borderBottomRightRadius: 2,
+    backgroundColor: C.lima,
   },
   precio: {
     flexDirection: 'row',

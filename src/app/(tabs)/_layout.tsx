@@ -8,10 +8,11 @@ import {
   useRef,
   useState,
 } from 'react';
-import { Platform, useWindowDimensions, View } from 'react-native';
+import { useWindowDimensions, View } from 'react-native';
+import { useSafeAreaInsets } from 'react-native-safe-area-context';
 import { Icono, type NombreIcono } from '@/componentes/iconos';
 import { marca } from '@/componentes/movimiento';
-import { C, T } from '@/tema';
+import { ALTO_TABS, C, MARGEN_TABS, R, T } from '@/tema';
 
 /**
  * El icono de la pestaña, con una pastilla lima detrás cuando está elegida.
@@ -92,12 +93,14 @@ export default function LayoutPestanas() {
    */
   const [oculta, setOculta] = useState(true);
   /*
-   * En un monitor las cinco pestañas se repartían todo el ancho: Inicio en un
-   * extremo y Perfil a metro y medio. Se juntan en el centro, con la barra de
-   * fondo entera de lado a lado. En el móvil el relleno sale cero.
+   * La barra flota: una cápsula separada de los bordes, con el contenido
+   * pasando por debajo. En el móvil va casi de lado a lado; en un monitor se
+   * queda en el centro con el ancho justo para las cinco, en vez de repartirlas
+   * a metro y medio unas de otras.
    */
   const { width } = useWindowDimensions();
-  const margenPestanas = Math.max(0, (width - 760) / 2);
+  const insets = useSafeAreaInsets();
+  const lado = Math.max(MARGEN_TABS, (width - 520) / 2);
   const avisado = useRef(false);
   const avisa = useCallback((cargando: boolean) => {
     avisado.current = true;
@@ -121,13 +124,29 @@ export default function LayoutPestanas() {
           tabBarStyle: oculta
             ? { display: 'none' }
             : {
-                backgroundColor: C.fondo2,
-                borderTopColor: C.bordeSuave,
+                position: 'absolute',
+                left: lado,
+                right: lado,
+                bottom: Math.max(insets.bottom, MARGEN_TABS),
+                height: ALTO_TABS,
+                paddingTop: 6,
+                paddingBottom: 6,
+                paddingHorizontal: 4,
+                borderRadius: R.xl,
+                borderWidth: 1,
                 borderTopWidth: 1,
-                height: Platform.OS === 'ios' ? 84 : 64,
-                paddingTop: 7,
-                paddingHorizontal: margenPestanas,
+                borderColor: C.bordeLuz,
+                boxShadow: '0 16px 36px -10px rgba(0,0,0,0.85)',
               },
+          // El cristal: fondo translúcido y, en la web, lo de detrás desenfocado.
+          tabBarBackground: () => (
+            <View
+              {...marca('cristal')}
+              style={{ flex: 1, borderRadius: R.xl, backgroundColor: 'rgba(14,19,27,0.86)' }}
+            />
+          ),
+          // Siempre el icono encima del nombre: al lado no cabe en la cápsula.
+          tabBarLabelPosition: 'below-icon',
           tabBarLabelStyle: { ...T.mini, fontSize: 10 },
           sceneStyle: { backgroundColor: C.fondo },
         }}

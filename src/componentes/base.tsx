@@ -1,4 +1,4 @@
-import { forwardRef } from 'react';
+import { forwardRef, type ReactNode } from 'react';
 import {
   Platform,
   Pressable,
@@ -229,6 +229,35 @@ export function Boton({
   );
 }
 
+/**
+ * Título de sección con su barrita lima delante.
+ *
+ * Sin ella los títulos eran texto blanco suelto entre tarjetas, y en una
+ * pantalla larga no se distinguía dónde empezaba cada bloque.
+ */
+export function TituloSeccion({
+  children,
+  style,
+}: {
+  children: ReactNode;
+  style?: StyleProp<ViewStyle>;
+}) {
+  return (
+    <View style={[{ flexDirection: 'row', alignItems: 'center', gap: 9 }, style]}>
+      <View
+        style={{
+          width: 3,
+          height: 17,
+          borderRadius: 2,
+          backgroundColor: C.lima,
+          boxShadow: '0 0 10px rgba(201,255,61,0.55)',
+        }}
+      />
+      <Txt v="subtitulo">{children}</Txt>
+    </View>
+  );
+}
+
 /** Cabecera de seccion: titulo a la izquierda y accion opcional a la derecha. */
 export function Seccion({
   titulo,
@@ -254,7 +283,7 @@ export function Seccion({
         style,
       ]}
     >
-      <Txt v="subtitulo">{titulo}</Txt>
+      <TituloSeccion>{titulo}</TituloSeccion>
       {accion ? (
         <Pulsable onPress={onAccion}>
           <Txt v="pequeno" color={C.texto2}>

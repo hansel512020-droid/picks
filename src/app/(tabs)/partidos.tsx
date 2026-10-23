@@ -15,7 +15,7 @@ import { temporada } from '@/datos/motor';
 import type { Equipo, Partido } from '@/datos/tipos';
 import { useTienda } from '@/estado/tienda';
 import { usePartidoVivoDe, useVivo } from '@/estado/vivo';
-import { C, COLUMNA, E, R } from '@/tema';
+import { C, COLUMNA, E, HUECO_PESTANAS, R } from '@/tema';
 import { useCalculo } from '@/utiles/carga';
 
 type Filtro = 'todos' | 'vivo' | 'hoy' | 'proximos' | 'jugados';
@@ -263,7 +263,10 @@ export default function Partidos() {
           sections={secciones}
           keyExtractor={(item) => item.partido.id}
           stickySectionHeadersEnabled={false}
-          contentContainerStyle={[{ paddingBottom: E.xxxl }, COLUMNA.lectura]}
+          contentContainerStyle={[
+            { paddingBottom: HUECO_PESTANAS + insets.bottom },
+            COLUMNA.lectura,
+          ]}
           showsVerticalScrollIndicator={false}
           renderSectionHeader={({ section }) => (
             <View

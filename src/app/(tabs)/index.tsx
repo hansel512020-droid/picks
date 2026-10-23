@@ -1,15 +1,25 @@
+import { LinearGradient } from 'expo-linear-gradient';
 import { router } from 'expo-router';
 import { useEffect, useMemo, useState } from 'react';
 import { FlatList, Text, useWindowDimensions, View } from 'react-native';
 import { useSafeAreaInsets } from 'react-native-safe-area-context';
 import { AvisoCobroFallido, AvisoPagoEnProceso } from '@/componentes/avisos';
 import { useAvisos } from '@/estado/avisos';
-import { Chip, Insignia, Pulsable, Seccion, Tarjeta, Txt, Vacio } from '@/componentes/base';
+import {
+  Chip,
+  Insignia,
+  Pulsable,
+  Seccion,
+  Tarjeta,
+  TituloSeccion,
+  Txt,
+  Vacio,
+} from '@/componentes/base';
 import { PantallaCargando } from '@/componentes/cargando';
 import { CarruselCompeticion, CarruselProximos } from '@/componentes/carruseles';
 import { Icono } from '@/componentes/iconos';
 import { Escudo } from '@/componentes/imagen';
-import { Logo, Resplandor } from '@/componentes/marca';
+import { Logo, Resplandor, Simbolo } from '@/componentes/marca';
 import { Aparece, marca } from '@/componentes/movimiento';
 import { TiraChips } from '@/componentes/navegacion';
 import { TarjetaPick } from '@/componentes/pick';
@@ -24,7 +34,7 @@ import { useComunidad } from '@/estado/comunidad';
 import { useDerechos } from '@/estado/derechos';
 import { useTienda } from '@/estado/tienda';
 import { usePicksVigentes, useVivo } from '@/estado/vivo';
-import { brillo, C, COLUMNA, E, LISTA_LIGERA, R } from '@/tema';
+import { brillo, C, COLUMNA, E, HUECO_PESTANAS, LISTA_LIGERA, R } from '@/tema';
 import { useCalculo } from '@/utiles/carga';
 import { usePicksDelServidor } from '@/utiles/picks';
 import { useRejilla } from '@/utiles/rejilla';
@@ -251,6 +261,125 @@ function EnVivo({ competicionId }: { competicionId: string }) {
   );
 }
 
+/** Lista vacía fija, para no estrenar una en cada pintado mientras cargan. */
+const SIN_PICKS: Pick[] = [];
+
+/**
+ * El resumen del día, arriba de la portada.
+ *
+ * Todo sale de lo que ya hay en pantalla: cuántos picks hay en cartel, de
+ * cuántos partidos, la confianza más alta y cuántos partidos se están jugando.
+ * No es información nueva: es la misma lista contada, para que lo primero que
+ * se vea sea un vistazo al día y no una tarjeta suelta.
+ */
+function PanelDelDia({ picks, competicionNombre }: { picks: Pick[]; competicionNombre: string }) {
+  const { porPartido } = useVivo();
+  let enJuego = 0;
+  for (const p of porPartido.values()) if (seJuegaAhora(p.estado)) enJuego++;
+  // Los que llegan con candado no traen probabilidad: no cuentan para el mejor.
+  const mejor = picks.reduce((m, p) => (p.pro ? m : Math.max(m, p.probabilidad ?? 0)), 0);
+  const partidos = new Set(picks.map((p) => p.partidoId)).size;
+  const hoy = new Date().toLocaleDateString('es', {
+    weekday: 'long',
+    day: 'numeric',
+    month: 'long',
+  });
+
+  const datos = [
+    { valor: String(partidos), texto: partidos === 1 ? 'partido' : 'partidos' },
+    mejor > 0 ? { valor: `${Math.round(mejor * 100)}%`, texto: 'mejor confianza' } : null,
+    enJuego > 0 ? { valor: String(enJuego), texto: 'en vivo', vivo: true } : null,
+  ].filter(Boolean) as { valor: string; texto: string; vivo?: boolean }[];
+
+  return (
+    <View {...marca('entra')} style={{ marginHorizontal: E.lg }}>
+      <LinearGradient
+        colors={[C.carta2, C.carta]}
+        start={{ x: 0, y: 0 }}
+        end={{ x: 1, y: 1 }}
+        style={{
+          borderRadius: R.xl,
+          borderWidth: 1,
+          borderColor: C.borde,
+          borderTopColor: C.bordeLuz,
+          padding: E.lg,
+          // Título y cifras en la misma fila si caben (ordenador) y una debajo
+          // de otra si no (móvil): lo decide el ancho, sin medir nada.
+          flexDirection: 'row',
+          flexWrap: 'wrap',
+          alignItems: 'flex-end',
+          justifyContent: 'space-between',
+          gap: E.md,
+          overflow: 'hidden',
+        }}
+      >
+        {/* La marca, enorme y casi transparente, de fondo en la esquina. */}
+        <View
+          style={{ position: 'absolute', right: -34, top: -30, opacity: 0.08, pointerEvents: 'none' }}
+        >
+          <Simbolo tam={150} />
+        </View>
+
+        <View style={{ gap: 2, flexGrow: 1, minWidth: 220 }}>
+          <Txt v="etiqueta" color={C.lima} style={{ letterSpacing: 1.6 }}>
+            HOY · {hoy.toUpperCase()}
+          </Txt>
+          <View style={{ flexDirection: 'row', alignItems: 'flex-end', gap: E.sm }}>
+            <Txt v="displayXL" style={{ fontSize: 46, lineHeight: 50 }}>
+              {picks.length}
+            </Txt>
+            <View style={{ paddingBottom: 7, flexShrink: 1 }}>
+              <Txt v="cuerpoFuerte">
+                {picks.length === 1 ? 'pick en cartel' : 'picks en cartel'}
+              </Txt>
+              <Txt v="mini" color={C.texto3} numberOfLines={1}>
+                {competicionNombre}
+              </Txt>
+            </View>
+          </View>
+        </View>
+
+        {datos.length ? (
+          <View
+            style={{ flexDirection: 'row', gap: E.sm, flexGrow: 1, minWidth: 260, maxWidth: 520 }}
+          >
+            {datos.map((d) => (
+              <View
+                key={d.texto}
+                style={{
+                  flex: 1,
+                  gap: 1,
+                  paddingVertical: E.sm,
+                  paddingHorizontal: E.md,
+                  borderRadius: R.md,
+                  backgroundColor: 'rgba(7,10,15,0.45)',
+                  borderWidth: 1,
+                  borderColor: C.bordeSuave,
+                }}
+              >
+                <View style={{ flexDirection: 'row', alignItems: 'center', gap: 6 }}>
+                  {d.vivo ? (
+                    <View
+                      {...marca('latido')}
+                      style={{ width: 6, height: 6, borderRadius: 3, backgroundColor: C.rojo }}
+                    />
+                  ) : null}
+                  <Txt v="subtitulo" color={d.vivo ? C.rojo : C.texto}>
+                    {d.valor}
+                  </Txt>
+                </View>
+                <Txt v="mini" color={C.texto3} numberOfLines={1}>
+                  {d.texto}
+                </Txt>
+              </View>
+            ))}
+          </View>
+        ) : null}
+      </LinearGradient>
+    </View>
+  );
+}
+
 export default function Inicio() {
   const { ajustes, cambiaAjuste } = useTienda();
   const insets = useSafeAreaInsets();
@@ -345,6 +474,8 @@ export default function Inicio() {
 
   // Un partido que acaba de terminar deja de dar picks al momento.
   const enCartel = usePicksVigentes(visibles);
+  // El cartel entero, sin los filtros de abajo, para el resumen del día.
+  const delDia = usePicksVigentes(picks ?? SIN_PICKS);
   // Una, dos o tres tarjetas por fila según el ancho (ver `useRejilla`).
   const { columnas, fila, celda } = useRejilla();
 
@@ -401,7 +532,10 @@ export default function Inicio() {
         columnWrapperStyle={fila}
         data={enCartel}
         keyExtractor={(p) => p.id}
-        contentContainerStyle={[{ paddingBottom: E.xxxl, gap: E.md }, COLUMNA.amplia]}
+        contentContainerStyle={[
+          { paddingBottom: HUECO_PESTANAS + insets.bottom, gap: E.md },
+          COLUMNA.amplia,
+        ]}
         showsVerticalScrollIndicator={false}
         {...LISTA_LIGERA}
         ListHeaderComponent={
@@ -512,6 +646,8 @@ export default function Inicio() {
             */}
             <AvisoPagoEnProceso />
 
+            <PanelDelDia picks={delDia} competicionNombre={comp.nombre} />
+
             {/*
               El pick gratis del día, solo para quien no tiene plan.
 
@@ -577,7 +713,7 @@ export default function Inicio() {
                   paddingHorizontal: E.lg,
                 }}
               >
-                <Txt v="subtitulo">Picks destacadas</Txt>
+                <TituloSeccion>Picks destacadas</TituloSeccion>
                 <Pulsable
                   onPress={() => setMenuOrden((v) => !v)}
                   style={{ flexDirection: 'row', alignItems: 'center', gap: 5 }}

@@ -6,7 +6,7 @@ import { Icono } from './iconos';
 import { olvidaPago, pagoEnProceso } from './payphone';
 import { competicionesVisibles } from '@/datos/competiciones';
 import { useDerechos } from '@/estado/derechos';
-import { C, E, R } from '@/tema';
+import { C, E, HUECO_PESTANAS, R } from '@/tema';
 
 /**
  * Avisos que el usuario tiene que ver sí o sí.
@@ -94,7 +94,8 @@ export function AvisoCambiaDePlan({ flotante }: { flotante?: boolean }) {
       pointerEvents="box-none"
       style={{
         position: 'absolute',
-        bottom: E.md,
+        // Por encima de la barra de pestañas, que también flota.
+        bottom: HUECO_PESTANAS - E.lg,
         left: 0,
         right: 0,
         zIndex: 10,
@@ -266,7 +267,8 @@ export function AvisoCobroFallido({ flotante }: { flotante?: boolean }) {
         // Abajo, no arriba: arriba tapa la cabecera y el carrusel de partidos,
         // que es lo primero que se viene a mirar. Con un hueco para no pegarse
         // a la barra de pestañas.
-        bottom: E.md,
+        // Por encima de la barra de pestañas, que también flota.
+        bottom: HUECO_PESTANAS - E.lg,
         left: 0,
         right: 0,
         zIndex: 10,

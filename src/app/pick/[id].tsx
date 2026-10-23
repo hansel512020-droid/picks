@@ -3,7 +3,17 @@ import { router, useLocalSearchParams } from 'expo-router';
 import { useEffect, useMemo, useState } from 'react';
 import { ActivityIndicator, ScrollView, Text, View } from 'react-native';
 import { useSafeAreaInsets } from 'react-native-safe-area-context';
-import { Boton, Fuego, Insignia, Pulsable, Separador, Tarjeta, Txt, Vacio } from '@/componentes/base';
+import {
+  Boton,
+  Fuego,
+  Insignia,
+  Pulsable,
+  Separador,
+  Tarjeta,
+  TituloSeccion,
+  Txt,
+  Vacio,
+} from '@/componentes/base';
 import { Icono } from '@/componentes/iconos';
 import { Escudo, LogoCompeticion } from '@/componentes/imagen';
 import { marca, retraso } from '@/componentes/movimiento';
@@ -664,7 +674,7 @@ ${enlace}`;
                   borderRadius: R.lg,
                   borderWidth: 1,
                   borderColor: C.rojo,
-                  backgroundColor: '#1A1315',
+                  backgroundColor: C.cartaVivo,
                 }}
               >
                 <View style={{ flexDirection: 'row', alignItems: 'center', gap: 6 }}>
@@ -826,7 +836,7 @@ ${enlace}`;
             a cero no es menos información: es información falsa. */}
         {contexto && contexto.serie.filter((p) => p.valor > 0).length > 2 ? (
           <View style={{ paddingHorizontal: E.lg, gap: E.sm }}>
-            <Txt v="subtitulo">Partido a partido</Txt>
+            <TituloSeccion>Partido a partido</TituloSeccion>
             <Tarjeta style={{ padding: E.md, gap: E.md }}>
               <Serie puntos={contexto.serie} linea={pick.linea} sentido={pick.sentido} />
               <Separador />
@@ -847,7 +857,7 @@ ${enlace}`;
         {/* --------------------------------------------------------- cortes */}
         {contexto && contexto.cortes.length ? (
           <View style={{ paddingHorizontal: E.lg, gap: E.sm }}>
-            <Txt v="subtitulo">Por contexto</Txt>
+            <TituloSeccion>Por contexto</TituloSeccion>
             <Tarjeta style={{ padding: E.md, gap: E.md }}>
               {contexto.cortes.map((c) => (
                 <View key={c.etiqueta} style={{ gap: 5 }}>
@@ -887,7 +897,7 @@ ${enlace}`;
         {/* ------------------------------------------------------- racha L10 */}
         {/* La tendencia es de lo que mas se vende: con candado, no se enseña. */}
         <View style={{ paddingHorizontal: E.lg, gap: E.sm, display: bloqueado ? 'none' : 'flex' }}>
-          <Txt v="subtitulo">Racha</Txt>
+          <TituloSeccion>Racha</TituloSeccion>
           <Tarjeta style={{ padding: E.md, gap: E.sm }}>
             <BarraL10 racha={pick.racha} porcentaje={pick.aciertosL10 * 10} />
             <Txt v="mini" color={C.texto3}>
@@ -916,9 +926,9 @@ ${enlace}`;
 
         {otros.length ? (
           <View style={{ gap: E.md }}>
-            <Txt v="subtitulo" style={{ paddingHorizontal: E.lg }}>
+            <TituloSeccion style={{ paddingHorizontal: E.lg }}>
               Más picks de este partido
-            </Txt>
+            </TituloSeccion>
             {otros.map((p) => (
               <View key={p.id} style={{ paddingHorizontal: E.lg }}>
                 <TarjetaPick pick={p} />

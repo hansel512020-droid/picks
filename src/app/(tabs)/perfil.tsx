@@ -18,7 +18,7 @@ import { useDerechos } from '@/estado/derechos';
 import { useSesion } from '@/estado/sesion';
 import { calculaRendimiento, useTienda, type Ajustes } from '@/estado/tienda';
 import { useVivo } from '@/estado/vivo';
-import { C, COLUMNA, E, R } from '@/tema';
+import { C, COLUMNA, E, HUECO_PESTANAS, R } from '@/tema';
 
 /** Perfil, ajustes y estado de la suscripcion. */
 
@@ -201,7 +201,11 @@ export default function Perfil() {
         {...marca('pagina')}
         style={{ flex: 1 }}
         contentContainerStyle={[
-          { paddingTop: insets.top + E.md, paddingBottom: E.xxxl, gap: E.lg },
+          {
+            paddingTop: insets.top + E.md,
+            paddingBottom: HUECO_PESTANAS + insets.bottom,
+            gap: E.lg,
+          },
           COLUMNA.lectura,
         ]}
         showsVerticalScrollIndicator={false}

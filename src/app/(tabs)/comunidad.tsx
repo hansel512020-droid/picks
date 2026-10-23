@@ -1,7 +1,7 @@
 import { useCallback, useMemo, useState } from 'react';
 import { ActivityIndicator, FlatList, View } from 'react-native';
 import { useSafeAreaInsets } from 'react-native-safe-area-context';
-import { Chip, Fuego, Tarjeta, Txt, Vacio } from '@/componentes/base';
+import { Chip, Fuego, Tarjeta, TituloSeccion, Txt, Vacio } from '@/componentes/base';
 import { BotonCompeticion } from '@/componentes/carruseles';
 import { Aparece } from '@/componentes/movimiento';
 import { Resplandor } from '@/componentes/marca';
@@ -11,7 +11,7 @@ import { competicion } from '@/datos/competiciones';
 import type { Familia, Pick } from '@/datos/tipos';
 import { useComunidad } from '@/estado/comunidad';
 import { useTienda } from '@/estado/tienda';
-import { C, COLUMNA, E, LISTA_LIGERA } from '@/tema';
+import { C, COLUMNA, E, HUECO_PESTANAS, LISTA_LIGERA } from '@/tema';
 import { usePicksDelServidor } from '@/utiles/picks';
 import { useRejilla } from '@/utiles/rejilla';
 
@@ -77,7 +77,10 @@ export default function Comunidad() {
         columnWrapperStyle={fila}
         data={visibles}
         keyExtractor={(p) => p.id}
-        contentContainerStyle={[{ paddingBottom: E.xxxl, gap: E.md }, COLUMNA.amplia]}
+        contentContainerStyle={[
+          { paddingBottom: HUECO_PESTANAS + insets.bottom, gap: E.md },
+          COLUMNA.amplia,
+        ]}
         showsVerticalScrollIndicator={false}
         {...LISTA_LIGERA}
         ListHeaderComponent={
@@ -124,7 +127,7 @@ export default function Comunidad() {
             </TiraChips>
 
             <View style={{ paddingHorizontal: E.lg }}>
-              <Txt v="subtitulo">Los más guardados 🔥</Txt>
+              <TituloSeccion>Los más guardados 🔥</TituloSeccion>
             </View>
           </View>
         }

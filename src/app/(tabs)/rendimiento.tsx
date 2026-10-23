@@ -14,7 +14,7 @@ import { temporada } from '@/datos/motor';
 import type { PickGuardado, ResultadoPick } from '@/datos/tipos';
 import { useTienda } from '@/estado/tienda';
 import { usePartidoDelPick, useVivo } from '@/estado/vivo';
-import { brillo, C, COLUMNA, E, R } from '@/tema';
+import { brillo, C, COLUMNA, E, HUECO_PESTANAS, R } from '@/tema';
 
 /**
  * Historial de picks guardados y como han salido. El porcentaje de acierto y
@@ -173,7 +173,7 @@ function FilaGuardado({ g, onQuitar }: { g: PickGuardado; onQuitar: () => void }
     g.resultado === 'ganado'
       ? '#111A14'
       : g.resultado === 'perdido'
-        ? '#1A1315'
+        ? C.cartaVivo
         : g.resultado === 'nulo'
           ? '#1C1710'
           : undefined;
@@ -393,7 +393,10 @@ export default function Rendimiento() {
         {...marca('pagina')}
         data={visibles}
         keyExtractor={(g) => g.pickId}
-        contentContainerStyle={[{ paddingBottom: E.xxxl, gap: E.sm }, COLUMNA.lectura]}
+        contentContainerStyle={[
+          { paddingBottom: HUECO_PESTANAS + insets.bottom, gap: E.sm },
+          COLUMNA.lectura,
+        ]}
         showsVerticalScrollIndicator={false}
         ListHeaderComponent={
           <View style={{ gap: E.lg, marginBottom: E.sm }}>

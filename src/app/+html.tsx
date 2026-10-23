@@ -84,7 +84,7 @@ html body [data-gp~="titular"] {
 }
 
 :root { color-scheme: dark; }
-html, body { background-color: #0A0B0D; }
+html, body { background-color: #070A0F; }
 body {
   -webkit-font-smoothing: antialiased;
   -moz-osx-font-smoothing: grayscale;
@@ -147,6 +147,12 @@ input:-webkit-autofill {
     box-shadow: 0 20px 40px -22px rgba(0,0,0,.95), 0 0 0 1px rgba(201,255,61,.10);
   }
   [data-gp~="eleva"]:not([data-gp~="vivo"]):hover { border-color: #31363E !important; }
+}
+
+/* ── Cristal (barra de pestañas) ─────────────────────────────────── */
+[data-gp~="cristal"] {
+  -webkit-backdrop-filter: blur(18px) saturate(1.5);
+  backdrop-filter: blur(18px) saturate(1.5);
 }
 
 /* ── Entradas ────────────────────────────────────────────────────── */
@@ -236,7 +242,7 @@ export default function Html({ children }: PropsWithChildren) {
         <meta name="description" content={DESCRIPCION} />
         {/* El color de la barra del navegador en Android, para que no salga
             blanca sobre una app oscura. */}
-        <meta name="theme-color" content="#0A0B0D" />
+        <meta name="theme-color" content="#070A0F" />
 
         {/* ── Tarjeta al compartir (WhatsApp, Telegram, Facebook…) ────────── */}
         <meta property="og:type" content="website" />
