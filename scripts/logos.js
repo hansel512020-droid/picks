@@ -309,8 +309,11 @@ function jugadoresImportados(porCompeticion) {
     return [];
   }
 
+  // Las ligas que solo dan historial no se enseñan: sus jugadores no salen nunca.
+  const relleno = ligasDeRelleno();
   const salida = [];
-  for (const c of Object.values(archivo.competiciones ?? {})) {
+  for (const [competicionId, c] of Object.entries(archivo.competiciones ?? {})) {
+    if (relleno.has(competicionId)) continue;
     const apariciones = new Map();
     for (const r of c.registros ?? []) {
       apariciones.set(r.jugadorId, (apariciones.get(r.jugadorId) ?? 0) + 1);
@@ -321,14 +324,30 @@ function jugadoresImportados(porCompeticion) {
         nombre: j.nombre,
         equipo: porEquipo.get(j.equipoId) ?? '',
         partidos: apariciones.get(j.id) ?? 0,
+        importado: true,
       }))
       .filter((j) => j.nombre && j.partidos > 0)
       .sort((a, b) => b.partidos - a.partidos)
       .slice(0, porCompeticion);
     salida.push(...ordenados);
   }
-  return salida;
+  // Los que más juegan primero, de todas las ligas: si el tiempo de la pasada
+  // no da para todos, que se queden fuera los suplentes.
+  return salida.sort((a, b) => b.partidos - a.partidos);
 }
+
+/** Las competiciones que solo están para dar historial (`SOLO_RELLENO` de la app). */
+function ligasDeRelleno() {
+  const texto = fs.readFileSync(path.join(RAIZ, 'src', 'datos', 'competiciones.ts'), 'utf8');
+  const lista = texto.match(/SOLO_RELLENO = new Set\(\[([\s\S]*?)\]\)/)?.[1] ?? '';
+  return new Set([...lista.matchAll(/'([a-z0-9]+)'/g)].map((m) => m[1]));
+}
+
+/**
+ * Cuánto pueden durar las búsquedas de caras nuevas en cada pasada. Lo ya
+ * buscado está en caché y no cuenta; lo que no entre hoy entra mañana.
+ */
+const TIEMPO_CARAS = 15 * 60_000;
 
 function competicionesDeLaApp() {
   const texto = fs.readFileSync(path.join(RAIZ, 'src', 'datos', 'competiciones.ts'), 'utf8');
@@ -461,23 +480,41 @@ async function main() {
     const candidatos = o.importados
       ? [...escritos, ...jugadoresImportados(o.importados)]
       : escritos;
-    // Un mismo jugador sale en su club y en su seleccion: se busca una vez.
-    const unicos = [...new Map(candidatos.map((j) => [claveEstricta(j.nombre), j])).values()];
+    // Un mismo jugador sale en su club y en su seleccion: se busca una vez. Si
+    // está escrito a mano y además llega importado, manda el escrito.
+    const porClave = new Map();
+    for (const j of candidatos) {
+      const clave = claveEstricta(j.nombre);
+      if (clave && !porClave.has(clave)) porClave.set(clave, j);
+    }
+    const unicos = [...porClave.values()];
     console.log(`Jugadores a buscar: ${unicos.length} (nivel ${o.todos ? 'todos' : `>= ${o.nivel}`})`);
 
+    const hasta = Date.now() + TIEMPO_CARAS;
+    const importados = { total: 0, conFoto: 0, nuevas: 0, buscados: 0 };
     let encontrados = 0;
     let i = 0;
     for (const j of unicos) {
       i++;
       const clave = claveEstricta(j.nombre);
+      if (j.importado) importados.total++;
       if (logos.jugadores[clave]) {
         encontrados++;
+        if (j.importado) importados.conFoto++;
         continue;
       }
-      const r = await buscador.cara(j.nombre, j.equipo);
+      // Sin tiempo ya no se pide nada nuevo, pero lo que está en caché sigue valiendo.
+      if (Date.now() > hasta) buscador.soloCache = true;
+      const antes = buscador.peticiones;
+      const r = await buscador.cara(j.nombre, j.equipo, { estricto: !!j.importado });
+      if (j.importado && buscador.peticiones > antes) importados.buscados++;
       if (r) {
         logos.jugadores[clave] = r.url;
         encontrados++;
+        if (j.importado) {
+          importados.conFoto++;
+          importados.nuevas++;
+        }
       }
       if (i % 25 === 0) {
         process.stdout.write(`\r  Jugadores: ${i}/${unicos.length} · ${encontrados} con foto`);
@@ -485,7 +522,17 @@ async function main() {
         guardaLogos(logos);
       }
     }
+    const sinTiempo = buscador.soloCache;
+    buscador.soloCache = false;
     console.log(`\r  Jugadores: ${unicos.length}/${unicos.length} · ${encontrados} con foto      `);
+    if (importados.total) {
+      console.log(
+        `  De ellos importados: ${importados.total} · ${importados.conFoto} con foto ` +
+          `(${importados.nuevas} nuevas, ${importados.buscados} buscados en esta pasada)` +
+          (sinTiempo ? ' · se acabó el tiempo: el resto, en la siguiente' : ''),
+      );
+      if (buscador.ultimoFallo) console.log(`    TheSportsDB, último fallo: ${buscador.ultimoFallo}`);
+    }
   }
 
   // ----------------------------------------------------- equipos importados
