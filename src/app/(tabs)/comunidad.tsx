@@ -11,7 +11,7 @@ import { competicion } from '@/datos/competiciones';
 import type { Familia, Pick } from '@/datos/tipos';
 import { useComunidad } from '@/estado/comunidad';
 import { useTienda } from '@/estado/tienda';
-import { C, COLUMNA, E, HUECO_PESTANAS } from '@/tema';
+import { C, COLUMNA, E, HUECO_PESTANAS, R } from '@/tema';
 import { usePicksDelServidor } from '@/utiles/picks';
 import { useRejilla } from '@/utiles/rejilla';
 
@@ -64,6 +64,10 @@ export default function Comunidad() {
     () => (picks ?? []).reduce((a, p) => a + guardadosDe(p), 0),
     [picks, guardadosDe],
   );
+  const conApoyo = useMemo(
+    () => (picks ?? []).filter((p) => guardadosDe(p) > 0).length,
+    [picks, guardadosDe],
+  );
 
   const comp = competicion(competicionId);
   const { columnas, fila, celda, lista } = useRejilla();
@@ -98,19 +102,45 @@ export default function Comunidad() {
               <BotonCompeticion competicionId={competicionId} />
             </View>
 
-            <Tarjeta style={{ marginHorizontal: E.lg, padding: E.lg, gap: E.sm }}>
+            <Tarjeta style={{ marginHorizontal: E.lg, padding: E.lg, gap: E.md }}>
               <View style={{ flexDirection: 'row', alignItems: 'center', gap: E.md }}>
                 <Fuego n={totalGuardados} grande />
                 <View style={{ flex: 1 }}>
-                  <Txt v="cuerpoFuerte">Picks guardados esta jornada</Txt>
+                  <Txt v="cuerpoFuerte">Lo que guarda la gente esta jornada</Txt>
                   <Txt v="pequeno" color={C.texto3}>
                     en {comp.nombre}
                   </Txt>
                 </View>
               </View>
-              <Txt v="pequeno" color={C.texto2}>
-                El número naranja de cada tarjeta es la gente que guardó ese pick. Cuanto más alto,
-                más consenso hay detrás.
+              <View style={{ flexDirection: 'row', gap: E.sm }}>
+                {[
+                  { n: totalGuardados, texto: 'guardados', color: C.ambar },
+                  { n: conApoyo, texto: 'picks con apoyo', color: C.texto },
+                  { n: picks?.length ?? 0, texto: 'picks en cartel', color: C.texto },
+                ].map((d) => (
+                  <View
+                    key={d.texto}
+                    style={{
+                      flex: 1,
+                      paddingVertical: E.md,
+                      alignItems: 'center',
+                      gap: 2,
+                      borderRadius: R.md,
+                      backgroundColor: C.carta2,
+                    }}
+                  >
+                    <Txt v="titulo" color={d.n ? d.color : C.texto3}>
+                      {d.n}
+                    </Txt>
+                    <Txt v="mini" color={C.texto3}>
+                      {d.texto}
+                    </Txt>
+                  </View>
+                ))}
+              </View>
+              <Txt v="mini" color={C.texto3}>
+                El número naranja de cada tarjeta es la gente que guardó ese pick. Cuanto más alto, más
+                consenso hay detrás.
               </Txt>
             </Tarjeta>
 
