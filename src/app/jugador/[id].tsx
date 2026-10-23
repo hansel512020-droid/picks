@@ -3,6 +3,7 @@ import { useMemo, useState } from 'react';
 import { ActivityIndicator, ScrollView, Text, View } from 'react-native';
 import { useSafeAreaInsets } from 'react-native-safe-area-context';
 import { Chip, Insignia, Pulsable, Separador, Tarjeta, Txt, Vacio } from '@/componentes/base';
+import { Icono } from '@/componentes/iconos';
 import { Cara, Escudo } from '@/componentes/imagen';
 import { Resplandor } from '@/componentes/marca';
 import { marca } from '@/componentes/movimiento';
@@ -16,6 +17,7 @@ import type { RegistroJugador } from '@/datos/tipos';
 import { useTienda } from '@/estado/tienda';
 import { C, COLUMNA, E, R } from '@/tema';
 import { useCalculo } from '@/utiles/carga';
+import { paisEnEspanol } from '@/utiles/paises';
 
 /**
  * Ficha del jugador: mas de 30 metricas por partido, filtros de contexto
@@ -211,6 +213,7 @@ export default function PantallaJugador() {
   }
 
   const { jugador, equipo } = datos;
+  const nacionalidad = paisEnEspanol(jugador.bandera, jugador.pais);
   const media = (f: (r: RegistroJugador) => number) =>
     filtrados.length ? filtrados.reduce((a, r) => a + f(r), 0) / filtrados.length : 0;
 
@@ -225,41 +228,124 @@ export default function PantallaJugador() {
         showsVerticalScrollIndicator={false}
       >
         {/* ----------------------------------------------------- identidad */}
-        <View style={{ flexDirection: 'row', alignItems: 'center', gap: E.md, paddingHorizontal: E.lg }}>
-          <Cara nombre={jugador.nombre} bandera={jugador.bandera} tam={62} />
-          <View style={{ flex: 1, gap: 4 }}>
-            <Txt v="titulo">{jugador.nombre}</Txt>
-            <View style={{ flexDirection: 'row', gap: 6, flexWrap: 'wrap' }}>
-              <Insignia texto={`#${jugador.dorsal}`} />
-              <Insignia texto={POSICIONES[jugador.posicion].toUpperCase()} />
-              {/* Los importados llegan sin edad: un "0 AÑOS" parece un fallo. */}
-              {jugador.edad > 0 ? <Insignia texto={`${jugador.edad} AÑOS`} /> : null}
-              <Insignia
-                texto={jugador.rol === 'titular' ? 'TITULAR' : jugador.rol.toUpperCase()}
-                color={jugador.rol === 'titular' ? C.lima : C.texto2}
-                fondo={jugador.rol === 'titular' ? C.limaTenue : C.carta2}
+        <View style={{ paddingHorizontal: E.lg }}>
+          <Tarjeta style={{ padding: E.lg, gap: E.lg, overflow: 'hidden' }}>
+            {/* El color de su club, de fondo, detrás de la cara. */}
+            <View
+              style={{
+                pointerEvents: 'none',
+                position: 'absolute',
+                top: -70,
+                left: -50,
+                width: 240,
+                height: 240,
+                borderRadius: 120,
+                backgroundColor: equipo.color || C.lima,
+                opacity: 0.14,
+              }}
+            />
+            <View style={{ flexDirection: 'row', alignItems: 'center', gap: E.lg }}>
+              <Cara
+                nombre={jugador.nombre}
+                bandera={jugador.bandera}
+                tam={84}
+                estilo={{ borderColor: C.limaBorde, borderWidth: 2 }}
               />
+              <View style={{ flex: 1, gap: 6 }}>
+                <Txt v="display" titular numberOfLines={2}>
+                  {jugador.nombre}
+                </Txt>
+                <View style={{ flexDirection: 'row', gap: 6, flexWrap: 'wrap' }}>
+                  {nacionalidad ? (
+                    <Insignia texto={`${jugador.bandera} ${nacionalidad.toUpperCase()}`} />
+                  ) : null}
+                  <Insignia texto={POSICIONES[jugador.posicion].toUpperCase()} />
+                  {jugador.dorsal ? <Insignia texto={`#${jugador.dorsal}`} /> : null}
+                  {/* Sin edad conocida no se pone: un "0 AÑOS" parece un fallo. */}
+                  {jugador.edad > 0 ? <Insignia texto={`${jugador.edad} AÑOS`} /> : null}
+                  <Insignia
+                    texto={jugador.rol === 'titular' ? 'TITULAR' : jugador.rol.toUpperCase()}
+                    color={jugador.rol === 'titular' ? C.lima : C.texto2}
+                    fondo={jugador.rol === 'titular' ? C.limaTenue : C.carta2}
+                  />
+                </View>
+              </View>
             </View>
-          </View>
-        </View>
 
-        <Pulsable
-          onPress={() => router.push(`/equipo/${encodeURIComponent(equipo.id)}?comp=${competicionId}`)}
-          style={{ paddingHorizontal: E.lg }}
-        >
-          <Tarjeta style={{ flexDirection: 'row', alignItems: 'center', gap: E.md, padding: E.md }}>
-            <Escudo nombre={equipo.nombre} id={equipo.id} bandera={equipo.bandera} corto={equipo.corto} tam={28} />
-            <View style={{ flex: 1 }}>
-              <Txt v="cuerpo">{equipo.nombre}</Txt>
-              <Txt v="mini" color={C.texto3}>
-                {filtrados.length} partidos con minutos · {media((r) => r.minutos).toFixed(0)} min de media
-              </Txt>
-            </View>
-            <Txt v="pequeno" color={C.texto3}>
-              ›
-            </Txt>
+            {/* Su club, que lleva a la ficha del equipo. */}
+            <Pulsable
+              onPress={() => router.push(`/equipo/${encodeURIComponent(equipo.id)}?comp=${competicionId}`)}
+              style={{
+                flexDirection: 'row',
+                alignItems: 'center',
+                gap: E.md,
+                padding: E.md,
+                borderRadius: R.md,
+                backgroundColor: C.carta2,
+              }}
+            >
+              <Escudo nombre={equipo.nombre} id={equipo.id} bandera={equipo.bandera} corto={equipo.corto} tam={30} />
+              <View style={{ flex: 1 }}>
+                <Txt v="cuerpoFuerte">{equipo.nombre}</Txt>
+                <Txt v="mini" color={C.texto3}>
+                  {datos.registros.length} partidos con minutos ·{' '}
+                  {(datos.registros.reduce((a, r) => a + r.minutos, 0) / Math.max(1, datos.registros.length)).toFixed(0)}{' '}
+                  min de media
+                </Txt>
+              </View>
+              <Icono nombre="flechaDerecha" tam={15} color={C.texto3} />
+            </Pulsable>
+
+            {/*
+              Sus últimos partidos de un vistazo: la nota de cada uno, con un
+              punto lima si marcó o dio una asistencia. El más reciente, a la
+              derecha.
+            */}
+            {datos.registros.length ? (
+              <View style={{ gap: 8 }}>
+                <Txt v="mini" color={C.texto3}>
+                  ÚLTIMOS {Math.min(10, datos.registros.length)} PARTIDOS
+                </Txt>
+                <View style={{ flexDirection: 'row', gap: 6 }}>
+                  {datos.registros
+                    .slice(0, 10)
+                    .reverse()
+                    .map((r) => {
+                      const color = r.nota >= 7.5 ? C.verde : r.nota >= 6.5 ? C.texto : r.nota >= 6 ? C.texto2 : C.rojo;
+                      return (
+                        <View
+                          key={r.partidoId}
+                          style={{
+                            flex: 1,
+                            maxWidth: 52,
+                            alignItems: 'center',
+                            gap: 4,
+                            paddingVertical: 6,
+                            borderRadius: R.sm,
+                            backgroundColor: C.carta2,
+                            borderWidth: 1,
+                            borderColor: r.goles + r.asistencias > 0 ? C.limaBorde : C.borde,
+                          }}
+                        >
+                          <Txt v="pequenoFuerte" color={color}>
+                            {r.nota.toFixed(1)}
+                          </Txt>
+                          <View style={{ flexDirection: 'row', gap: 2, height: 5 }}>
+                            {Array.from({ length: Math.min(3, r.goles + r.asistencias) }).map((_, k) => (
+                              <View
+                                key={k}
+                                style={{ width: 5, height: 5, borderRadius: 3, backgroundColor: C.lima }}
+                              />
+                            ))}
+                          </View>
+                        </View>
+                      );
+                    })}
+                </View>
+              </View>
+            ) : null}
           </Tarjeta>
-        </Pulsable>
+        </View>
 
         <View style={{ paddingHorizontal: E.lg }}>
           <Segmentado
@@ -289,11 +375,28 @@ export default function PantallaJugador() {
             <View style={{ flexDirection: 'row', gap: E.sm, paddingHorizontal: E.lg }}>
               {[
                 { v: filtrados.length.toString(), e: 'Partidos' },
-                { v: coma(media((r) => r.goles + r.asistencias), 2), e: 'G+A / 90' },
+                { v: String(filtrados.reduce((a, r) => a + r.goles, 0)), e: 'Goles' },
+                { v: String(filtrados.reduce((a, r) => a + r.asistencias, 0)), e: 'Asistencias' },
+                /*
+                  Por cada 90 minutos de verdad: antes era la media por partido
+                  con la etiqueta "/ 90", y un suplente de diez minutos contaba
+                  lo mismo que un titular.
+                */
+                {
+                  v: coma(
+                    (filtrados.reduce((a, r) => a + r.goles + r.asistencias, 0) /
+                      Math.max(1, filtrados.reduce((a, r) => a + r.minutos, 0))) *
+                      90,
+                    2,
+                  ),
+                  e: 'G+A / 90',
+                },
                 { v: coma(media((r) => r.nota), 1), e: 'Nota' },
               ].map((d) => (
                 <Tarjeta key={d.e} style={{ flex: 1, alignItems: 'center', paddingVertical: E.md, gap: 2 }}>
-                  <Txt v="subtitulo">{d.v}</Txt>
+                  <Txt v="titulo" titular>
+                    {d.v}
+                  </Txt>
                   <Txt v="mini" color={C.texto3}>
                     {d.e}
                   </Txt>
