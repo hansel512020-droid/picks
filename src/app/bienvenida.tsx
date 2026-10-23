@@ -48,9 +48,9 @@ function EjemploPick() {
           <Text style={{ fontSize: 20 }}>🇧🇷</Text>
         </View>
         <View style={{ flex: 1 }}>
-          <Txt v="subtitulo">Neymar Jr.</Txt>
+          <Txt v="subtitulo">Vinícius Jr.</Txt>
           <Txt v="pequeno" color={C.texto3}>
-            BRA vs COR • Hoy 16:00
+            RMA vs BAR • Hoy 21:00
           </Txt>
         </View>
         <View
@@ -69,7 +69,7 @@ function EjemploPick() {
         </View>
       </View>
       <Txt v="cuerpo">
-        Neymar Jr. superó los 0,5 remates a puerta en 9 de sus últimos 10 partidos (2,3 por partido).
+        Vinícius Jr. superó los 0,5 remates a puerta en 9 de sus últimos 10 partidos (2,3 por partido).
       </Txt>
       {/* Sin cuota: la maqueta enseña lo que enseña la app de verdad, y la app
           solo pone precio cuando lo publica una casa. */}

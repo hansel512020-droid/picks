@@ -6,7 +6,7 @@ import { useSafeAreaInsets } from 'react-native-safe-area-context';
 import { Chip, Pulsable, Separador, Tarjeta, Txt, Vacio } from '@/componentes/base';
 import { Icono } from '@/componentes/iconos';
 import { FundidoInferior, Resplandor } from '@/componentes/marca';
-import { Dato, TiraChips } from '@/componentes/navegacion';
+import { TiraChips } from '@/componentes/navegacion';
 import { Escudo } from '@/componentes/imagen';
 import { Aparece, marca } from '@/componentes/movimiento';
 import { Avatar } from '@/componentes/pick';
@@ -372,12 +372,23 @@ export default function Rendimiento() {
     const perdidos = delPeriodo.filter((g) => g.resultado === 'perdido');
     const resueltos = ganados.length + perdidos.length;
     const beneficio = ganados.reduce((a, g) => a + (g.cuota - 1), 0) - perdidos.length;
+    // Los diez últimos que ya tienen resultado, del más antiguo al más reciente.
+    const racha = delPeriodo
+      .filter((g) => g.resultado === 'ganado' || g.resultado === 'perdido')
+      .sort((a, b) => b.guardadoEn.localeCompare(a.guardadoEn))
+      .slice(0, 10)
+      .reverse()
+      .map((g) => g.resultado === 'ganado');
     return {
       acierto: resueltos ? (ganados.length / resueltos) * 100 : 0,
       total: delPeriodo.length,
       roi: resueltos ? (beneficio / resueltos) * 100 : 0,
       beneficio,
       resueltos,
+      ganados: ganados.length,
+      perdidos: perdidos.length,
+      pendientes: delPeriodo.filter((g) => g.resultado === 'pendiente').length,
+      racha,
     };
   }, [delPeriodo]);
 
@@ -460,19 +471,71 @@ export default function Rendimiento() {
                 </View>
               ) : null}
 
-              <View
-                style={{
-                  flexDirection: 'row',
-                  alignItems: 'center',
-                  backgroundColor: C.carta2,
-                  borderRadius: R.md,
-                  paddingVertical: E.lg,
-                }}
-              >
-                <Dato ancho valor={`${resumen.acierto.toFixed(1)}%`} etiqueta="Aciertos" />
-                <View style={{ width: 1, height: 36, backgroundColor: C.borde }} />
-                <Dato ancho valor={`${resumen.total}`} etiqueta="Picks" />
+              {/*
+                El porcentaje grande y, al lado, de dónde sale: cuántos entraron,
+                cuántos no y cuántos faltan por jugarse. Un "0.0%" solo, sin
+                más, no decía si era porque todo había fallado o porque aún no
+                se había resuelto nada.
+              */}
+              <View style={{ flexDirection: 'row', alignItems: 'center', gap: E.lg, flexWrap: 'wrap' }}>
+                <View style={{ gap: 2, minWidth: 140 }}>
+                  <Txt v="displayXL" titular color={resumen.resueltos ? C.lima : C.texto3}>
+                    {resumen.resueltos ? `${resumen.acierto.toFixed(0)}%` : '—'}
+                  </Txt>
+                  <Txt v="pequeno" color={C.texto3}>
+                    {resumen.resueltos ? 'de acierto' : 'sin picks resueltos'}
+                  </Txt>
+                </View>
+                <View style={{ flex: 1, flexDirection: 'row', gap: E.sm, minWidth: 240 }}>
+                  {[
+                    { n: resumen.ganados, texto: 'Acertados', color: C.verde },
+                    { n: resumen.perdidos, texto: 'Fallados', color: C.rojo },
+                    { n: resumen.pendientes, texto: 'Pendientes', color: C.texto2 },
+                  ].map((d) => (
+                    <View
+                      key={d.texto}
+                      style={{
+                        flex: 1,
+                        paddingVertical: E.md,
+                        alignItems: 'center',
+                        gap: 2,
+                        borderRadius: R.md,
+                        backgroundColor: C.carta2,
+                      }}
+                    >
+                      <Txt v="titulo" color={d.n ? d.color : C.texto3}>
+                        {d.n}
+                      </Txt>
+                      <Txt v="mini" color={C.texto3}>
+                        {d.texto}
+                      </Txt>
+                    </View>
+                  ))}
+                </View>
               </View>
+
+              {/* La racha: un punto por pick resuelto, el último a la derecha. */}
+              {resumen.racha.length ? (
+                <View style={{ flexDirection: 'row', alignItems: 'center', gap: E.sm }}>
+                  <Txt v="mini" color={C.texto3}>
+                    ÚLTIMOS {resumen.racha.length}
+                  </Txt>
+                  <View style={{ flex: 1, flexDirection: 'row', gap: 4 }}>
+                    {resumen.racha.map((ok, i) => (
+                      <View
+                        key={i}
+                        style={{
+                          flex: 1,
+                          maxWidth: 40,
+                          height: 6,
+                          borderRadius: 3,
+                          backgroundColor: ok ? C.acierto : C.fallo,
+                        }}
+                      />
+                    ))}
+                  </View>
+                </View>
+              ) : null}
 
               {/*
                 Aquí había un "Retorno de inversión" en verde y un beneficio en
@@ -519,7 +582,7 @@ export default function Rendimiento() {
               <Vacio
                 icono="guardar"
                 titulo="Aún no has guardado ningún pick"
-                detalle="Guarda picks con el marcador de las tarjetas y aquí verás tu porcentaje de acierto y tu retorno."
+                detalle="Guarda picks con el marcador de las tarjetas y aquí verás cuántos aciertas."
               />
               <Pulsable
                 onPress={() => router.push('/')}

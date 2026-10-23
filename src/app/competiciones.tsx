@@ -87,7 +87,7 @@ export default function Competiciones() {
 
       <ScrollView
         {...marca('pagina')}
-        contentContainerStyle={[{ paddingBottom: E.xxxl, gap: E.lg }, COLUMNA.amplia]}
+        contentContainerStyle={[{ paddingBottom: E.xxxl, gap: E.lg }, COLUMNA.lectura]}
         showsVerticalScrollIndicator={false}
       >
         {!pro ? (
