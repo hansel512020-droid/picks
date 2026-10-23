@@ -36,6 +36,7 @@ import { useTienda } from '@/estado/tienda';
 import { usePicksVigentes, useVivo } from '@/estado/vivo';
 import { brillo, C, COLUMNA, E, HUECO_PESTANAS, R } from '@/tema';
 import { useCalculo } from '@/utiles/carga';
+import { useHayLateral } from '@/utiles/pantalla';
 import { usePicksDelServidor } from '@/utiles/picks';
 import { useRejilla } from '@/utiles/rejilla';
 import { useOcultaPestanas } from './_layout';
@@ -380,6 +381,12 @@ function PanelDelDia({ picks, competicionNombre }: { picks: Pick[]; competicionN
   );
 }
 
+/** El saludo de la cabecera del escritorio, según la hora. */
+function saludo(): string {
+  const h = new Date().getHours();
+  return h < 6 ? 'Buenas noches' : h < 13 ? 'Buenos días' : h < 21 ? 'Buenas tardes' : 'Buenas noches';
+}
+
 export default function Inicio() {
   const { ajustes, cambiaAjuste } = useTienda();
   const insets = useSafeAreaInsets();
@@ -401,6 +408,8 @@ export default function Inicio() {
   const comunidad = useComunidad();
   // Para el globo rojo de la campana.
   const { sinLeer } = useAvisos();
+  // En el escritorio el logo, el buscador y los avisos ya están en el menú.
+  const conLateral = useHayLateral();
 
   const equipos = useCalculo(() => temporada(competicionId).equipos, [competicionId]);
   /*
@@ -567,8 +576,26 @@ export default function Inicio() {
                 paddingTop: E.sm,
               }}
             >
-              <Logo tam={21} />
-              <View style={{ flexDirection: 'row', alignItems: 'center', gap: E.sm }}>
+              {conLateral ? (
+                <View style={{ gap: 2 }}>
+                  <Txt v="display" titular>
+                    {saludo()}
+                  </Txt>
+                  <Txt v="pequeno" color={C.texto3}>
+                    {comp.nombre}
+                  </Txt>
+                </View>
+              ) : (
+                <Logo tam={21} />
+              )}
+              <View
+                style={{
+                  flexDirection: 'row',
+                  alignItems: 'center',
+                  gap: E.sm,
+                  display: conLateral ? 'none' : 'flex',
+                }}
+              >
                 <Pulsable
                   onPress={() => router.push('/buscar')}
                   style={{

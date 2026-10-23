@@ -5,6 +5,7 @@ import { Platform, Text, View } from 'react-native';
 import { GestureHandlerRootView } from 'react-native-gesture-handler';
 import { SafeAreaProvider } from 'react-native-safe-area-context';
 import { PantallaCargando } from '@/componentes/cargando';
+import { ConLateral } from '@/componentes/lateral';
 import { cargaGuardados, descargaDatos } from '@/datos/remotos';
 import { ProveedorAvisos } from '@/estado/avisos';
 import { ProveedorComunidad } from '@/estado/comunidad';
@@ -228,9 +229,12 @@ export default function Raiz() {
                 {/* Sube y baja los picks del usuario mientras la app vive. */}
                 <Sincroniza />
                 <MarcoMovil>
-                  <Versionado>
-                    <Puerta />
-                  </Versionado>
+                  {/* En el escritorio, el menú a la izquierda en todas las pantallas. */}
+                  <ConLateral>
+                    <Versionado>
+                      <Puerta />
+                    </Versionado>
+                  </ConLateral>
                 </MarcoMovil>
               </ProveedorVivo>
             </ProveedorComunidad>

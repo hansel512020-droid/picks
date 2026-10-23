@@ -13,6 +13,7 @@ import { useSafeAreaInsets } from 'react-native-safe-area-context';
 import { Icono, type NombreIcono } from '@/componentes/iconos';
 import { marca } from '@/componentes/movimiento';
 import { ALTO_TABS, C, MARGEN_TABS, R, T } from '@/tema';
+import { useHayLateral } from '@/utiles/pantalla';
 
 /**
  * El icono de la pestaña, con una pastilla lima detrás cuando está elegida.
@@ -101,6 +102,8 @@ export default function LayoutPestanas() {
   const { width } = useWindowDimensions();
   const insets = useSafeAreaInsets();
   const lado = Math.max(MARGEN_TABS, (width - 520) / 2);
+  // En el escritorio navega el menú lateral: la barra de abajo sobra.
+  const conLateral = useHayLateral();
   const avisado = useRef(false);
   const avisa = useCallback((cargando: boolean) => {
     avisado.current = true;
@@ -121,7 +124,7 @@ export default function LayoutPestanas() {
           headerShown: false,
           tabBarActiveTintColor: C.lima,
           tabBarInactiveTintColor: C.texto3,
-          tabBarStyle: oculta
+          tabBarStyle: oculta || conLateral
             ? { display: 'none' }
             : {
                 position: 'absolute',

@@ -4,6 +4,7 @@ import { useSafeAreaInsets } from 'react-native-safe-area-context';
 import { marca } from './movimiento';
 import Svg, { Circle, Path } from 'react-native-svg';
 import { C, HUECO_PESTANAS, T } from '@/tema';
+import { useHayLateral } from '@/utiles/pantalla';
 
 /**
  * Marca de Golden: una estrella de cuatro puntas dentro de un anillo. Es el
@@ -76,6 +77,9 @@ export function Resplandor({ alto = 340, desde = 0 }: { alto?: number; desde?: n
  */
 export function FundidoInferior() {
   const insets = useSafeAreaInsets();
+  const conLateral = useHayLateral();
+  // Con el menú lateral no hay barra abajo que tapar.
+  if (conLateral) return null;
   return (
     <LinearGradient
       colors={['rgba(7,10,15,0)', 'rgba(7,10,15,0.82)', C.fondo]}

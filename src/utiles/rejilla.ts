@@ -1,5 +1,6 @@
-import { useWindowDimensions, type ViewStyle } from 'react-native';
+import type { ViewStyle } from 'react-native';
 import { ANCHO_AMPLIO, E, LISTA_LIGERA } from '@/tema';
+import { useAnchoContenido } from './pantalla';
 
 /**
  * Cuántas tarjetas de pick caben por fila, y cómo repartirlas.
@@ -34,7 +35,8 @@ export function useRejilla(): {
   /** Lo que pinta por adelantado: va a la `FlatList` en vez de `LISTA_LIGERA`. */
   lista: typeof LISTA_LIGERA | typeof LISTA_REJILLA;
 } {
-  const { width } = useWindowDimensions();
+  // Lo que queda al lado del menú lateral, no la ventana entera.
+  const width = useAnchoContenido();
   const util = Math.min(width, ANCHO_AMPLIO) - 2 * E.lg;
   /*
    * Dos como mucho. Con tres, cada palmo de scroll montaba el triple de

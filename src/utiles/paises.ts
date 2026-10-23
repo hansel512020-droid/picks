@@ -52,7 +52,10 @@ function desdeBandera(bandera: string): string | undefined {
   }
   if (cp[0] === 0x1f3f4 && cp.length > 2) {
     const etiqueta = String.fromCharCode(
-      ...cp.slice(1).filter((c) => c > 0xe0000 && c < 0xe007f).map((c) => c - 0xe0000),
+      ...cp
+        .slice(1)
+        .filter((c) => c > 0xe0000 && c < 0xe007f)
+        .map((c) => c - 0xe0000),
     );
     return SUBDIVISIONES[etiqueta];
   }
