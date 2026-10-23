@@ -54,15 +54,15 @@ function Estado({ resultado }: { resultado: ResultadoPick }) {
     /*
      * Es un indicador, no un botón, y hay que dejarlo claro de dos maneras:
      *
-     *  · `pointerEvents="none"` para que no se coma el toque de la fila. Un
+     *  · `pointerEvents: 'none'` para que no se coma el toque de la fila. Un
      *    círculo con un "–" dentro parece un "quitar", y al pulsarlo pasaban
      *    cosas que el usuario no había pedido.
      *  · el pendiente usa un reloj, no un menos: el menos significa "eliminar"
      *    en cualquier interfaz, y esto solo quiere decir "aún no se sabe".
      */
     <View
-      pointerEvents="none"
       style={{
+        pointerEvents: 'none',
         width: 26,
         height: 26,
         borderRadius: 13,
