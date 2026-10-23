@@ -23,6 +23,15 @@
 
 name: Datos
 
+# Una pasada detrás de otra, nunca dos a la vez. Las dos suben los mismos
+# archivos a Supabase y reutilizan el mismo cache de descargas: si se solapan
+# (una lanzada a mano mientras corre la programada, o una programada que llega
+# con retraso), la que acaba antes queda pisada a medias por la otra. Con esto
+# la segunda espera a que termine la primera.
+concurrency:
+  group: datos
+  cancel-in-progress: false
+
 on:
   schedule:
     # ── Dos ritmos, y la diferencia es el margen ──────────────────────────
@@ -218,6 +227,7 @@ jobs:
           fi
 
       - name: Resolver escudos y caras de jugador
+        id: logos
         # Solo en la pasada completa: las imágenes no cambian cada cuatro horas.
         if: ${{ github.event.schedule == '0 1 * * *' || inputs.completa }}
         # Si falla, no se aborta: unas imágenes que falten no valen perder los
@@ -232,6 +242,8 @@ jobs:
           # El script lee el URL solo como respaldo; el proyecto ya viene
           # enlazado en el checkout (supabase/.temp/ está versionado).
           EXPO_PUBLIC_SUPABASE_URL: ${{ secrets.SUPABASE_URL }}
+          # Si esta pasada ha regenerado el catálogo de imágenes (ver abajo).
+          LOGOS_RESULTADO: ${{ steps.logos.outcome }}
         run: |
           set -euo pipefail
 
@@ -252,7 +264,13 @@ jobs:
           # El catálogo de escudos y caras, si esta pasada lo ha regenerado.
           # Va suelto y sin comprimir: son unos cientos de kB de direcciones, y
           # cambia mucho menos que los resultados.
-          if [ -s src/datos/logos.json ]; then
+          #
+          # SOLO si lo ha regenerado. El archivo existe siempre —es el que va
+          # versionado en el repositorio—, así que mirar que no esté vacío no
+          # bastaba: cada pasada ligera volvía a subir la copia del repositorio
+          # y borraba lo que la completa había encontrado esa madrugada (los
+          # escudos de los equipos importados, las caras nuevas).
+          if [ "${LOGOS_RESULTADO:-}" = "success" ] && [ -s src/datos/logos.json ]; then
             echo "Subiendo logos.json…"
             supabase storage rm ss:///datos/logos.json --experimental --yes || true
             supabase storage cp src/datos/logos.json ss:///datos/logos.json \
