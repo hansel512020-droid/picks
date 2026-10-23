@@ -6,6 +6,7 @@ import { GestureHandlerRootView } from 'react-native-gesture-handler';
 import { SafeAreaProvider } from 'react-native-safe-area-context';
 import { PantallaCargando } from '@/componentes/cargando';
 import { ConLateral } from '@/componentes/lateral';
+import { AvisoVersionNueva } from '@/componentes/version';
 import { cargaGuardados, descargaDatos } from '@/datos/remotos';
 import { ProveedorAvisos } from '@/estado/avisos';
 import { ProveedorComunidad } from '@/estado/comunidad';
@@ -235,6 +236,8 @@ export default function Raiz() {
                       <Puerta />
                     </Versionado>
                   </ConLateral>
+                  {/* Encima de todo: si se ha publicado una versión nueva. */}
+                  <AvisoVersionNueva />
                 </MarcoMovil>
               </ProveedorVivo>
             </ProveedorComunidad>

@@ -66,6 +66,8 @@ let cargando: Promise<void> | null = null;
  * ordenada por hora y por tanto trae los de hoy, y el resto llega por detrás.
  */
 let parcial = false;
+/** Si el último intento de traerlos falló (sin red, servidor caído, tiempo agotado). */
+let fallo = false;
 
 const avisos: (() => void)[] = [];
 
@@ -88,6 +90,18 @@ export function picksCompletos(): boolean {
   return !parcial;
 }
 
+/** Si no se pudieron traer: la portada lo dice y ofrece reintentar. */
+export function picksFallaron(): boolean {
+  return fallo;
+}
+
+/**
+ * Cuánto se espera a cada tanda. Sin tope, una petición que se queda colgada
+ * —una red que no contesta ni falla— dejaba la portada en la pantalla de carga
+ * para siempre.
+ */
+const ESPERA_MAXIMA = 25_000;
+
 /** PostgREST no entrega más de mil filas por petición. */
 const TAMANO = 1000;
 /** Cuántas tandas se piden a la vez después de la primera. */
@@ -102,16 +116,25 @@ async function tanda(
   desde: number,
   contar = false,
 ): Promise<{ filas: FilaServidor[]; total?: number }> {
-  const r = await fetch(`${URL}/rest/v1/picks_visibles?select=*&order=cuando.asc,id.asc`, {
-    headers: {
-      apikey: CLAVE ?? '',
-      Authorization: `Bearer ${token}`,
-      Range: `${desde}-${desde + TAMANO - 1}`,
-      ...(contar ? { Prefer: 'count=exact' } : {}),
-    },
-  });
-  if (!r.ok) throw new Error(`picks_visibles respondió ${r.status}`);
-  const filas = (await r.json()) as FilaServidor[];
+  const corta = new AbortController();
+  const reloj = setTimeout(() => corta.abort(), ESPERA_MAXIMA);
+  let filas: FilaServidor[];
+  let r: Response;
+  try {
+    r = await fetch(`${URL}/rest/v1/picks_visibles?select=*&order=cuando.asc,id.asc`, {
+      headers: {
+        apikey: CLAVE ?? '',
+        Authorization: `Bearer ${token}`,
+        Range: `${desde}-${desde + TAMANO - 1}`,
+        ...(contar ? { Prefer: 'count=exact' } : {}),
+      },
+      signal: corta.signal,
+    });
+    if (!r.ok) throw new Error(`picks_visibles respondió ${r.status}`);
+    filas = (await r.json()) as FilaServidor[];
+  } finally {
+    clearTimeout(reloj);
+  }
   const total = Number(/\/(\d+)$/.exec(r.headers.get('content-range') ?? '')?.[1]);
   return { filas, total: Number.isFinite(total) ? total : undefined };
 }
@@ -202,7 +225,9 @@ export async function cargaPicks(forzar = false): Promise<void> {
       }
 
       cargados = true;
+      fallo = false;
     } catch {
+      fallo = true;
       /*
        * Sin red o con el servidor caído no se rompe nada: quien llame verá la
        * lista vacía y la pantalla dirá que no hay picks, igual que un día sin
