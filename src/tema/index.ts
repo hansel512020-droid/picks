@@ -20,6 +20,8 @@ export const C = {
   /** Borde de un pixel de casi todo. */
   borde: '#23262C',
   bordeSuave: '#1A1D21',
+  /** El canto de arriba de las tarjetas, donde da la luz. */
+  bordeLuz: '#2D3138',
 
   /** Lima de marca. */
   lima: '#C9FF3D',
@@ -93,6 +95,44 @@ export const sombra = {
   shadowOffset: { width: 0, height: 8 },
   elevation: 8,
 };
+
+/**
+ * Brillos y sombras en formato `boxShadow`, que React Native y la web entienden
+ * igual. El lima brilla solo en lo activo: si todo brilla, nada destaca.
+ */
+export const brillo = {
+  /** Chip, pestaña o botón elegido. */
+  lima: '0 0 0 1px rgba(201,255,61,0.10), 0 6px 20px -8px rgba(201,255,61,0.45)',
+  /** El botón principal, que es lo que más tiene que llamar. */
+  limaFuerte: '0 10px 28px -10px rgba(201,255,61,0.65)',
+  /** Punto rojo de "en vivo". */
+  rojo: '0 0 10px rgba(240,82,75,0.75)',
+} as const;
+
+/**
+ * Tiempos del movimiento. Cortos a propósito: la animación acompaña al toque,
+ * no lo hace esperar.
+ */
+export const M = {
+  rapido: 160,
+  normal: 260,
+  lento: 420,
+} as const;
+
+/**
+ * Cómo se pintan las listas de tarjetas pesadas (picks).
+ *
+ * Por defecto una lista pinta diez filas de entrada y luego sigue hasta cubrir
+ * veintiuna pantallas: en la portada eso eran veinte tarjetas montadas para
+ * enseñar dos. Así se pinta lo que se ve y un poco alrededor, y el resto entra
+ * al desplazarse.
+ */
+export const LISTA_LIGERA = {
+  initialNumToRender: 4,
+  maxToRenderPerBatch: 4,
+  windowSize: 7,
+  updateCellsBatchingPeriod: 40,
+} as const;
 
 /** Altura reservada para la barra de pestanas flotante. */
 export const ALTO_TABS = 62;

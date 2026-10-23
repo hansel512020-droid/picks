@@ -6,6 +6,7 @@ import { useSafeAreaInsets } from 'react-native-safe-area-context';
 import { Boton, Fuego, Insignia, Pulsable, Separador, Tarjeta, Txt, Vacio } from '@/componentes/base';
 import { Icono } from '@/componentes/iconos';
 import { Escudo, LogoCompeticion } from '@/componentes/imagen';
+import { marca, retraso } from '@/componentes/movimiento';
 import { CabeceraAtras, FilaDato } from '@/componentes/navegacion';
 import { Avatar, BarraL10, FilaMercado, MarchaEnVivo, TarjetaPick } from '@/componentes/pick';
 import { competicion } from '@/datos/competiciones';
@@ -260,11 +261,15 @@ function Serie({
               {coma(p.valor)}
             </Txt>
             <View
-              style={{
-                height: `${alto(p.valor)}%`,
-                borderRadius: 2,
-                backgroundColor: acierta(p.valor) ? C.acierto : C.neutro,
-              }}
+              {...marca('sube')}
+              style={[
+                {
+                  height: `${alto(p.valor)}%`,
+                  borderRadius: 2,
+                  backgroundColor: acierta(p.valor) ? C.acierto : C.neutro,
+                },
+                retraso(i * 45),
+              ]}
             />
           </View>
         ))}

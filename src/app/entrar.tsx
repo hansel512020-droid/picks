@@ -5,7 +5,7 @@ import { ActivityIndicator, Platform, ScrollView, TextInput, View } from 'react-
 import { useSafeAreaInsets } from 'react-native-safe-area-context';
 import { Boton, Insignia, Pulsable, Tarjeta, Txt } from '@/componentes/base';
 import { Icono, LogoApple, LogoGoogle } from '@/componentes/iconos';
-import { Logo } from '@/componentes/marca';
+import { Logo, Resplandor } from '@/componentes/marca';
 import {
   confirmaCodigo,
   entraConClave,
@@ -369,217 +369,222 @@ export default function Entrar() {
      * cabe en una pantalla, y sin scroll el botón de crear cuenta se quedaba
      * fuera sin manera de llegar a él.
      */
-    <ScrollView
-      style={{ flex: 1, backgroundColor: C.fondo }}
-      contentContainerStyle={{
-        paddingTop: insets.top + E.md,
-        paddingHorizontal: E.lg,
-        gap: E.md,
-        /*
-         * En una pantalla ancha el formulario no se estira: se queda en 420 y
-         * centrado. Un campo de correo de mil píxeles de ancho se ve roto, y
-         * esta pantalla se abre igual desde el ordenador que desde el móvil.
-         */
-        maxWidth: 420,
-        width: '100%',
-        alignSelf: 'center',
-      }}
-      keyboardShouldPersistTaps="handled"
-    >
-      {/* Cabecera corta: el formulario es lo que importa aquí. */}
-      <View style={{ alignItems: 'center', gap: 4 }}>
-        <Logo tam={32} />
-        <Txt v="displayXL" style={{ textAlign: 'center', fontSize: 21 }}>
-          {modo === 'crear' ? 'CREA TU CUENTA' : 'ENTRA EN GOLDEN'}
-        </Txt>
-        <Txt v="pequeno" color={C.texto3} style={{ textAlign: 'center' }}>
-          Tus picks, tu rendimiento y tus ligas, en cualquier sitio donde entres.
-        </Txt>
-      </View>
-
-      {/* Crear cuenta o entrar, en la misma pantalla. */}
-      <View
-        style={{
-          flexDirection: 'row',
-          backgroundColor: C.carta2,
-          borderRadius: R.md,
-          padding: 3,
+    <View style={{ flex: 1, backgroundColor: C.fondo }}>
+      {/* Fuera del scroll: el formulario se queda en 420 de ancho y el
+          resplandor tiene que cubrir la pantalla entera. */}
+      <Resplandor alto={300} />
+      <ScrollView
+        style={{ flex: 1 }}
+        contentContainerStyle={{
+          paddingTop: insets.top + E.md,
+          paddingHorizontal: E.lg,
+          gap: E.md,
+          /*
+           * En una pantalla ancha el formulario no se estira: se queda en 420 y
+           * centrado. Un campo de correo de mil píxeles de ancho se ve roto, y
+           * esta pantalla se abre igual desde el ordenador que desde el móvil.
+           */
+          maxWidth: 420,
+          width: '100%',
+          alignSelf: 'center',
         }}
+        keyboardShouldPersistTaps="handled"
       >
-        {(['crear', 'entrar'] as const).map((m) => (
-          <Pulsable
-            key={m}
-            onPress={() => { setModo(m); setAviso(null); }}
-            /*
-             * La opción activa, en verde lleno y con el texto oscuro encima.
-             * Antes era gris sobre gris y no se veía cuál de las dos estaba
-             * puesta: la gente escribía el correo creyendo que entraba y
-             * acababa creando otra cuenta.
-             */
-            style={{
-              flex: 1,
-              paddingVertical: 9,
-              borderRadius: R.sm,
-              alignItems: 'center',
-              backgroundColor: modo === m ? C.lima : 'transparent',
-            }}
-          >
-            <Txt v="pequenoFuerte" color={modo === m ? C.fondo : C.texto3}>
-              {m === 'crear' ? 'Crear cuenta' : 'Ya tengo cuenta'}
-            </Txt>
-          </Pulsable>
-        ))}
-      </View>
+        {/* Cabecera corta: el formulario es lo que importa aquí. */}
+        <View style={{ alignItems: 'center', gap: 4 }}>
+          <Logo tam={32} />
+          <Txt v="displayXL" style={{ textAlign: 'center', fontSize: 21 }}>
+            {modo === 'crear' ? 'CREA TU CUENTA' : 'ENTRA EN GOLDEN'}
+          </Txt>
+          <Txt v="pequeno" color={C.texto3} style={{ textAlign: 'center' }}>
+            Tus picks, tu rendimiento y tus ligas, en cualquier sitio donde entres.
+          </Txt>
+        </View>
 
-      <View style={{ gap: E.sm }}>
-        {/* El nombre y el teléfono solo al crear la cuenta: para entrar sobran. */}
-        {modo === 'crear' ? (
-          <Campo
-            etiqueta="Nombre completo"
-            valor={nombre}
-            onCambia={setNombre}
-            marcador="Juan Pérez"
-          />
-        ) : null}
-
-        <Campo
-          etiqueta="Email"
-          valor={correo}
-          onCambia={setCorreo}
-          marcador="tucorreo@ejemplo.com"
-          tipo="correo"
-        />
-
-        {modo === 'crear' ? (
-          <Campo
-            etiqueta="Teléfono"
-            valor={telefono}
-            onCambia={setTelefono}
-            marcador="+593 99 000 0000"
-            tipo="telefono"
-          />
-        ) : null}
-
-        <Campo
-          etiqueta="Contraseña"
-          valor={clave}
-          onCambia={setClave}
-          marcador="Mínimo 6 caracteres"
-          tipo="clave"
-        />
-
-        {/*
-          La casilla de términos, y sin marcarla no se crea la cuenta.
-
-          No es burocracia: la app cobra suscripciones y habla de apuestas, así
-          que tiene que quedar constancia de que el usuario aceptó las
-          condiciones y supo que esto es informativo, no una casa de apuestas.
-        */}
-        {modo === 'crear' ? (
-          <Pulsable
-            onPress={() => setAcepta((a) => !a)}
-            style={{ flexDirection: 'row', alignItems: 'flex-start', gap: E.sm }}
-          >
-            <View
+        {/* Crear cuenta o entrar, en la misma pantalla. */}
+        <View
+          style={{
+            flexDirection: 'row',
+            backgroundColor: C.carta2,
+            borderRadius: R.md,
+            padding: 3,
+          }}
+        >
+          {(['crear', 'entrar'] as const).map((m) => (
+            <Pulsable
+              key={m}
+              onPress={() => { setModo(m); setAviso(null); }}
+              /*
+               * La opción activa, en verde lleno y con el texto oscuro encima.
+               * Antes era gris sobre gris y no se veía cuál de las dos estaba
+               * puesta: la gente escribía el correo creyendo que entraba y
+               * acababa creando otra cuenta.
+               */
               style={{
-                width: 20,
-                height: 20,
-                borderRadius: 5,
-                borderWidth: 1.5,
-                borderColor: acepta ? C.lima : C.borde,
-                backgroundColor: acepta ? C.lima : 'transparent',
+                flex: 1,
+                paddingVertical: 9,
+                borderRadius: R.sm,
                 alignItems: 'center',
-                justifyContent: 'center',
-                marginTop: 1,
+                backgroundColor: modo === m ? C.lima : 'transparent',
               }}
             >
-              {acepta ? <Icono nombre="check" tam={13} color={C.fondo} /> : null}
-            </View>
-            <Txt v="pequeno" color={C.texto2} style={{ flex: 1 }}>
-              He leído y acepto los{' '}
-              <Txt v="pequeno" color={C.lima} onPress={() => abreAparte('/terminos')}>
-                Términos de Uso
-              </Txt>{' '}
-              y la{' '}
-              <Txt v="pequeno" color={C.lima} onPress={() => abreAparte('/privacidad')}>
-                Política de Privacidad
-              </Txt>{' '}
-              de Golden Picks.
-            </Txt>
-          </Pulsable>
-        ) : null}
+              <Txt v="pequenoFuerte" color={modo === m ? C.fondo : C.texto3}>
+                {m === 'crear' ? 'Crear cuenta' : 'Ya tengo cuenta'}
+              </Txt>
+            </Pulsable>
+          ))}
+        </View>
 
-        {aviso ? (
-          <Tarjeta style={{ padding: E.sm, borderColor: C.borde }}>
-            <Txt v="pequeno" color={C.texto2}>
-              {aviso}
-            </Txt>
-          </Tarjeta>
-        ) : null}
+        <View style={{ gap: E.sm }}>
+          {/* El nombre y el teléfono solo al crear la cuenta: para entrar sobran. */}
+          {modo === 'crear' ? (
+            <Campo
+              etiqueta="Nombre completo"
+              valor={nombre}
+              onCambia={setNombre}
+              marcador="Juan Pérez"
+            />
+          ) : null}
 
-        <Boton
-          ancho
-          texto={ocupado ? 'Un momento…' : modo === 'crear' ? 'Crear cuenta →' : 'Iniciar sesión →'}
-          onPress={envia}
-        />
+          <Campo
+            etiqueta="Email"
+            valor={correo}
+            onCambia={setCorreo}
+            marcador="tucorreo@ejemplo.com"
+            tipo="correo"
+          />
 
-        {modo === 'entrar' ? (
-          <Pulsable onPress={recuperar} style={{ alignItems: 'center', paddingTop: 4 }}>
-            <Txt v="pequeno" color={C.texto3}>
-              He olvidado mi contraseña
-            </Txt>
-          </Pulsable>
-        ) : null}
-      </View>
+          {modo === 'crear' ? (
+            <Campo
+              etiqueta="Teléfono"
+              valor={telefono}
+              onCambia={setTelefono}
+              marcador="+593 99 000 0000"
+              tipo="telefono"
+            />
+          ) : null}
 
-      {/*
-        Los proveedores, debajo del formulario.
+          <Campo
+            etiqueta="Contraseña"
+            valor={clave}
+            onCambia={setClave}
+            marcador="Mínimo 6 caracteres"
+            tipo="clave"
+          />
 
-        Estaban arriba del todo, y con el formulario largo de registro eso deja
-        el correo y el nombre fuera de la primera pantalla. Quien quiere entrar
-        con Google lo encuentra igual; quien viene a escribir sus datos, los ve
-        sin desplazarse.
-      */}
-      <View style={{ flexDirection: 'row', alignItems: 'center', gap: E.md }}>
-        <View style={{ flex: 1, height: 1, backgroundColor: C.bordeSuave }} />
-        <Txt v="mini" color={C.texto3}>
-          O CONTINÚA CON
-        </Txt>
-        <View style={{ flex: 1, height: 1, backgroundColor: C.bordeSuave }} />
-      </View>
+          {/*
+            La casilla de términos, y sin marcarla no se crea la cuenta.
 
-      <View style={{ gap: E.sm }}>
-        <BotonProveedor
-          proveedor="google"
-          texto="Continuar con Google"
-          icono="mundo"
-          onEntra={trasProveedor}
-        />
-        {Platform.OS === 'ios' ? (
+            No es burocracia: la app cobra suscripciones y habla de apuestas, así
+            que tiene que quedar constancia de que el usuario aceptó las
+            condiciones y supo que esto es informativo, no una casa de apuestas.
+          */}
+          {modo === 'crear' ? (
+            <Pulsable
+              onPress={() => setAcepta((a) => !a)}
+              style={{ flexDirection: 'row', alignItems: 'flex-start', gap: E.sm }}
+            >
+              <View
+                style={{
+                  width: 20,
+                  height: 20,
+                  borderRadius: 5,
+                  borderWidth: 1.5,
+                  borderColor: acepta ? C.lima : C.borde,
+                  backgroundColor: acepta ? C.lima : 'transparent',
+                  alignItems: 'center',
+                  justifyContent: 'center',
+                  marginTop: 1,
+                }}
+              >
+                {acepta ? <Icono nombre="check" tam={13} color={C.fondo} /> : null}
+              </View>
+              <Txt v="pequeno" color={C.texto2} style={{ flex: 1 }}>
+                He leído y acepto los{' '}
+                <Txt v="pequeno" color={C.lima} onPress={() => abreAparte('/terminos')}>
+                  Términos de Uso
+                </Txt>{' '}
+                y la{' '}
+                <Txt v="pequeno" color={C.lima} onPress={() => abreAparte('/privacidad')}>
+                  Política de Privacidad
+                </Txt>{' '}
+                de Golden Picks.
+              </Txt>
+            </Pulsable>
+          ) : null}
+
+          {aviso ? (
+            <Tarjeta style={{ padding: E.sm, borderColor: C.borde }}>
+              <Txt v="pequeno" color={C.texto2}>
+                {aviso}
+              </Txt>
+            </Tarjeta>
+          ) : null}
+
+          <Boton
+            ancho
+            texto={ocupado ? 'Un momento…' : modo === 'crear' ? 'Crear cuenta →' : 'Iniciar sesión →'}
+            onPress={envia}
+          />
+
+          {modo === 'entrar' ? (
+            <Pulsable onPress={recuperar} style={{ alignItems: 'center', paddingTop: 4 }}>
+              <Txt v="pequeno" color={C.texto3}>
+                He olvidado mi contraseña
+              </Txt>
+            </Pulsable>
+          ) : null}
+        </View>
+
+        {/*
+          Los proveedores, debajo del formulario.
+
+          Estaban arriba del todo, y con el formulario largo de registro eso deja
+          el correo y el nombre fuera de la primera pantalla. Quien quiere entrar
+          con Google lo encuentra igual; quien viene a escribir sus datos, los ve
+          sin desplazarse.
+        */}
+        <View style={{ flexDirection: 'row', alignItems: 'center', gap: E.md }}>
+          <View style={{ flex: 1, height: 1, backgroundColor: C.bordeSuave }} />
+          <Txt v="mini" color={C.texto3}>
+            O CONTINÚA CON
+          </Txt>
+          <View style={{ flex: 1, height: 1, backgroundColor: C.bordeSuave }} />
+        </View>
+
+        <View style={{ gap: E.sm }}>
           <BotonProveedor
-            proveedor="apple"
-            texto="Continuar con Apple"
-            icono="usuario"
+            proveedor="google"
+            texto="Continuar con Google"
+            icono="mundo"
             onEntra={trasProveedor}
           />
-        ) : null}
-      </View>
+          {Platform.OS === 'ios' ? (
+            <BotonProveedor
+              proveedor="apple"
+              texto="Continuar con Apple"
+              icono="usuario"
+              onEntra={trasProveedor}
+            />
+          ) : null}
+        </View>
 
-      <Pulsable
-        onPress={() => { setModo(modo === 'crear' ? 'entrar' : 'crear'); setAviso(null); }}
-        style={{ alignItems: 'center' }}
-      >
-        <Txt v="pequeno" color={C.texto3}>
-          {modo === 'crear' ? '¿Ya tienes cuenta? ' : '¿No tienes cuenta? '}
-          <Txt v="pequeno" color={C.lima}>
-            {modo === 'crear' ? 'Iniciar sesión' : 'Regístrate'}
+        <Pulsable
+          onPress={() => { setModo(modo === 'crear' ? 'entrar' : 'crear'); setAviso(null); }}
+          style={{ alignItems: 'center' }}
+        >
+          <Txt v="pequeno" color={C.texto3}>
+            {modo === 'crear' ? '¿Ya tienes cuenta? ' : '¿No tienes cuenta? '}
+            <Txt v="pequeno" color={C.lima}>
+              {modo === 'crear' ? 'Iniciar sesión' : 'Regístrate'}
+            </Txt>
           </Txt>
-        </Txt>
-      </Pulsable>
+        </Pulsable>
 
-      <View style={{ alignItems: 'center', paddingBottom: insets.bottom + E.lg }}>
-        <Insignia texto="SOLO MAYORES DE 18 AÑOS · CONTENIDO INFORMATIVO" />
-      </View>
-    </ScrollView>
+        <View style={{ alignItems: 'center', paddingBottom: insets.bottom + E.lg }}>
+          <Insignia texto="SOLO MAYORES DE 18 AÑOS · CONTENIDO INFORMATIVO" />
+        </View>
+      </ScrollView>
+    </View>
   );
 }

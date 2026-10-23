@@ -1,15 +1,20 @@
 import { router } from 'expo-router';
-import { Text, View } from 'react-native';
+import { FlatList, Text, View } from 'react-native';
 import { competicion, competicionesVisibles } from '@/datos/competiciones';
 import { claveDelPartido , seJuegaAhora } from '@/datos/envivo';
 import { proximosDeTodas, type ProximoPartido } from '@/datos/importado';
 import type { Competicion, Equipo } from '@/datos/tipos';
 import { useVivo } from '@/estado/vivo';
-import { C, E, R, T } from '@/tema';
+import { brillo, C, E, R, T } from '@/tema';
 import { Pulsable, Txt } from './base';
 import { Icono } from './iconos';
 import { Escudo, LogoCompeticion } from './imagen';
+import { marca } from './movimiento';
 import { TiraChips } from './navegacion';
+
+/** Ancho de una ficha de la tira de próximos, más el hueco hasta la siguiente. */
+const ANCHO_PROXIMO = 150;
+const PASO_PROXIMO = ANCHO_PROXIMO + E.sm;
 
 /**
  * Tira superior de la portada: el boton de la competicion y, a su lado, sus
@@ -58,7 +63,9 @@ function Casilla({
         borderRadius: R.md,
         borderWidth: 1,
         borderColor: activo ? C.limaBorde : C.borde,
+        borderTopColor: activo ? C.limaBorde : C.bordeLuz,
         backgroundColor: activo ? C.limaTenue : C.carta,
+        boxShadow: activo ? brillo.lima : undefined,
       }}
     >
       <View style={{ height: 40, justifyContent: 'center' }}>{children}</View>
@@ -195,84 +202,109 @@ export function CarruselProximos() {
     return `${dias[d.getDay()]} ${d.getDate()}/${d.getMonth() + 1}`;
   };
 
+  /*
+   * Lista virtualizada, no una tira con todo dentro.
+   *
+   * Son hasta sesenta fichas con dos escudos cada una, y en pantalla caben
+   * tres. Pintadas todas de golpe eran ciento y pico imágenes pedidas a la
+   * vez al abrir la portada, compitiendo con los picks, que es lo que se ha
+   * venido a ver. Ahora se pinta lo visible y lo demás entra al arrastrar.
+   *
+   * Todas miden lo mismo, así que la lista sabe dónde va cada una sin medir.
+   */
   return (
-    <TiraChips>
-      {partidos.map((p) => {
-        const vivo = seJuegaAhora(p.estado) || empezado(p);
-        return (
-          <Pulsable
-            key={`${p.competicionId}-${p.partidoId}`}
-            onPress={() =>
-              router.push(
-                `/partido/${encodeURIComponent(p.partidoId)}?comp=${p.competicionId}`,
-              )
-            }
-            style={{
-              width: 150,
-              paddingVertical: 10,
-              paddingHorizontal: 10,
-              gap: 8,
-              borderRadius: R.md,
-              borderWidth: 1,
-              borderColor: vivo ? C.rojoTenue : C.borde,
-              backgroundColor: C.carta,
-            }}
-          >
-            <View style={{ flexDirection: 'row', alignItems: 'center', gap: 5 }}>
-              {vivo ? (
-                <View style={{ width: 5, height: 5, borderRadius: 3, backgroundColor: C.rojo }} />
-              ) : null}
-              <Text
-                numberOfLines={1}
-                style={{ ...T.mini, fontSize: 9, color: vivo ? C.rojo : C.texto3 }}
-              >
-                {cuando(p)}
-              </Text>
-              <View style={{ flex: 1 }} />
-              {/* Eliminatoria previa de Champions/Europa/Conference: se marca
-                  para que no se confunda con la fase de grupos, porque van
-                  dentro de la misma competición. */}
-              {p.fasePrevia ? (
-                <View
-                  style={{
-                    paddingHorizontal: 5,
-                    paddingVertical: 1,
-                    borderRadius: 4,
-                    backgroundColor: C.limaTenue,
-                  }}
-                >
-                  <Text style={{ ...T.mini, fontSize: 8, color: C.lima }}>PREVIA</Text>
-                </View>
-              ) : null}
-              {/* La liga, no solo su escudo: mezclando treinta competiciones
-                  un logo diminuto no dice de qué torneo es el partido. */}
-              <Text
-                numberOfLines={1}
-                style={{ ...T.mini, fontSize: 9, color: C.texto3, flexShrink: 1 }}
-              >
-                {competicion(p.competicionId).corto}
-              </Text>
-              <LogoCompeticion competicionId={p.competicionId} tam={12} cuadrado />
-            </View>
-
-            {[
-              { e: p.local, g: p.golesLocal },
-              { e: p.visitante, g: p.golesVisitante },
-            ].map(({ e, g }) => (
-              <View key={e.id} style={{ flexDirection: 'row', alignItems: 'center', gap: 6 }}>
-                <Escudo nombre={e.nombre} id={e.id} corto={e.corto} tam={18} />
-                <Text numberOfLines={1} style={{ ...T.pequeno, fontSize: 11.5, color: C.texto, flex: 1 }}>
-                  {e.nombre}
-                </Text>
-                {p.estado !== 'previa' ? (
-                  <Text style={{ ...T.pequenoFuerte, fontSize: 12, color: C.texto }}>{g}</Text>
+    <View style={{ flexGrow: 0, flexShrink: 0 }}>
+      <FlatList
+        horizontal
+        data={partidos}
+        keyExtractor={(p) => `${p.competicionId}-${p.partidoId}`}
+        showsHorizontalScrollIndicator={false}
+        contentContainerStyle={{ paddingLeft: E.lg, paddingRight: E.lg - E.sm }}
+        getItemLayout={(_, i) => ({ length: PASO_PROXIMO, offset: PASO_PROXIMO * i, index: i })}
+        initialNumToRender={6}
+        maxToRenderPerBatch={6}
+        windowSize={3}
+        renderItem={({ item: p }) => {
+          const vivo = seJuegaAhora(p.estado) || empezado(p);
+          return (
+            <Pulsable
+              onPress={() =>
+                router.push(
+                  `/partido/${encodeURIComponent(p.partidoId)}?comp=${p.competicionId}`,
+                )
+              }
+              style={{
+                width: ANCHO_PROXIMO,
+                marginRight: E.sm,
+                paddingVertical: 10,
+                paddingHorizontal: 10,
+                gap: 8,
+                borderRadius: R.md,
+                borderWidth: 1,
+                borderColor: vivo ? C.rojoTenue : C.borde,
+                borderTopColor: vivo ? C.rojoTenue : C.bordeLuz,
+                backgroundColor: C.carta,
+              }}
+            >
+              <View style={{ flexDirection: 'row', alignItems: 'center', gap: 5 }}>
+                {vivo ? (
+                  <View
+                    {...marca('latido')}
+                    style={{ width: 5, height: 5, borderRadius: 3, backgroundColor: C.rojo }}
+                  />
                 ) : null}
+                <Text
+                  numberOfLines={1}
+                  style={{ ...T.mini, fontSize: 9, color: vivo ? C.rojo : C.texto3 }}
+                >
+                  {cuando(p)}
+                </Text>
+                <View style={{ flex: 1 }} />
+                {/* Eliminatoria previa de Champions/Europa/Conference: se marca
+                    para que no se confunda con la fase de grupos, porque van
+                    dentro de la misma competición. */}
+                {p.fasePrevia ? (
+                  <View
+                    style={{
+                      paddingHorizontal: 5,
+                      paddingVertical: 1,
+                      borderRadius: 4,
+                      backgroundColor: C.limaTenue,
+                    }}
+                  >
+                    <Text style={{ ...T.mini, fontSize: 8, color: C.lima }}>PREVIA</Text>
+                  </View>
+                ) : null}
+                {/* La liga, no solo su escudo: mezclando treinta competiciones
+                    un logo diminuto no dice de qué torneo es el partido. */}
+                <Text
+                  numberOfLines={1}
+                  style={{ ...T.mini, fontSize: 9, color: C.texto3, flexShrink: 1 }}
+                >
+                  {competicion(p.competicionId).corto}
+                </Text>
+                <LogoCompeticion competicionId={p.competicionId} tam={12} cuadrado />
               </View>
-            ))}
-          </Pulsable>
-        );
-      })}
-    </TiraChips>
+
+              {[
+                { e: p.local, g: p.golesLocal },
+                { e: p.visitante, g: p.golesVisitante },
+              ].map(({ e, g }) => (
+                <View key={e.id} style={{ flexDirection: 'row', alignItems: 'center', gap: 6 }}>
+                  <Escudo nombre={e.nombre} id={e.id} corto={e.corto} tam={18} />
+                  <Text numberOfLines={1} style={{ ...T.pequeno, fontSize: 11.5, color: C.texto, flex: 1 }}>
+                    {e.nombre}
+                  </Text>
+                  {p.estado !== 'previa' ? (
+                    <Text style={{ ...T.pequenoFuerte, fontSize: 12, color: C.texto }}>{g}</Text>
+                  ) : null}
+                </View>
+              ))}
+            </Pulsable>
+          );
+        }}
+      />
+    </View>
   );
 }
 
@@ -291,6 +323,7 @@ export function BotonCompeticion({ competicionId }: { competicionId: string }) {
         borderRadius: R.pill,
         borderWidth: 1,
         borderColor: C.borde,
+        borderTopColor: C.bordeLuz,
         backgroundColor: C.carta,
       }}
     >
@@ -352,6 +385,7 @@ export function RejillaCompeticiones({
               borderWidth: 1,
               borderColor: activa ? C.limaBorde : C.borde,
               backgroundColor: activa ? C.limaTenue : C.carta,
+              boxShadow: activa ? brillo.lima : undefined,
             }}
           >
             {seguida && !activa ? (

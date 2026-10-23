@@ -3,13 +3,14 @@ import { ActivityIndicator, FlatList, View } from 'react-native';
 import { useSafeAreaInsets } from 'react-native-safe-area-context';
 import { Chip, Fuego, Tarjeta, Txt, Vacio } from '@/componentes/base';
 import { BotonCompeticion } from '@/componentes/carruseles';
+import { Aparece } from '@/componentes/movimiento';
 import { TiraChips } from '@/componentes/navegacion';
 import { TarjetaPick } from '@/componentes/pick';
 import { competicion } from '@/datos/competiciones';
 import type { Familia, Pick } from '@/datos/tipos';
 import { useComunidad } from '@/estado/comunidad';
 import { useTienda } from '@/estado/tienda';
-import { C, E } from '@/tema';
+import { C, E, LISTA_LIGERA } from '@/tema';
 import { usePicksDelServidor } from '@/utiles/picks';
 
 /**
@@ -71,6 +72,7 @@ export default function Comunidad() {
         keyExtractor={(p) => p.id}
         contentContainerStyle={{ paddingBottom: E.xxxl, gap: E.md }}
         showsVerticalScrollIndicator={false}
+        {...LISTA_LIGERA}
         ListHeaderComponent={
           <View style={{ gap: E.lg, marginBottom: E.xs }}>
             <View
@@ -120,12 +122,12 @@ export default function Comunidad() {
           </View>
         }
         renderItem={({ item, index }) => (
-          <View style={{ paddingHorizontal: E.lg, gap: 6 }}>
-            <Txt v="etiqueta" color={C.texto3}>
+          <Aparece orden={index} style={{ paddingHorizontal: E.lg, gap: 6 }}>
+            <Txt v="etiqueta" color={index < 3 ? C.ambar : C.texto3}>
               #{index + 1}
             </Txt>
             <TarjetaPick pick={item} />
-          </View>
+          </Aparece>
         )}
         ListEmptyComponent={
           picks === undefined ? (

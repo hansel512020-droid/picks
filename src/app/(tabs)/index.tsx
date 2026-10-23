@@ -9,7 +9,8 @@ import { PantallaCargando } from '@/componentes/cargando';
 import { CarruselCompeticion, CarruselProximos } from '@/componentes/carruseles';
 import { Icono } from '@/componentes/iconos';
 import { Escudo } from '@/componentes/imagen';
-import { Logo } from '@/componentes/marca';
+import { Logo, Resplandor } from '@/componentes/marca';
+import { Aparece, marca } from '@/componentes/movimiento';
 import { TiraChips } from '@/componentes/navegacion';
 import { TarjetaPick } from '@/componentes/pick';
 import { competicion } from '@/datos/competiciones';
@@ -23,7 +24,7 @@ import { useComunidad } from '@/estado/comunidad';
 import { useDerechos } from '@/estado/derechos';
 import { useTienda } from '@/estado/tienda';
 import { usePicksVigentes, useVivo } from '@/estado/vivo';
-import { C, E, R } from '@/tema';
+import { brillo, C, E, LISTA_LIGERA, R } from '@/tema';
 import { useCalculo } from '@/utiles/carga';
 import { usePicksDelServidor } from '@/utiles/picks';
 import { useOcultaPestanas } from './_layout';
@@ -209,11 +210,15 @@ function EnVivo({ competicionId }: { competicionId: string }) {
               borderRadius: R.lg,
               borderWidth: 1,
               borderColor: C.borde,
+              borderTopColor: C.bordeLuz,
               backgroundColor: C.carta,
             }}
           >
             <View style={{ flexDirection: 'row', alignItems: 'center', gap: 6 }}>
-              <View style={{ width: 6, height: 6, borderRadius: 3, backgroundColor: C.rojo }} />
+              <View
+                {...marca('latido')}
+                style={{ width: 6, height: 6, borderRadius: 3, backgroundColor: C.rojo }}
+              />
               <Txt v="etiqueta" color={C.rojo}>
                 {vivo.estado === 'descanso'
                   ? 'DESCANSO'
@@ -389,8 +394,11 @@ export default function Inicio() {
         keyExtractor={(p) => p.id}
         contentContainerStyle={{ paddingBottom: E.xxxl, gap: E.md }}
         showsVerticalScrollIndicator={false}
+        {...LISTA_LIGERA}
         ListHeaderComponent={
           <View style={{ gap: E.lg, marginBottom: E.xs }}>
+            {/* Ambiente detrás de la cabecera; sube por debajo de la muesca. */}
+            <Resplandor desde={-insets.top} />
             {/*
               Aquí había una barra fina de progreso para los recálculos con la
               lista ya puesta. Fuera: con la portada delante, una barra que
@@ -422,6 +430,7 @@ export default function Inicio() {
                     justifyContent: 'center',
                     borderWidth: 1,
                     borderColor: C.borde,
+                    borderTopColor: C.bordeLuz,
                     backgroundColor: C.carta,
                   }}
                 >
@@ -443,6 +452,7 @@ export default function Inicio() {
                     backgroundColor: C.carta2,
                     borderWidth: 1,
                     borderColor: C.borde,
+                    borderTopColor: C.bordeLuz,
                   }}
                 >
                   <Icono nombre="campana" tam={17} color={C.texto2} />
@@ -481,6 +491,7 @@ export default function Inicio() {
                     backgroundColor: C.carta2,
                     borderWidth: 1,
                     borderColor: C.borde,
+                    borderTopColor: C.bordeLuz,
                   }}
                 >
                   <Icono nombre="usuario" tam={17} color={C.texto2} />
@@ -506,6 +517,7 @@ export default function Inicio() {
             {pro ? null : (
               <Pulsable
                 onPress={() => router.push('/gratis')}
+                marcas="eleva brillo"
                 style={{
                   marginHorizontal: E.lg,
                   padding: E.md,
@@ -516,6 +528,7 @@ export default function Inicio() {
                   flexDirection: 'row',
                   alignItems: 'center',
                   gap: E.md,
+                  boxShadow: brillo.lima,
                 }}
               >
                 <Txt v="titulo" style={{ fontSize: 20 }}>
@@ -570,7 +583,7 @@ export default function Inicio() {
               </View>
 
               {menuOrden ? (
-                <Tarjeta style={{ marginHorizontal: E.lg, overflow: 'hidden' }}>
+                <Tarjeta marcas="despliega" style={{ marginHorizontal: E.lg, overflow: 'hidden' }}>
                   {ORDENES.map((o) => (
                     <Pulsable
                       key={o.id}
@@ -618,6 +631,7 @@ export default function Inicio() {
                     justifyContent: 'center',
                     borderWidth: 1,
                     borderColor: C.borde,
+                    borderTopColor: C.bordeLuz,
                     backgroundColor: C.carta,
                   }}
                 >
@@ -650,10 +664,10 @@ export default function Inicio() {
             </View>
           </View>
         }
-        renderItem={({ item }) => (
-          <View style={{ paddingHorizontal: E.lg }}>
+        renderItem={({ item, index }) => (
+          <Aparece orden={index} style={{ paddingHorizontal: E.lg }}>
             <TarjetaPick pick={item} />
-          </View>
+          </Aparece>
         )}
         ListEmptyComponent={
           /* Aquí ya no hay "analizando": si se está calculando, lo que se ve es
