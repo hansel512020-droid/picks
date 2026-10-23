@@ -232,14 +232,19 @@ function Serie({
    * medio de un espacio vacío: están ahí para reconocer al rival de un vistazo
    * y a 30 px no se reconoce ninguno.
    *
-   * Ahora ocupa el 80% del hueco que le toca, con tope de 90 px para que no se
-   * vuelva un cartelón en pantallas anchas y suelo de 28 para que en el móvil
-   * no quede más pequeño que antes. Mientras no se ha medido el ancho se usa
-   * el 30 de siempre, así que el primer pintado nunca sale roto.
+   * Ocupa una parte del hueco que le toca, con un tope para que no se vuelva
+   * un cartelón en pantallas anchas y un suelo para que siga reconociéndose en
+   * el móvil. Mientras no se ha medido el ancho se usa el 30 de siempre, así
+   * que el primer pintado nunca sale roto.
+   *
+   * El 0,8 con tope de 90 que se probó primero se veía enorme en el portátil:
+   * los escudos pesaban más que las barras, que son el dato. A la mitad
+   * cumplen su papel —reconocer al rival de un vistazo— sin robarle la
+   * atención al gráfico.
    */
   const [ancho, setAncho] = useState(0);
   const hueco = ancho ? (ancho - 2 * (vistos.length - 1)) / Math.max(1, vistos.length) : 0;
-  const tamEscudo = hueco ? Math.round(Math.min(90, Math.max(28, hueco * 0.8))) : 30;
+  const tamEscudo = hueco ? Math.round(Math.min(45, Math.max(24, hueco * 0.4))) : 30;
 
   return (
     <View style={{ gap: 4 }} onLayout={(e) => setAncho(e.nativeEvent.layout.width)}>
