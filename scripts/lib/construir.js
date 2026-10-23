@@ -623,14 +623,48 @@ function desdeEspn(partidos) {
   return { historial, proximos };
 }
 
+/**
+ * La línea de un jugador según ESPN: portero, defensa, medio o delantero.
+ *
+ * Se miraba solo la abreviatura y se esperaba "G", "D", "M" o "F", pero ESPN
+ * la da por sitio en la alineación ("CD-L", "LB", "CM-R", "RW"): todo lo que
+ * no era "G" ni "F" acababa de centrocampista, defensas incluidos. El nombre
+ * largo ("Center Defender", "Left Winger") dice la línea siempre.
+ * `undefined` si no se sabe (los suplentes salen como "Substitute").
+ */
+function lineaDe(j) {
+  const a = String(j.posicion ?? '').toUpperCase();
+  const n = String(j.puesto ?? '').toLowerCase();
+  if (a === 'G' || a === 'GK' || n.includes('goalkeeper')) return 'POR';
+  if (n.includes('defender') || n.includes('back') || /^(D|CD|CB|LB|RB|LWB|RWB|SW)(-|$)/.test(a)) return 'DEF';
+  if (n.includes('forward') || n.includes('striker') || n.includes('winger') || /^(F|CF|ST|LW|RW|FW|SS)(-|$)/.test(a)) return 'DEL';
+  if (n.includes('midfield') || /^(M|CM|DM|AM|LM|RM|CDM|CAM)(-|$)/.test(a)) return 'MED';
+  return undefined;
+}
+
 /** Mete en el partido las estadisticas y los jugadores que devolvio ESPN. */
 function aplicaDetalleEspn(partido, detalle, equipos, competicionId) {
-  const busca = (nombre) => equipos.find((e) => parecido(e.nombre, nombre) >= 0.72);
   const local = equipos.find((e) => e.id === partido.localId);
   const visitante = equipos.find((e) => e.id === partido.visitanteId);
+  /*
+   * De qué lado es cada bloque: lo que diga ESPN y, si no lo dice, el nombre
+   * que más se parezca de los DOS.
+   *
+   * Antes solo se miraba si se parecía al local, con un umbral de 0,72. Cuando
+   * ESPN escribe el nombre del local un poco distinto —"Levante UD" contra
+   * "Levante" da 0,70—, los dos bloques se daban por visitantes: los jugadores
+   * del local acababan en el otro equipo (Carlos Espí en la plantilla del Real
+   * Madrid, Dumfries, Bernardo Silva…) y sus estadísticas pisaban las del
+   * visitante, dejando las del local a cero. Las medias de remates, córners y
+   * posesión de media liga salían por los suelos.
+   */
+  const esDelLocal = (bloque) =>
+    typeof bloque.local === 'boolean'
+      ? bloque.local
+      : parecido(bloque.nombre, local?.nombre ?? '') >= parecido(bloque.nombre, visitante?.nombre ?? '');
 
   for (const bloque of detalle.equipos ?? []) {
-    const esLocal = parecido(bloque.nombre, local?.nombre ?? '') >= 0.72;
+    const esLocal = esDelLocal(bloque);
     const destino = esLocal ? 'local' : 'visitante';
     const e = bloque.estadisticas;
     partido.estadisticas[destino] = {
@@ -651,7 +685,7 @@ function aplicaDetalleEspn(partido, detalle, equipos, competicionId) {
   const registros = [];
   const jugadores = [];
   for (const bloque of detalle.plantillas ?? []) {
-    const esLocal = parecido(bloque.nombre, local?.nombre ?? '') >= 0.72;
+    const esLocal = esDelLocal(bloque);
     const equipo = esLocal ? local : visitante;
     const rival = esLocal ? visitante : local;
     if (!equipo || !rival) continue;
@@ -663,7 +697,9 @@ function aplicaDetalleEspn(partido, detalle, equipos, competicionId) {
         id: jugadorId,
         nombre: j.nombre,
         equipoId: equipo.id,
-        posicion: { G: 'POR', D: 'DEF', M: 'MED', F: 'DEL' }[j.posicion] ?? 'MED',
+        // Sin línea conocida se deja vacía: al juntar sus partidos se queda
+        // con la que más se repite (ver importar.js).
+        posicion: lineaDe(j),
         dorsal: j.dorsal,
         edad: 0,
         pais: '',

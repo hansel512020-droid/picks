@@ -325,6 +325,8 @@ function jugadoresImportados(porCompeticion) {
         equipo: porEquipo.get(j.equipoId) ?? '',
         partidos: apariciones.get(j.id) ?? 0,
         importado: true,
+        // La foto de la plantilla de ESPN, si la tiene (ver importar.js).
+        foto: j.foto,
       }))
       .filter((j) => j.nombre && j.partidos > 0)
       .sort((a, b) => b.partidos - a.partidos)
@@ -503,6 +505,19 @@ async function main() {
         if (j.importado) importados.conFoto++;
         continue;
       }
+      /*
+       * La foto de su plantilla en ESPN, si llegó con los datos: es la de ese
+       * jugador (va por su identificador, no por el nombre) y no cuesta
+       * ninguna petición.
+       */
+      if (j.foto) {
+        logos.jugadores[clave] = j.foto;
+        encontrados++;
+        importados.conFoto++;
+        importados.nuevas++;
+        importados.deEspn = (importados.deEspn ?? 0) + 1;
+        continue;
+      }
       // Sin tiempo ya no se pide nada nuevo, pero lo que está en caché sigue valiendo.
       if (Date.now() > hasta) buscador.soloCache = true;
       const antes = buscador.peticiones;
@@ -528,7 +543,7 @@ async function main() {
     if (importados.total) {
       console.log(
         `  De ellos importados: ${importados.total} · ${importados.conFoto} con foto ` +
-          `(${importados.nuevas} nuevas, ${importados.buscados} buscados en esta pasada)` +
+          `(${importados.nuevas} nuevas, ${importados.deEspn ?? 0} de ESPN, ${importados.buscados} buscados en esta pasada)` +
           (sinTiempo ? ' · se acabó el tiempo: el resto, en la siguiente' : ''),
       );
       if (buscador.ultimoFallo) console.log(`    TheSportsDB, último fallo: ${buscador.ultimoFallo}`);
