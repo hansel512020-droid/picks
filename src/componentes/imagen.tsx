@@ -74,7 +74,13 @@ export function Escudo({
   estilo?: StyleProp<ViewStyle>;
 }) {
   const url = escudoEquipo(nombre, id);
-  const [falla, setFalla] = useState(false);
+  /*
+   * Se recuerda QUÉ dirección falló, no solo que algo falló. Con un sí/no, si
+   * la primera imagen no cargaba el escudo se quedaba en siglas para siempre,
+   * aunque después llegara el catálogo del servidor con una dirección buena.
+   */
+  const [fallida, setFallida] = useState<string>();
+  const falla = !!url && fallida === url;
 
   if (url && !falla) {
     return (
@@ -84,7 +90,7 @@ export function Escudo({
           style={{ width: tam * 0.76, height: tam * 0.76 }}
           contentFit="contain"
           transition={TRANSICION}
-          onError={() => setFalla(true)}
+          onError={() => setFallida(url)}
           cachePolicy="disk"
         />
       </Redondo>
@@ -117,7 +123,8 @@ export function Cara({
   estilo?: StyleProp<ViewStyle>;
 }) {
   const url = caraJugador(nombre);
-  const [falla, setFalla] = useState(false);
+  const [fallida, setFallida] = useState<string>();
+  const falla = !!url && fallida === url;
 
   if (url && !falla) {
     return (
@@ -128,7 +135,7 @@ export function Cara({
           contentFit="cover"
           contentPosition="top center"
           transition={TRANSICION}
-          onError={() => setFalla(true)}
+          onError={() => setFallida(url)}
           cachePolicy="disk"
         />
         {/* La bandera pequena identifica al jugador aunque la foto no cargue. */}
@@ -175,7 +182,8 @@ export function LogoCompeticion({
   cuadrado?: boolean;
 }) {
   const url = logoCompeticion(competicionId);
-  const [falla, setFalla] = useState(false);
+  const [fallida, setFallida] = useState<string>();
+  const falla = !!url && fallida === url;
 
   if (url && !falla) {
     const imagen = (
@@ -184,7 +192,7 @@ export function LogoCompeticion({
         style={{ width: tam, height: tam }}
         contentFit="contain"
         transition={TRANSICION}
-        onError={() => setFalla(true)}
+        onError={() => setFallida(url)}
         cachePolicy="disk"
       />
     );
