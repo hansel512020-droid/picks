@@ -18,6 +18,7 @@ import {
   METRICAS_EQUIPO,
   METRICAS_JUGADOR,
   picksDePartido,
+  tieneDetalle,
 } from '@/datos/picks';
 import { useComunidad } from '@/estado/comunidad';
 import { useDerechos } from '@/estado/derechos';
@@ -224,8 +225,30 @@ function Serie({
   const acierta = (v: number) => (sentido === 'menos' || sentido === 'no' ? v < linea : v > linea);
   const dia = (f?: string) => (f ? `${f.slice(8, 10)}/${f.slice(5, 7)}` : '');
 
+  /*
+   * ── El tamaño del escudo sale del ancho, no de un número fijo ─────────────
+   *
+   * Estaba clavado en 30 px. En un móvil es lo que cabe, pero en un portátil
+   * de 1366 px cada hueco mide unos 130 y el escudo se quedaba en una pizca en
+   * medio de un espacio vacío: están ahí para reconocer al rival de un vistazo
+   * y a 30 px no se reconoce ninguno.
+   *
+   * Ocupa una parte del hueco que le toca, con un tope para que no se vuelva
+   * un cartelón en pantallas anchas y un suelo para que siga reconociéndose en
+   * el móvil. Mientras no se ha medido el ancho se usa el 30 de siempre, así
+   * que el primer pintado nunca sale roto.
+   *
+   * El tope sale de dos pruebas sobre la pantalla real: con 90 px (el triple
+   * del 30 de toda la vida) los escudos pesaban más que las barras, que son el
+   * dato; con 45 se quedaban cortos. 75 es el punto de en medio, dos veces y
+   * media el original.
+   */
+  const [ancho, setAncho] = useState(0);
+  const hueco = ancho ? (ancho - 2 * (vistos.length - 1)) / Math.max(1, vistos.length) : 0;
+  const tamEscudo = hueco ? Math.round(Math.min(75, Math.max(26, hueco * 0.66))) : 30;
+
   return (
-    <View style={{ gap: 4 }}>
+    <View style={{ gap: 4 }} onLayout={(e) => setAncho(e.nativeEvent.layout.width)}>
       <View style={{ height: 76, flexDirection: 'row', alignItems: 'flex-end', gap: 2 }}>
         {vistos.map((p, i) => (
           <View key={i} style={{ flex: 1, height: '100%', justifyContent: 'flex-end' }}>
@@ -275,10 +298,10 @@ function Serie({
                 bandera={p.rival.bandera}
                 corto={p.rival.corto}
                 color={p.rival.color}
-                tam={30}
+                tam={tamEscudo}
               />
             ) : (
-              <View style={{ width: 30, height: 30 }} />
+              <View style={{ width: tamEscudo, height: tamEscudo }} />
             )}
             <Txt v="mini" color={C.texto3} style={{ fontSize: 9, lineHeight: 11 }}>
               {dia(p.fecha)}
@@ -411,7 +434,11 @@ export default function PantallaPick() {
         rival: rivalId ? t.porEquipo.get(rivalId) : undefined,
         serie,
         cortes: [
-          { etiqueta: 'Toda la temporada', valor: tasa(regs), n: regs.length },
+          // "Toda la temporada" no era verdad: el historial guardado llega a
+          // tres temporadas y cruza competiciones. Decía una cosa y enseñaba
+          // otra, y el número de al lado (101 partidos donde una liga tiene 34)
+          // lo delataba.
+          { etiqueta: 'Todos sus partidos', valor: tasa(regs), n: regs.length },
           { etiqueta: 'En casa', valor: tasa(regs.filter((r) => r.local)), n: regs.filter((r) => r.local).length },
           { etiqueta: 'Fuera', valor: tasa(regs.filter((r) => !r.local)), n: regs.filter((r) => !r.local).length },
           { etiqueta: 'De titular', valor: tasa(regs.filter((r) => r.titular)), n: regs.filter((r) => r.titular).length },
@@ -440,9 +467,30 @@ export default function PantallaPick() {
        * decidir el pick (`picks.ts`), asi que ahora la ficha enseña los
        * numeros con los que se calculo.
        */
+      /*
+       * ── Y solo los partidos que TIENEN el dato ────────────────────────────
+       *
+       * Córners, tiros y tarjetas solo están cuando el importador pudo bajar
+       * el acta; los partidos sin ella se guardaron con ceros. El motor ya los
+       * descarta al calcular el pick (`tieneDetalle` en picks.ts), pero esta
+       * ficha no lo hacía, y contaba cada acta que falta como un partido de
+       * cero córners.
+       *
+       * Lo que se veía, en un pick de córners del Go Ahead Eagles: el gráfico
+       * con los diez últimos por encima de 3,5 y el modelo diciendo 94%, y
+       * justo debajo «Media de la temporada 2,41» y «Toda la temporada 35%».
+       * Los tres números eran del mismo equipo, pero de muestras distintas: el
+       * 35% salía de contar como fallo los 65 partidos viejos en los que el
+       * dato sencillamente no existe. Un usuario que mira eso no ve un detalle
+       * raro, ve una app que se contradice sola.
+       *
+       * Los goles no lo necesitan: están siempre en el acta.
+       */
+      const necesitaActa = metEquipo.clave !== 'goles';
       const suyos = partidosDelEquipoEnTodas(equipo.nombre, equipo.bandera)
         .map(({ partido, esLocal }) => ({ ...partido, esLocal }))
         .filter((p) => p.estado === 'finalizado' && p.id !== pick.partidoId)
+        .filter((p) => !necesitaActa || tieneDetalle(p, p.esLocal))
         .sort((a, b) => a.fecha.localeCompare(b.fecha));
       // El lado viene del historial: fuera de esta competicion el equipo tiene
       // otro id, asi que comparar con `localId` daria "visitante" siempre.
@@ -470,7 +518,7 @@ export default function PantallaPick() {
           rival: rivalDe(p),
         })) as PuntoSerie[],
         cortes: [
-          { etiqueta: 'Toda la temporada', valor: tasa(suyos), n: suyos.length },
+          { etiqueta: 'Todos sus partidos', valor: tasa(suyos), n: suyos.length },
           {
             etiqueta: 'En casa',
             valor: tasa(suyos.filter((p) => p.esLocal)),
@@ -779,7 +827,7 @@ ${enlace}`;
             <Tarjeta style={{ padding: E.md, gap: E.md }}>
               <Serie puntos={contexto.serie} linea={pick.linea} sentido={pick.sentido} />
               <Separador />
-              <FilaDato etiqueta="Media de la temporada" valor={coma(contexto.mediaGeneral, 2)} />
+              <FilaDato etiqueta="Media en todos sus partidos" valor={coma(contexto.mediaGeneral, 2)} />
               <FilaDato etiqueta="Media en los últimos 10" valor={coma(pick.media, 2)} destacado />
               <FilaDato
                 etiqueta="Probabilidad del modelo"

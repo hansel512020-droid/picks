@@ -643,7 +643,7 @@ cuandoCambienLosDatos(() => CACHE.clear());
  * tarjetas: contarlos como cero fabrica una racha de "menos de" que no ocurrió,
  * y esta app no inventa picks. Los goles no lo necesitan: están siempre.
  */
-function tieneDetalle(p: Partido, esLocal: boolean): boolean {
+export function tieneDetalle(p: Partido, esLocal: boolean): boolean {
   return (esLocal ? p.estadisticas.local : p.estadisticas.visitante).remates > 0;
 }
 
