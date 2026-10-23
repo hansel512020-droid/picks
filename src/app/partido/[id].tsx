@@ -1387,7 +1387,20 @@ function Duelo({
         empates: suyos.filter((p) => p.golesLocal === p.golesVisitante).length,
       };
     };
-    return { a: resumen(localId), b: resumen(visitanteId) };
+    /*
+     * Si hay estadísticas se mira aquí, con lo demás, y no al pintar.
+     *
+     * Llegan después del núcleo y por separado. Mirado al pintar, el
+     * compilador de React guardaba la respuesta como si solo dependiera de la
+     * competición: si se abría el duelo antes de que llegaran, el candado de
+     * "Comparativa con Golden Pro" se quedaba puesto aunque ya estuvieran.
+     * Aquí se recalcula cada vez que entra dato nuevo.
+     */
+    return {
+      a: resumen(localId),
+      b: resumen(visitanteId),
+      conEstadisticas: hayEstadisticas(competicionId),
+    };
   }, [competicionId, partidoId, localId, visitanteId]);
 
   if (!datos) return <ActivityIndicator color={C.lima} style={{ marginTop: E.xl }} />;
@@ -1426,7 +1439,7 @@ function Duelo({
         * El cara a cara de arriba sí se queda: sale de los marcadores, que son
         * públicos.
       */}
-      {!hayEstadisticas(competicionId) ? (
+      {!datos.conEstadisticas ? (
         <Pulsable onPress={() => router.push('/pro')}>
           <Tarjeta
             style={{
@@ -1472,7 +1485,7 @@ function Duelo({
         </Txt>
       </View>
 
-      {(hayEstadisticas(competicionId) ? filas : filas.filter((f) => f.etiqueta.includes('Goles'))).map((f) => {
+      {(datos.conEstadisticas ? filas : filas.filter((f) => f.etiqueta.includes('Goles'))).map((f) => {
         const total = f.a + f.b || 1;
         const pa = (f.a / total) * 100;
         return (

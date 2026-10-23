@@ -4,6 +4,7 @@ import {
   useContext,
   useEffect,
   useMemo,
+  useRef,
   useState,
   type ReactNode,
 } from 'react';
@@ -14,6 +15,7 @@ import {
   rescataPagosPayphone,
   type Derecho,
 } from '@/datos/cuenta';
+import { actualizaLigas } from '@/datos/remotos';
 import { useSesion } from './sesion';
 
 /**
@@ -141,6 +143,22 @@ export function ProveedorDerechos({ children }: { children: ReactNode }) {
   }, [fallos, refresca]);
 
   const libres = useMemo(() => ligasDesbloqueadas(lista), [lista]);
+
+  /*
+   * Lo recién comprado, sin cerrar y volver a abrir la app.
+   *
+   * Las estadísticas de los partidos y los jugadores de cada liga se bajan al
+   * arrancar, y solo los de lo comprado. Quien compraba con la app abierta veía
+   * abrirse los candados pero las fichas seguían vacías hasta la visita
+   * siguiente. La primera lectura no cuenta: de esa ya se encarga el arranque.
+   */
+  const conocidas = useRef<Set<string> | null>(null);
+  useEffect(() => {
+    if (!cargado) return;
+    const antes = conocidas.current;
+    conocidas.current = libres;
+    if (antes && [...libres].some((liga) => !antes.has(liga))) actualizaLigas();
+  }, [cargado, libres]);
 
   const tieneAcceso = useCallback(
     (competicionId: string) => {

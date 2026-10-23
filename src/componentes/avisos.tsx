@@ -91,8 +91,8 @@ export function AvisoCambiaDePlan({ flotante }: { flotante?: boolean }) {
 
   return (
     <View
-      pointerEvents="box-none"
       style={{
+        pointerEvents: 'box-none',
         position: 'absolute',
         // Por encima de la barra de pestañas, que también flota.
         bottom: HUECO_PESTANAS - E.lg,
@@ -259,10 +259,10 @@ export function AvisoCobroFallido({ flotante }: { flotante?: boolean }) {
 
   return (
     <View
-      // `pointerEvents="box-none"` para que la capa no se coma los toques de lo
-      // que hay debajo: solo debe capturarlos la propia tarjeta.
-      pointerEvents="box-none"
       style={{
+        // `box-none` para que la capa no se coma los toques de lo que hay
+        // debajo: solo debe capturarlos la propia tarjeta.
+        pointerEvents: 'box-none',
         position: 'absolute',
         // Abajo, no arriba: arriba tapa la cabecera y el carrusel de partidos,
         // que es lo primero que se viene a mirar. Con un hueco para no pegarse

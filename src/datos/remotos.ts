@@ -1,12 +1,12 @@
 import AsyncStorage from '@react-native-async-storage/async-storage';
-import { guardaGrande, leeGrande } from './almacen';
+import { borraGrande, guardaGrande, leeGrande } from './almacen';
 import { derechosDelUsuario, ligasDesbloqueadas, sesionGuardada } from './cuenta';
 import {
   aplicaDatos,
   avisaRepintado,
   competicionesImportadas,
   fusionaDetalle,
-  fusionaEstadisticas,
+  fusionaLigas,
   sinDetalle,
 } from './importado';
 import { aplicaLogos, sinLogosNuevos } from './imagenes';
@@ -224,6 +224,15 @@ async function bajaGz(ruta: string, selloPrevio: string | null): Promise<Bajada>
 const CADA = 15 * 60 * 1000;
 
 /**
+ * Pone un núcleo o un archivo entero nuevo. Lo que se había pegado encima del
+ * anterior —el detalle de las ligas— se va con él y hay que volver a pegarlo.
+ */
+function aplica(datos: unknown): void {
+  aplicaDatos(datos);
+  PEGADAS.clear();
+}
+
+/**
  * Carga lo guardado del intento anterior, si lo hay.
  *
  * Se hace antes de pedir nada: son doce megas y en una conexión mala tardan.
@@ -235,7 +244,7 @@ export async function cargaGuardados(): Promise<boolean> {
     // por jugador se pega después, sin bloquear.
     const nucleo = await leeGrande(CLAVE_NUCLEO);
     if (nucleo) {
-      aplicaDatos(JSON.parse(nucleo));
+      aplica(JSON.parse(nucleo));
       /*
        * El detalle guardado, ANTES de dar por cargado el arranque.
        *
@@ -257,7 +266,7 @@ export async function cargaGuardados(): Promise<boolean> {
     // Respaldo: el archivo completo que guardaba una versión anterior de la app.
     const crudo = await leeGrande(CLAVE);
     if (!crudo) return false;
-    aplicaDatos(JSON.parse(crudo));
+    aplica(JSON.parse(crudo));
     return true;
   } catch {
     // Un guardado corrupto no puede impedir abrir la app: se ignora y se usa
@@ -298,7 +307,9 @@ export async function descargaDatos(forzar = false): Promise<boolean> {
     if (!forzar) {
       const ultima = Number((await AsyncStorage.getItem(CLAVE_FECHA)) ?? 0);
       if (ultima && Date.now() - ultima < CADA) {
-        sinDetalle();
+        // El servidor se dejará en paz, pero lo guardado de cada liga sí se
+        // pone: sin esto, recargar la página se quedaba sin él.
+        void sincronizaLigas(false);
         return false;
       }
     }
@@ -312,7 +323,12 @@ export async function descargaDatos(forzar = false): Promise<boolean> {
 
     if (bajada === 'igual') {
       await AsyncStorage.setItem(CLAVE_FECHA, String(Date.now()));
-      sinDetalle();
+      /*
+       * Lo de cada liga, de lo guardado. No se pregunta al servidor: el bot
+       * publica las ligas en la misma pasada que el núcleo, así que si el
+       * núcleo no ha cambiado, ellas tampoco.
+       */
+      void sincronizaLigas(false);
       return false;
     }
 
@@ -323,18 +339,18 @@ export async function descargaDatos(forzar = false): Promise<boolean> {
       return false;
     }
 
-    aplicaDatos(datos);
+    aplica(datos);
     // Guardar es un extra: si el navegador no tiene sitio, no pasa nada. Se
     // intenta aparte para que un fallo al guardar no descarte los datos buenos.
     guardaSiCabe(CLAVE_NUCLEO, bajada.texto, CLAVE_SELLO_NUCLEO, bajada.sello);
     descargaLogos();
 
     /*
-     * El detalle por jugador, en segundo plano. No bloquea el repintado del
+     * El detalle de cada liga, en segundo plano. No bloquea el repintado del
      * núcleo: la app ya se ve con los picks de equipo, y los de jugador
-     * aparecen cuando el detalle entra. `fusionaDetalle` avisa para repintar.
+     * aparecen cuando el detalle entra. `fusionaLigas` avisa para repintar.
      */
-    void bajaDetalleDeMisLigas();
+    void sincronizaLigas(true);
 
     return true;
   } catch {
@@ -343,8 +359,8 @@ export async function descargaDatos(forzar = false): Promise<boolean> {
   }
 }
 
-/**
- * El detalle de jugadores, solo el de las ligas que este usuario ha comprado.
+/* -------------------------------------------------------------------------
+ * El detalle de pago, solo el de las ligas que este usuario ha comprado.
  *
  * ── Por qué ────────────────────────────────────────────────────────────────
  *
@@ -357,48 +373,187 @@ export async function descargaDatos(forzar = false): Promise<boolean> {
  * por separado. Aquí solo se piden los de las competiciones con derecho vivo;
  * del resto no se pide nada, y si se pidiera, el servidor no lo daría.
  *
- * Cae al archivo entero cuando no se puede saber qué tiene comprado: es lo que
- * había antes y el servidor sigue siendo el que decide si lo entrega.
+ * ── Guardado entre visitas ─────────────────────────────────────────────────
+ *
+ * Cada liga trae dos piezas, las estadísticas de sus partidos y sus jugadores,
+ * y cada una se guarda en el navegador con su sello, igual que el núcleo. En
+ * las visitas siguientes se usa lo guardado, y cuando el núcleo cambia se
+ * pregunta por cada pieza con su sello: lo que no ha cambiado contesta 304 sin
+ * mandar nada.
+ *
+ * Antes no se guardaban, y solo se pedían cuando el núcleo había cambiado: al
+ * recargar la página, o al volver con el núcleo igual, quien había pagado se
+ * quedaba sin las comparativas de los partidos y sin los gráficos de jugador
+ * hasta la siguiente publicación del bot.
+ *
+ * Lo guardado solo se usa para ligas que el servidor acaba de confirmar como
+ * compradas: si no contesta, no se usa nada; si una liga deja de estar
+ * comprada, se borra.
+ * ------------------------------------------------------------------------- */
+
+/** Qué piezas hay guardadas y con qué sello. Una pieza está aquí solo si se guardó de verdad. */
+const CLAVE_LIGAS = 'scout-picks/ligas-guardadas';
+const clavePieza = (pieza: string) => `scout-picks/liga/${pieza}`;
+/** Las dos piezas de cada liga. Las estadísticas primero: es lo que más se nota. */
+const PIEZAS = ['estadisticas', 'detalle'] as const;
+/** Cuántas se piden a la vez. Más ya no acorta: se reparten la misma conexión. */
+const A_LA_VEZ = 4;
+/**
+ * Cada cuánto, como mucho, se pega lo que va llegando. Con buena conexión todo
+ * entra antes y se pega de una vez; con mala, lo que haya llegado va apareciendo
+ * sin esperar a la última liga.
  */
-async function bajaDetalleDeMisLigas(): Promise<void> {
+const TANDA = 2000;
+
+/**
+ * Lo que ya está pegado sobre el núcleo de ahora, con el sello con que llegó.
+ * Una segunda pasada en la misma visita —al iniciar sesión— no vuelve a pegar
+ * lo que no ha cambiado: cada pegado repinta la app entera.
+ */
+const PEGADAS = new Map<string, string>();
+
+async function leeIndice(): Promise<Record<string, string>> {
+  try {
+    const indice = JSON.parse((await AsyncStorage.getItem(CLAVE_LIGAS)) ?? '{}');
+    return indice && typeof indice === 'object' ? indice : {};
+  } catch {
+    return {};
+  }
+}
+
+/** Hace las tareas de `a` en `a`: en cuanto acaba una, empieza la siguiente. */
+async function enParalelo(tareas: (() => Promise<void>)[], a: number): Promise<void> {
+  let siguiente = 0;
+  const obrero = async () => {
+    while (siguiente < tareas.length) await tareas[siguiente++]();
+  };
+  await Promise.all(Array.from({ length: Math.min(a, tareas.length) }, obrero));
+}
+
+/** Nunca dos pasadas a la vez: la segunda espera a la primera. */
+let pasada: Promise<void> = Promise.resolve();
+
+/**
+ * Pone las piezas de las ligas compradas: lo guardado y, si `revalida`, lo que
+ * haya cambiado en el servidor. Sin `revalida` solo se pide lo que no está
+ * guardado.
+ */
+function sincronizaLigas(revalida: boolean): Promise<void> {
+  pasada = pasada.then(() => pasaPorMisLigas(revalida));
+  return pasada;
+}
+
+/**
+ * Trae lo de las ligas recién compradas sin esperar a la próxima visita. Lo
+ * que ya está puesto no se vuelve a pedir.
+ */
+export function actualizaLigas(): void {
+  void sincronizaLigas(false);
+}
+
+async function pasaPorMisLigas(revalida: boolean): Promise<void> {
   try {
     const sesion = await sesionGuardada();
     if (!sesion?.token) return;
     const derechos = await derechosDelUsuario(sesion.token, sesion.id);
-    // `null` es "no se sabe": el servidor no contestó. No se pide nada y se
-    // reintenta en la siguiente descarga, que es mejor que pedirlo todo.
+    // `null` es "no se sabe": el servidor no contestó. No se pide nada ni se
+    // usa lo guardado, y se reintenta en la siguiente descarga.
     if (!derechos) return;
     const mias = ligasDesbloqueadas(derechos);
+    const indice = await leeIndice();
+
+    // Lo de ligas que ya no están compradas se borra.
+    const ligaDe = (pieza: string) => pieza.slice(pieza.indexOf('/') + 1);
+    let borradas = false;
+    for (const pieza of Object.keys(indice)) {
+      if (mias.has('*') || mias.has(ligaDe(pieza))) continue;
+      delete indice[pieza];
+      void borraGrande(clavePieza(pieza));
+      borradas = true;
+    }
+    if (borradas) await AsyncStorage.setItem(CLAVE_LIGAS, JSON.stringify(indice));
 
     // Sin ninguna liga comprada no hay nada que bajar: los picks ya vienen
     // hechos del servidor y las pantallas de jugador son de pago.
     if (!mias.size) return;
 
-    const todas = mias.has('*') ? competicionesImportadas() : [...mias];
-    let pegados = 0;
-    for (const liga of todas) {
-      /*
-       * Dos archivos por liga: los jugadores y las estadísticas de los
-       * partidos. Los dos son de pago y los dos se piden igual; las
-       * estadísticas primero porque sin ellas las comparativas de la ficha del
-       * partido salen en blanco, que es lo que más se nota.
-       */
-      const stats = await bajaGz(`${BASE}/estadisticas/${liga}.json.gz`, null);
-      if (stats && stats !== 'igual') fusionaEstadisticas(JSON.parse(stats.texto));
+    // Solo las que están en el núcleo: lo de una liga sin partidos no se pega.
+    const cargadas = competicionesImportadas();
+    const ligas = mias.has('*') ? cargadas : cargadas.filter((l) => mias.has(l));
 
-      const trozo = await bajaGz(`${BASE}/detalle/${liga}.json.gz`, null);
-      if (trozo && trozo !== 'igual') {
-        fusionaDetalle(JSON.parse(trozo.texto));
-        pegados++;
+    const estadisticas: unknown[] = [];
+    const detalles: unknown[] = [];
+    let conDetalle = false;
+    let ultimaTanda = Date.now();
+    const pega = () => {
+      if (estadisticas.length || detalles.length) {
+        fusionaLigas(estadisticas.splice(0), detalles.splice(0));
       }
-    }
+      ultimaTanda = Date.now();
+    };
+
+    const tareas = PIEZAS.flatMap((tipo) =>
+      ligas.map((liga) => async () => {
+        const pieza = `${tipo}/${liga}`;
+        const ruta = `${BASE}/${pieza}.json.gz`;
+        const guardada = pieza in indice;
+        const sello = indice[pieza] || null;
+        try {
+          let texto: string | null = null;
+          let selloNuevo: string | null = null;
+          if (!guardada || revalida) {
+            const bajada = await bajaGz(ruta, guardada ? sello : null);
+            if (bajada && bajada !== 'igual') {
+              texto = bajada.texto;
+              selloNuevo = bajada.sello ?? '';
+            }
+          }
+          if (texto === null && guardada) {
+            // Sin cambios, o sin respuesta: vale lo guardado. Y si ya está
+            // pegado con ese mismo sello, no hay nada que hacer.
+            if (sello && PEGADAS.get(pieza) === sello) {
+              if (tipo === 'detalle') conDetalle = true;
+              return;
+            }
+            texto = await leeGrande(clavePieza(pieza));
+            if (texto === null) {
+              // El navegador lo tiró: se pide entero.
+              delete indice[pieza];
+              const otra = await bajaGz(ruta, null);
+              if (otra && otra !== 'igual') {
+                texto = otra.texto;
+                selloNuevo = otra.sello ?? '';
+              }
+            }
+          }
+          if (texto === null) return;
+
+          // Se lee aquí, al llegar cada una, y no todas al final: así el
+          // trabajo se reparte en vez de congelar la página de una vez.
+          const trozo = JSON.parse(texto);
+          (tipo === 'detalle' ? detalles : estadisticas).push(trozo);
+          if (tipo === 'detalle') conDetalle = true;
+          PEGADAS.set(pieza, selloNuevo ?? sello ?? '');
+
+          if (selloNuevo !== null && (await guardaGrande(clavePieza(pieza), texto))) {
+            indice[pieza] = selloNuevo;
+            await AsyncStorage.setItem(CLAVE_LIGAS, JSON.stringify(indice));
+          }
+          if (Date.now() - ultimaTanda > TANDA) pega();
+        } catch {
+          // Una pieza que no llega, o que llega rota, no tumba las demás.
+        }
+      }),
+    );
+    await enParalelo(tareas, A_LA_VEZ);
+    pega();
 
     /*
      * Si no vino ni una —una app vieja contra un almacén ya partido, o un
      * usuario con derechos sobre ligas que hoy no tienen actas— se prueba con
      * el archivo de siempre, que el servidor entregará o no según sus reglas.
      */
-    if (!pegados) {
+    if (!conDetalle && revalida) {
       const det = await bajaGz(RUTA_DETALLE, null);
       if (det && det !== 'igual') {
         fusionaDetalle(JSON.parse(det.texto));
@@ -432,7 +587,7 @@ async function descargaCompleto(): Promise<boolean> {
     const { texto, sello } = bajada;
     const datos = JSON.parse(texto);
     if (!datos?.competiciones || !Object.keys(datos.competiciones).length) return false;
-    aplicaDatos(datos);
+    aplica(datos);
     guardaSiCabe(CLAVE, texto, CLAVE_SELLO, sello);
     descargaLogos();
     return true;
