@@ -53,6 +53,36 @@ const IMAGEN = `${DIRECCION}/portada.png`;
  * que el navegador mueve sin recalcular la página.
  */
 const ESTILOS = `
+/* ── Tipografía ──────────────────────────────────────────────────────
+   Inter para leer y Space Grotesk para titulares y cifras grandes. Las dos
+   van servidas desde la propia web (public/fuentes), no desde Google: la
+   política de seguridad solo admite fuentes propias y así no hay terceros.
+   Son variables —un archivo para todos los pesos— y solo el juego latino,
+   que cubre el castellano entero: 70 kB entre las dos. */
+@font-face {
+  font-family: 'Inter Variable'; font-style: normal; font-display: swap; font-weight: 100 900;
+  src: url(/fuentes/inter.woff2) format('woff2-variations'), url(/fuentes/inter.woff2) format('woff2');
+  unicode-range: U+0000-00FF,U+0131,U+0152-0153,U+02BB-02BC,U+02C6,U+02DA,U+02DC,U+0304,U+0308,U+0329,U+2000-206F,U+20AC,U+2122,U+2191,U+2193,U+2212,U+2215,U+FEFF,U+FFFD;
+}
+@font-face {
+  font-family: 'Space Grotesk Variable'; font-style: normal; font-display: swap; font-weight: 300 700;
+  src: url(/fuentes/space-grotesk.woff2) format('woff2-variations'), url(/fuentes/space-grotesk.woff2) format('woff2');
+  unicode-range: U+0000-00FF,U+0131,U+0152-0153,U+02BB-02BC,U+02C6,U+02DA,U+02DC,U+0304,U+0308,U+0329,U+2000-206F,U+20AC,U+2122,U+2191,U+2193,U+2212,U+2215,U+FEFF,U+FFFD;
+}
+/* React Native Web pone su propia fuente a cada texto con una clase; con
+   "html body" delante esta regla pesa más y la sustituye sin !important. Los
+   emoji (banderas, 🔥) no están en estas fuentes y caen solos en los del
+   sistema. Las cifras van todas del mismo ancho: así los porcentajes de una
+   columna quedan alineados. */
+html body, html body [dir], html body input, html body textarea {
+  font-family: 'Inter Variable', -apple-system, BlinkMacSystemFont, 'Segoe UI', Roboto, Helvetica, Arial, sans-serif;
+  font-feature-settings: 'tnum' 1, 'cv11' 1;
+}
+html body [data-gp~="titular"] {
+  font-family: 'Space Grotesk Variable', 'Inter Variable', -apple-system, BlinkMacSystemFont, 'Segoe UI', sans-serif;
+  font-feature-settings: 'tnum' 1;
+}
+
 :root { color-scheme: dark; }
 html, body { background-color: #0A0B0D; }
 body {
@@ -125,6 +155,11 @@ input:-webkit-autofill {
   to { opacity: 1; transform: none; }
 }
 [data-gp~="entra"] { animation: gp-entra .55s cubic-bezier(.2,.8,.2,1) both; }
+
+/* Al abrir una pantalla, su contenido sube un poco y aparece: en la web la
+   navegación no anima nada y el cambio de pantalla era un salto seco. */
+@keyframes gp-pagina { from { opacity: 0; transform: translateY(10px); } to { opacity: 1; transform: none; } }
+[data-gp~="pagina"] { animation: gp-pagina .42s cubic-bezier(.2,.8,.2,1) both; }
 
 @keyframes gp-despliega {
   from { opacity: 0; transform: translateY(-6px) scale(.98); }
@@ -222,6 +257,17 @@ export default function Html({ children }: PropsWithChildren) {
           Quita el scroll del body que mete React Native Web. Sin esto, las
           pantallas con lista propia acaban con dos barras de desplazamiento.
         */}
+        {/* Las fuentes, pedidas desde el principio y no cuando el CSS las
+            descubre: así el primer pintado ya sale con ellas. */}
+        <link rel="preload" href="/fuentes/inter.woff2" as="font" type="font/woff2" crossOrigin="anonymous" />
+        <link
+          rel="preload"
+          href="/fuentes/space-grotesk.woff2"
+          as="font"
+          type="font/woff2"
+          crossOrigin="anonymous"
+        />
+
         <ScrollViewStyleReset />
         <style dangerouslySetInnerHTML={{ __html: ESTILOS }} />
       </head>

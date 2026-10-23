@@ -5,15 +5,16 @@ import { FlatList, Text, View } from 'react-native';
 import { useSafeAreaInsets } from 'react-native-safe-area-context';
 import { Chip, Pulsable, Separador, Tarjeta, Txt, Vacio } from '@/componentes/base';
 import { Icono } from '@/componentes/iconos';
+import { Resplandor } from '@/componentes/marca';
 import { Dato, TiraChips } from '@/componentes/navegacion';
 import { Escudo } from '@/componentes/imagen';
-import { Aparece } from '@/componentes/movimiento';
+import { Aparece, marca } from '@/componentes/movimiento';
 import { Avatar } from '@/componentes/pick';
 import { temporada } from '@/datos/motor';
 import type { PickGuardado, ResultadoPick } from '@/datos/tipos';
 import { useTienda } from '@/estado/tienda';
 import { usePartidoDelPick, useVivo } from '@/estado/vivo';
-import { brillo, C, E, R } from '@/tema';
+import { brillo, C, COLUMNA, E, R } from '@/tema';
 
 /**
  * Historial de picks guardados y como han salido. El porcentaje de acierto y
@@ -387,10 +388,12 @@ export default function Rendimiento() {
 
   return (
     <View style={{ flex: 1, backgroundColor: C.fondo, paddingTop: insets.top }}>
+      <Resplandor />
       <FlatList
+        {...marca('pagina')}
         data={visibles}
         keyExtractor={(g) => g.pickId}
-        contentContainerStyle={{ paddingBottom: E.xxxl, gap: E.sm }}
+        contentContainerStyle={[{ paddingBottom: E.xxxl, gap: E.sm }, COLUMNA.lectura]}
         showsVerticalScrollIndicator={false}
         ListHeaderComponent={
           <View style={{ gap: E.lg, marginBottom: E.sm }}>

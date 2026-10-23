@@ -30,6 +30,8 @@ const WEB = Platform.OS === 'web';
  * · `eleva`: se levanta al pasar el ratón.
  * · `vivo`: tarjeta de un partido en juego; conserva su borde rojo.
  * · `entra`: aparece subiendo y fundiéndose.
+ * · `pagina`: el contenido de una pantalla al abrirse.
+ * · `titular`: letra de titulares (Space Grotesk).
  * · `despliega`: se abre desde arriba (menús y bloques que se despliegan).
  * · `latido`: punto que late (en vivo).
  * · `crece`: barra que se llena de izquierda a derecha al aparecer.

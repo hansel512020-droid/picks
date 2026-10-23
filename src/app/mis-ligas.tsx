@@ -5,12 +5,14 @@ import { useSafeAreaInsets } from 'react-native-safe-area-context';
 import { Boton, Pulsable, Tarjeta, Txt, Vacio } from '@/componentes/base';
 import { Icono } from '@/componentes/iconos';
 import { LogoCompeticion } from '@/componentes/imagen';
+import { Resplandor } from '@/componentes/marca';
+import { marca } from '@/componentes/movimiento';
 import { CabeceraAtras } from '@/componentes/navegacion';
 import { competicionesVisibles, TODAS } from '@/datos/competiciones';
 import { eligeCompeticiones } from '@/datos/cuenta';
 import { useDerechos } from '@/estado/derechos';
 import { useSesion } from '@/estado/sesion';
-import { C, E, R } from '@/tema';
+import { C, COLUMNA, E, R } from '@/tema';
 
 /**
  * Elegir las competiciones de un plan parcial ("2 ligas", "3 ligas").
@@ -108,7 +110,7 @@ export default function MisLigas() {
           titulo="No tienes un plan de ligas a elegir"
           detalle="Los planes de 2 y 3 ligas te dejan escoger cuáles quieres ver."
         />
-        <View style={{ paddingHorizontal: E.lg }}>
+        <View style={[{ paddingHorizontal: E.lg }, COLUMNA.lectura]}>
           <Boton ancho texto="Ver los planes" onPress={() => router.push('/pro')} />
         </View>
       </View>
@@ -117,12 +119,16 @@ export default function MisLigas() {
 
   return (
     <View style={{ flex: 1, backgroundColor: C.fondo, paddingTop: insets.top + E.sm }}>
+      <Resplandor />
       <CabeceraAtras
         titulo="Mis ligas"
         subtitulo={`Elige ${huecos} ${huecos === 1 ? 'competición' : 'competiciones'}`}
       />
 
-      <ScrollView contentContainerStyle={{ paddingBottom: E.xxxl, gap: E.sm }}>
+      <ScrollView
+        {...marca('pagina')}
+        contentContainerStyle={[{ paddingBottom: E.xxxl, gap: E.sm }, COLUMNA.lectura]}
+      >
         <View style={{ paddingHorizontal: E.lg }}>
           <Txt v="pequeno" color={yaElegido ? C.texto2 : faltan > 0 ? C.ambar : C.texto2}>
             {yaElegido

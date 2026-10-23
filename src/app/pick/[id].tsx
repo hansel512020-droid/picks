@@ -7,6 +7,7 @@ import { Boton, Fuego, Insignia, Pulsable, Separador, Tarjeta, Txt, Vacio } from
 import { Icono } from '@/componentes/iconos';
 import { Escudo, LogoCompeticion } from '@/componentes/imagen';
 import { marca, retraso } from '@/componentes/movimiento';
+import { Resplandor } from '@/componentes/marca';
 import { CabeceraAtras, FilaDato } from '@/componentes/navegacion';
 import { Avatar, BarraL10, FilaMercado, MarchaEnVivo, TarjetaPick } from '@/componentes/pick';
 import { competicion } from '@/datos/competiciones';
@@ -24,7 +25,7 @@ import { useComunidad } from '@/estado/comunidad';
 import { useDerechos } from '@/estado/derechos';
 import { useTienda } from '@/estado/tienda';
 import { usePartidoVivoDe, useProgresoEnVivo } from '@/estado/vivo';
-import { C, E, R } from '@/tema';
+import { C, COLUMNA, E, R } from '@/tema';
 
 /**
  * Comparte un pick.
@@ -557,6 +558,7 @@ export default function PantallaPick() {
 
   return (
     <View style={{ flex: 1, backgroundColor: C.fondo, paddingTop: insets.top + E.sm }}>
+      <Resplandor />
       <CabeceraAtras
         titulo="Detalle del pick"
         subtitulo={competicion(competicionId).nombre}
@@ -611,7 +613,8 @@ ${enlace}`;
       ) : null}
 
       <ScrollView
-        contentContainerStyle={{ paddingBottom: E.xxxl, gap: E.lg }}
+        {...marca('pagina')}
+        contentContainerStyle={[{ paddingBottom: E.xxxl, gap: E.lg }, COLUMNA.lectura]}
         showsVerticalScrollIndicator={false}
       >
         <View style={{ paddingHorizontal: E.lg, gap: E.md }}>

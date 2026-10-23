@@ -2,8 +2,10 @@ import { ScrollView, View } from 'react-native';
 import { useSafeAreaInsets } from 'react-native-safe-area-context';
 import { Separador, Tarjeta, Txt } from '@/componentes/base';
 import { Icono, type NombreIcono } from '@/componentes/iconos';
+import { Resplandor } from '@/componentes/marca';
+import { marca } from '@/componentes/movimiento';
 import { CabeceraAtras } from '@/componentes/navegacion';
-import { C, E, R } from '@/tema';
+import { C, COLUMNA, E, R } from '@/tema';
 
 /** Explicacion honesta de como se calcula lo que ensena la app. */
 
@@ -38,10 +40,15 @@ export default function Metodo() {
   const insets = useSafeAreaInsets();
   return (
     <View style={{ flex: 1, backgroundColor: C.fondo, paddingTop: insets.top + E.sm }}>
+      <Resplandor />
       <CabeceraAtras titulo="Cómo se calculan los picks" />
 
       <ScrollView
-        contentContainerStyle={{ paddingHorizontal: E.lg, paddingBottom: E.xxxl, gap: E.md }}
+        {...marca('pagina')}
+        contentContainerStyle={[
+          { paddingHorizontal: E.lg, paddingBottom: E.xxxl, gap: E.md },
+          COLUMNA.lectura,
+        ]}
         showsVerticalScrollIndicator={false}
       >
         {PASOS.map((p) => (

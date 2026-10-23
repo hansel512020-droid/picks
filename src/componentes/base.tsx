@@ -30,13 +30,39 @@ type Variante = keyof typeof T;
  */
 const ESCALA = StyleSheet.create(T as Record<Variante, TextStyle>);
 
+/**
+ * Las variantes que en la web van con la letra de titulares (ver `+html.tsx`).
+ * Las demás —todo lo que se lee de corrido— se quedan en la de texto.
+ */
+const TITULARES: Partial<Record<Variante, true>> = {
+  displayXL: true,
+  display: true,
+  titulo: true,
+  subtitulo: true,
+};
+
 export function Txt({
   v = 'cuerpo',
   color = C.texto,
+  titular,
+  marcas,
   style,
   ...props
-}: TextProps & { v?: Variante; color?: string }) {
-  return <Text {...props} style={[ESCALA[v], { color }, style]} />;
+}: TextProps & {
+  v?: Variante;
+  color?: string;
+  /** Fuerza la letra de titulares aunque la variante sea de texto. */
+  titular?: boolean;
+  /** Marcas de movimiento (ver `marca`). */
+  marcas?: string;
+}) {
+  return (
+    <Text
+      {...props}
+      {...marca((titular ?? TITULARES[v]) && 'titular', marcas)}
+      style={[ESCALA[v], { color }, style]}
+    />
+  );
 }
 
 const base = StyleSheet.create({

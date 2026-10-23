@@ -8,7 +8,7 @@ import {
   useRef,
   useState,
 } from 'react';
-import { Platform, View } from 'react-native';
+import { Platform, useWindowDimensions, View } from 'react-native';
 import { Icono, type NombreIcono } from '@/componentes/iconos';
 import { marca } from '@/componentes/movimiento';
 import { C, T } from '@/tema';
@@ -91,6 +91,13 @@ export default function LayoutPestanas() {
    * nadie diría nunca "ya está" y la barra se quedaría escondida para siempre.
    */
   const [oculta, setOculta] = useState(true);
+  /*
+   * En un monitor las cinco pestañas se repartían todo el ancho: Inicio en un
+   * extremo y Perfil a metro y medio. Se juntan en el centro, con la barra de
+   * fondo entera de lado a lado. En el móvil el relleno sale cero.
+   */
+  const { width } = useWindowDimensions();
+  const margenPestanas = Math.max(0, (width - 760) / 2);
   const avisado = useRef(false);
   const avisa = useCallback((cargando: boolean) => {
     avisado.current = true;
@@ -119,6 +126,7 @@ export default function LayoutPestanas() {
                 borderTopWidth: 1,
                 height: Platform.OS === 'ios' ? 84 : 64,
                 paddingTop: 7,
+                paddingHorizontal: margenPestanas,
               },
           tabBarLabelStyle: { ...T.mini, fontSize: 10 },
           sceneStyle: { backgroundColor: C.fondo },

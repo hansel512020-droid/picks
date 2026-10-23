@@ -17,7 +17,7 @@ import { BarraL10, FilaMercado } from '@/componentes/pick';
 import { COMPETICIONES } from '@/datos/competiciones';
 import { competicionesImportadas } from '@/datos/importado';
 import { useTienda } from '@/estado/tienda';
-import { C, E, R, anchoLienzo } from '@/tema';
+import { anchoLienzo, C, COLUMNA, E, R } from '@/tema';
 
 /**
  * Presentacion de la app la primera vez que se abre. Cada pantalla cuenta una
@@ -385,13 +385,16 @@ export default function Bienvenida() {
     <View style={{ flex: 1, backgroundColor: C.fondo, paddingTop: insets.top }}>
       <Resplandor alto={420} />
       <View
-        style={{
-          flexDirection: 'row',
-          alignItems: 'center',
-          justifyContent: 'space-between',
-          paddingHorizontal: E.lg,
-          paddingVertical: E.md,
-        }}
+        style={[
+          {
+            flexDirection: 'row',
+            alignItems: 'center',
+            justifyContent: 'space-between',
+            paddingHorizontal: E.lg,
+            paddingVertical: E.md,
+          },
+          COLUMNA.lectura,
+        ]}
       >
         <Simbolo tam={30} />
         <Pulsable
@@ -420,7 +423,10 @@ export default function Bienvenida() {
           <ScrollView
             key={i}
             style={{ width: ancho }}
-            contentContainerStyle={{ paddingHorizontal: E.lg, paddingBottom: E.xl, gap: E.lg }}
+            contentContainerStyle={[
+              { paddingHorizontal: E.lg, paddingBottom: E.xl, gap: E.lg },
+              COLUMNA.lectura,
+            ]}
             showsVerticalScrollIndicator={false}
           >
             <View {...marca('entra')} style={{ gap: E.sm, paddingTop: E.lg }}>
@@ -439,7 +445,12 @@ export default function Bienvenida() {
         ))}
       </ScrollView>
 
-      <View style={{ paddingHorizontal: E.lg, paddingBottom: insets.bottom + E.lg, gap: E.md }}>
+      <View
+        style={[
+          { paddingHorizontal: E.lg, paddingBottom: insets.bottom + E.lg, gap: E.md },
+          COLUMNA.lectura,
+        ]}
+      >
         <View style={{ flexDirection: 'row', justifyContent: 'center', gap: 6 }}>
           {DIAPOSITIVAS.map((_, i) => (
             <View

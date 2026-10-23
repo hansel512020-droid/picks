@@ -4,13 +4,14 @@ import { ScrollView, View } from 'react-native';
 import { useSafeAreaInsets } from 'react-native-safe-area-context';
 import { Boton, Descargo, Insignia, Pulsable, Tarjeta, Txt } from '@/componentes/base';
 import { Icono } from '@/componentes/iconos';
-import { Simbolo } from '@/componentes/marca';
+import { Resplandor, Simbolo } from '@/componentes/marca';
+import { marca } from '@/componentes/movimiento';
 import { BotonPayphone } from '@/componentes/payphone';
 import { COMPETICIONES, competicionesVisibles } from '@/datos/competiciones';
 import { useDerechos } from '@/estado/derechos';
 import { useSesion } from '@/estado/sesion';
 import { useTienda, type Plan } from '@/estado/tienda';
-import { C, E, R } from '@/tema';
+import { C, COLUMNA, E, R } from '@/tema';
 
 /** Pantalla de suscripcion con los planes de Golden Pro. */
 
@@ -160,12 +161,17 @@ export default function Pro() {
 
   return (
     <View style={{ flex: 1, backgroundColor: C.fondo }}>
+      <Resplandor alto={420} />
       <ScrollView
-        contentContainerStyle={{
-          paddingTop: insets.top + E.lg,
-          paddingBottom: E.xxxl,
-          gap: E.lg,
-        }}
+        {...marca('pagina')}
+        contentContainerStyle={[
+          {
+            paddingTop: insets.top + E.lg,
+            paddingBottom: E.xxxl,
+            gap: E.lg,
+          },
+          COLUMNA.lectura,
+        ]}
         showsVerticalScrollIndicator={false}
       >
         <View style={{ paddingHorizontal: E.lg, flexDirection: 'row', justifyContent: 'flex-end' }}>

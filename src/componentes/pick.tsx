@@ -186,7 +186,11 @@ export function Angulos({
                 style={[est.relleno, { width: `${porcentaje}%`, backgroundColor: color }]}
               />
             </View>
-            <Text style={{ ...T.mini, color: C.texto2, width: 48, textAlign: 'right' }}>
+            {/* Sin partir: "10 de 10" en dos líneas descuadra la fila entera. */}
+            <Text
+              numberOfLines={1}
+              style={{ ...T.mini, color: C.texto2, minWidth: 56, textAlign: 'right' }}
+            >
               {aciertos} de {de}
             </Text>
             <Text
@@ -797,6 +801,7 @@ export function TarjetaPick({
                 (equipo o partido) se queda el tamaño de siempre. */}
             <Txt
               v={pick.sujeto === 'partido' || pick.equipo ? 'cuerpoFuerte' : 'subtitulo'}
+              titular
               numberOfLines={1}
               style={{ flexShrink: 1, minWidth: 40 }}
             >

@@ -148,6 +148,32 @@ export const ALTO_TABS = 62;
  */
 export const ANCHO_MARCO = 4096;
 
+/**
+ * Las dos columnas de la web.
+ *
+ * El lienzo sigue ocupando la ventana entera —es una página, no un móvil
+ * metido en una página—, pero lo que va DENTRO no se estira hasta los bordes:
+ * en un monitor de 1440 una fila con la etiqueta en un extremo y el número en
+ * el otro, a metro y medio, no se lee, y una tarjeta de pick de 1400 de ancho
+ * es una barra.
+ *
+ * · `lectura`: fichas y ajustes. Una columna cómoda de leer.
+ * · `amplia`: las listas de tarjetas, que en pantalla grande van en rejilla.
+ *
+ * Se aplica al contenido y no al contenedor que se desplaza: así la rueda del
+ * ratón sigue moviendo la página aunque el puntero esté en los márgenes.
+ *
+ * En el móvil no hacen nada: la pantalla es más estrecha que cualquiera de las
+ * dos.
+ */
+export const ANCHO_LECTURA = 880;
+export const ANCHO_AMPLIO = 1280;
+
+export const COLUMNA = {
+  lectura: { width: '100%', maxWidth: ANCHO_LECTURA, alignSelf: 'center' },
+  amplia: { width: '100%', maxWidth: ANCHO_AMPLIO, alignSelf: 'center' },
+} as const;
+
 /** Ancho útil del lienzo para el tamaño de ventana dado. */
 export function anchoLienzo(anchoVentana: number): number {
   return Math.min(anchoVentana, ANCHO_MARCO);

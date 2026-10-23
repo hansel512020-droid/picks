@@ -106,7 +106,7 @@ export function PantallaCargando({
         <Txt v="etiqueta" color={C.lima} style={{ letterSpacing: 2.4 }}>
           GOLDEN PICKS
         </Txt>
-        <Txt v="subtitulo" {...marca('respira')}>
+        <Txt v="subtitulo" marcas="respira">
           {titulo}
         </Txt>
         {detalle ? (

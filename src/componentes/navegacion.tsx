@@ -1,6 +1,6 @@
 import { router } from 'expo-router';
 import { ScrollView, View, type StyleProp, type ViewStyle } from 'react-native';
-import { brillo, C, E, R } from '@/tema';
+import { brillo, C, COLUMNA, E, R } from '@/tema';
 import { Pulsable, Txt } from './base';
 import { Icono, type NombreIcono } from './iconos';
 import { marca } from './movimiento';
@@ -76,7 +76,7 @@ export function Segmentado<T extends string>({
               {op.icono ? (
                 <Icono nombre={op.icono} tam={16} color={activo ? C.lima : C.texto2} />
               ) : null}
-              <Txt v="cuerpoFuerte" color={activo ? C.lima : C.texto2} {...marca('color')}>
+              <Txt v="cuerpoFuerte" color={activo ? C.lima : C.texto2} marcas="color">
                 {op.texto}
               </Txt>
             </Pulsable>
@@ -114,7 +114,7 @@ export function Pestanas<T extends string>({
             plano
             style={{ flex: 1, alignItems: 'center', paddingVertical: 13 }}
           >
-            <Txt v="cuerpoFuerte" color={activo ? C.lima : C.texto2} {...marca('color')}>
+            <Txt v="cuerpoFuerte" color={activo ? C.lima : C.texto2} marcas="color">
               {op.texto}
             </Txt>
           </Pulsable>
@@ -143,20 +143,30 @@ export function CabeceraAtras({
   titulo,
   subtitulo,
   accion,
+  ancho = 'lectura',
 }: {
   titulo?: string;
   subtitulo?: string;
   accion?: React.ReactNode;
+  /**
+   * La columna de la pantalla a la que pertenece (ver `COLUMNA`): la flecha
+   * tiene que quedar alineada con el contenido de debajo, no pegada al borde
+   * del monitor.
+   */
+  ancho?: keyof typeof COLUMNA;
 }) {
   return (
     <View
-      style={{
-        flexDirection: 'row',
-        alignItems: 'center',
-        gap: E.md,
-        paddingHorizontal: E.lg,
-        paddingBottom: E.md,
-      }}
+      style={[
+        {
+          flexDirection: 'row',
+          alignItems: 'center',
+          gap: E.md,
+          paddingHorizontal: E.lg,
+          paddingBottom: E.md,
+        },
+        COLUMNA[ancho],
+      ]}
     >
       <Pulsable
         onPress={() => (router.canGoBack() ? router.back() : router.replace('/'))}

@@ -2,8 +2,10 @@ import { useLocalSearchParams } from 'expo-router';
 import { Linking, ScrollView, View } from 'react-native';
 import { useSafeAreaInsets } from 'react-native-safe-area-context';
 import { Pulsable, Tarjeta, Txt } from '@/componentes/base';
+import { Resplandor } from '@/componentes/marca';
+import { marca } from '@/componentes/movimiento';
 import { CabeceraAtras } from '@/componentes/navegacion';
-import { C, E } from '@/tema';
+import { C, COLUMNA, E } from '@/tema';
 
 /**
  * Términos y condiciones, y política de privacidad.
@@ -158,13 +160,18 @@ export default function Legal() {
 
   return (
     <View style={{ flex: 1, backgroundColor: C.fondo, paddingTop: insets.top + E.sm }}>
+      <Resplandor />
       <CabeceraAtras
         titulo={soloPrivacidad ? 'Privacidad' : 'Términos y privacidad'}
         subtitulo={`Actualizado el ${ACTUALIZADO}`}
       />
 
       <ScrollView
-        contentContainerStyle={{ paddingHorizontal: E.lg, paddingBottom: E.xxxl, gap: E.lg }}
+        {...marca('pagina')}
+        contentContainerStyle={[
+          { paddingHorizontal: E.lg, paddingBottom: E.xxxl, gap: E.lg },
+          COLUMNA.lectura,
+        ]}
         showsVerticalScrollIndicator={false}
       >
         {!soloPrivacidad ? (

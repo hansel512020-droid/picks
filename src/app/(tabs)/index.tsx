@@ -24,9 +24,10 @@ import { useComunidad } from '@/estado/comunidad';
 import { useDerechos } from '@/estado/derechos';
 import { useTienda } from '@/estado/tienda';
 import { usePicksVigentes, useVivo } from '@/estado/vivo';
-import { brillo, C, E, LISTA_LIGERA, R } from '@/tema';
+import { brillo, C, COLUMNA, E, LISTA_LIGERA, R } from '@/tema';
 import { useCalculo } from '@/utiles/carga';
 import { usePicksDelServidor } from '@/utiles/picks';
+import { useRejilla } from '@/utiles/rejilla';
 import { useOcultaPestanas } from './_layout';
 
 type Orden = 'acierto' | 'probabilidad' | 'fuego';
@@ -344,6 +345,8 @@ export default function Inicio() {
 
   // Un partido que acaba de terminar deja de dar picks al momento.
   const enCartel = usePicksVigentes(visibles);
+  // Una, dos o tres tarjetas por fila según el ancho (ver `useRejilla`).
+  const { columnas, fila, celda } = useRejilla();
 
   const comp = competicion(competicionId);
   const familiasVisibles = todasFamilias ? FAMILIAS : FAMILIAS.slice(0, 5);
@@ -389,16 +392,20 @@ export default function Inicio() {
 
   return (
     <View style={{ flex: 1, backgroundColor: C.fondo, paddingTop: insets.top }}>
+      {/* Ambiente detrás de la cabecera, de lado a lado de la ventana. */}
+      <Resplandor alto={340 + insets.top} />
       <FlatList
+        // Cambiar el número de columnas obliga a montar la lista de nuevo.
+        key={columnas}
+        numColumns={columnas}
+        columnWrapperStyle={fila}
         data={enCartel}
         keyExtractor={(p) => p.id}
-        contentContainerStyle={{ paddingBottom: E.xxxl, gap: E.md }}
+        contentContainerStyle={[{ paddingBottom: E.xxxl, gap: E.md }, COLUMNA.amplia]}
         showsVerticalScrollIndicator={false}
         {...LISTA_LIGERA}
         ListHeaderComponent={
           <View style={{ gap: E.lg, marginBottom: E.xs }}>
-            {/* Ambiente detrás de la cabecera; sube por debajo de la muesca. */}
-            <Resplandor desde={-insets.top} />
             {/*
               Aquí había una barra fina de progreso para los recálculos con la
               lista ya puesta. Fuera: con la portada delante, una barra que
@@ -665,7 +672,7 @@ export default function Inicio() {
           </View>
         }
         renderItem={({ item, index }) => (
-          <Aparece orden={index} style={{ paddingHorizontal: E.lg }}>
+          <Aparece orden={index} style={celda ?? { paddingHorizontal: E.lg }}>
             <TarjetaPick pick={item} />
           </Aparece>
         )}
