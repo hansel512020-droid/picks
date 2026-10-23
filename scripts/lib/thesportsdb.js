@@ -66,10 +66,14 @@ function parecido(a, b) {
 
 class Buscador {
   /*
-   * Una petición cada 2,1 segundos. El plan gratuito admite 30 por minuto; más
-   * deprisa contesta 429, y una petición que agota sus reintentos se pierde.
+   * Una petición cada 4 segundos. El plan gratuito corta con 429 en cuanto se
+   * le pide deprisa —con 2,1 s, a la séptima búsqueda—, y desde GitHub la IP
+   * se comparte con otros: mejor ir despacio y no perder peticiones.
+   *
+   * `esperaLimiteMs` es lo que se espera tras un 429 si la fuente no dice
+   * cuánto (Retry-After).
    */
-  constructor(dirCache, { pausaMs = 2100 } = {}) {
+  constructor(dirCache, { pausaMs = 4000, esperaLimiteMs = 60_000 } = {}) {
     this.archivo = path.join(dirCache, 'thesportsdb.json');
     fs.mkdirSync(dirCache, { recursive: true });
     this.cache = {};
@@ -85,6 +89,7 @@ class Buscador {
       }
     }
     this.pausaMs = pausaMs;
+    this.esperaLimiteMs = esperaLimiteMs;
     this.peticiones = 0;
     this.ultima = 0;
     /** Peticiones que agotaron sus intentos, y por qué falló la última. */
@@ -121,12 +126,24 @@ class Buscador {
           this.cache[clave] = datos;
           return datos;
         }
-        // 429 y demas: se espera mas antes de reintentar.
         this.ultimoFallo = `HTTP ${r.status}`;
-        this.pausaMs = Math.min(4000, Math.round(this.pausaMs * 1.6));
+        /*
+         * 429 es "más despacio", no "caído": se espera lo que pida la fuente
+         * (un minuto si no lo dice) y el resto de la pasada va más lenta.
+         */
+        if (r.status === 429) {
+          const segundos = Number(r.headers?.get?.('retry-after'));
+          const espera = segundos > 0 ? Math.min(segundos * 1000, 120_000) : this.esperaLimiteMs;
+          // Tras el último intento no se espera: ya no hay a qué.
+          if (intento < 2) await new Promise((ok) => setTimeout(ok, espera));
+          this.pausaMs = Math.min(10_000, Math.round(this.pausaMs * 1.5));
+          continue;
+        }
+        // Lo demás: se espera más antes de reintentar.
+        this.pausaMs = Math.min(10_000, Math.round(this.pausaMs * 1.6));
       } catch (error) {
         this.ultimoFallo = error?.message ?? String(error);
-        this.pausaMs = Math.min(4000, Math.round(this.pausaMs * 1.6));
+        this.pausaMs = Math.min(10_000, Math.round(this.pausaMs * 1.6));
       }
     }
     this.fallos++;
