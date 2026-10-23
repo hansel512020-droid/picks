@@ -121,6 +121,14 @@ const num = (v) => {
   return Number.isFinite(n) ? n : 0;
 };
 
+/** Goles de un equipo en la primera parte, o `undefined` si ESPN no lo da. */
+const alDescanso = (equipo) => {
+  const v = equipo?.linescores?.[0]?.value ?? equipo?.linescores?.[0]?.displayValue;
+  if (v === undefined || v === null || v === '') return undefined;
+  const n = Number(v);
+  return Number.isFinite(n) ? n : undefined;
+};
+
 /**
  * Estados de ESPN traducidos a los de la app.
  *
@@ -208,6 +216,11 @@ async function calendario(slug, desde, hasta, dirCache, forzar) {
         escudoVisitante: visitante.team?.logo,
         golesLocal: num(local.score),
         golesVisitante: num(visitante.score),
+        // El marcador al descanso, de las líneas por parte. No siempre viene, y
+        // entonces se queda sin dato: un 0 inventado daría por buenos picks de
+        // "menos goles en el primer tiempo" que nadie ha comprobado.
+        golesLocalDescanso: alDescanso(local),
+        golesVisitanteDescanso: alDescanso(visitante),
         estado: estadoDe(c.status),
         minuto: c.status?.displayClock ? parseInt(c.status.displayClock, 10) || undefined : undefined,
         ronda: evento.season?.slug ?? c.notes?.[0]?.headline,

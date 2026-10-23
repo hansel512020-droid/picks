@@ -59,6 +59,8 @@ export interface Resumen {
   jugoDe: Map<string, boolean>;
   /** Si entró de suplente (jugó, pero no era titular). Por nombre. */
   suplenteDe: Map<string, boolean>;
+  /** Goles de la primera parte, de las líneas por parte del acta. */
+  golesPrimeraParte?: number;
 }
 
 /** Pide el detalle de un partido concreto a ESPN. */
@@ -118,8 +120,23 @@ export async function resumenDelPartido(slug: string, idEspn: string): Promise<R
       }
     }
 
+    /*
+     * Los goles de la primera parte salen de las líneas por parte. Mientras se
+     * juega la primera, esa línea va subiendo; como los goles de una parte no
+     * bajan nunca, un "más de" que la cruce ya está ganado igual.
+     */
+    const parte1 = (x: any): number | undefined => {
+      const v = x?.linescores?.[0]?.value ?? x?.linescores?.[0]?.displayValue;
+      const n = Number(v);
+      return v === undefined || v === null || v === '' || !Number.isFinite(n) ? undefined : n;
+    };
+    const p1Local = parte1(local);
+    const p1Visitante = parte1(visitante);
+
     return {
       terminado: estado?.state === 'post' || !!estado?.completed,
+      golesPrimeraParte:
+        p1Local !== undefined && p1Visitante !== undefined ? p1Local + p1Visitante : undefined,
       golesLocal: num(local?.score),
       golesVisitante: num(visitante?.score),
       nombreLocal: local?.team?.displayName ?? '',
@@ -215,6 +232,9 @@ function valorDe(
     return resumen.porEquipo.get(esLocal ? local : visitante)?.[metrica];
   }
   if (metrica === 'golesTotales') return resumen.golesLocal + resumen.golesVisitante;
+  if (metrica === 'ambosMarcan') return resumen.golesLocal > 0 && resumen.golesVisitante > 0 ? 1 : 0;
+  // Sin el marcador de la primera parte no se decide: se queda pendiente.
+  if (metrica === 'golesPrimeraParte') return resumen.golesPrimeraParte;
   if (metrica === 'cornersTotales' || metrica === 'tarjetasTotales' || metrica === 'rematesTotales') {
     const campo = {
       cornersTotales: 'corners',

@@ -604,6 +604,7 @@ const NOMBRE_METRICA: Record<string, [uno: string, varios: string]> = {
   faltasCometidas: ['falta', 'faltas'],
   faltasRecibidas: ['falta recibida', 'faltas recibidas'],
   paradas: ['parada', 'paradas'],
+  golesPrimeraParte: ['gol en el primer tiempo', 'goles en el primer tiempo'],
 };
 
 const nombra = (n: number, metrica?: string) => {
@@ -634,6 +635,35 @@ export function MarchaEnVivo({
   if (marcha.metrica === 'handicap') return null;
 
   const mas = marcha.sentido === 'mas';
+  /*
+   * "Ambos marcan" no se cuenta: o han marcado los dos o no. Un "Lleva 0 ·
+   * necesita 1" no diría nada; se dice cómo está.
+   */
+  if (marcha.metrica === 'ambosMarcan') {
+    const color = marcha.cumplido ? C.acierto : marcha.roto ? C.fallo : C.texto2;
+    const texto = marcha.cumplido
+      ? '¡Cumplido! Ya han marcado los dos'
+      : marcha.roto
+        ? 'Se cayó: ya han marcado los dos'
+        : mas
+          ? 'Falta que marquen los dos'
+          : 'De momento no han marcado los dos';
+    return (
+      <View style={{ flexDirection: 'row', alignItems: 'center', gap: 6 }}>
+        {marcha.cumplido || marcha.roto ? (
+          <Icono
+            nombre={marcha.cumplido ? 'check' : 'cruz'}
+            tam={grande ? 14 : 12}
+            color={color}
+            grosor={2.6}
+          />
+        ) : null}
+        <Txt v={grande ? 'pequenoFuerte' : 'mini'} color={color}>
+          {texto}
+        </Txt>
+      </View>
+    );
+  }
   const meta = mas ? Math.ceil(marcha.linea) : Math.floor(marcha.linea);
   const parte = meta > 0 ? Math.min(1, marcha.valor / meta) : marcha.valor > 0 ? 1 : 0;
   const lleva = `Lleva ${marcha.valor} ${nombra(marcha.valor, marcha.metrica)}`.trim();
