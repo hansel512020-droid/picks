@@ -24,6 +24,7 @@ const fs = require('node:fs');
 const path = require('node:path');
 
 const { Buscador, claveEstricta } = require('./lib/thesportsdb');
+const { resuelveEscudosImportados } = require('./lib/escudos-importados');
 const { MAPA } = require('./lib/mapa-ligas');
 
 const RAIZ = path.join(__dirname, '..');
@@ -485,6 +486,33 @@ async function main() {
       }
     }
     console.log(`\r  Jugadores: ${unicos.length}/${unicos.length} · ${encontrados} con foto      `);
+  }
+
+  // ----------------------------------------------------- equipos importados
+  /*
+   * Los equipos de los datos importados que ESPN dejó sin escudo. Va al
+   * final y aparte: si algo sale mal aquí, lo de arriba ya está guardado y el
+   * catálogo de siempre no se pierde.
+   */
+  if (!o.solo || o.solo === 'equipos') {
+    const ruta = path.join(RAIZ, 'src', 'datos', 'importado.json');
+    if (fs.existsSync(ruta)) {
+      try {
+        const archivo = JSON.parse(fs.readFileSync(ruta, 'utf8'));
+        const parte = await resuelveEscudosImportados(buscador, logos, archivo, LIGA_EN_INGLES);
+        console.log(
+          `  Importados sin escudo de ESPN: ${parte.sinEscudo} · ` +
+            `${parte.porLiga} encontrados en su liga, ${parte.porNombre} por nombre exacto ` +
+            `(${parte.buscados} buscados uno a uno) · siguen sin escudo ${parte.quedan.length}`,
+        );
+        if (parte.quedan.length) {
+          const muestra = parte.quedan.slice(0, 40).join(', ');
+          console.log(`    Sin escudo: ${muestra}${parte.quedan.length > 40 ? '…' : ''}`);
+        }
+      } catch (error) {
+        console.log(`  Importados: no se pudieron resolver (${error.message})`);
+      }
+    }
   }
 
   buscador.guarda();

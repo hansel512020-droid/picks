@@ -116,6 +116,13 @@ function indiceImportado(): Record<string, string> {
 export function escudoEquipo(nombre: string, id?: string): string | undefined {
   const indice = indiceImportado();
   if (id && indice[id]) return indice[id];
+  /*
+   * El catálogo también guarda escudos por identificador: los que el robot
+   * busca para equipos importados que ESPN dejó sin escudo. Va antes que el
+   * nombre por lo mismo de arriba, los homónimos (ver
+   * `scripts/lib/escudos-importados.js`).
+   */
+  if (id && LOGOS.equipos?.[id]) return LOGOS.equipos[id];
   const clave = claveNombre(nombre);
   return indice[clave] ?? LOGOS.equipos?.[clave];
 }
