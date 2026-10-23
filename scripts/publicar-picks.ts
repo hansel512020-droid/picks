@@ -34,6 +34,7 @@
 
 import { readFileSync } from 'node:fs';
 import { gunzipSync } from 'node:zlib';
+import { SOLO_RELLENO } from '../src/datos/competiciones';
 import { aplicaDatos, competicionesImportadas } from '../src/datos/importado';
 import { temporada } from '../src/datos/motor';
 import { partidosAbiertos, pickDelDia, picksDePartido } from '../src/datos/picks';
@@ -185,7 +186,9 @@ async function main(): Promise<void> {
   const t0 = Date.now();
 
   for (const comp of competicionesImportadas()) {
-    if (comp === 'todas') continue;
+    // Las escondidas (el Mundial, hasta 2030) no se publican: nadie puede
+    // elegirlas en la app y solo ocupaban filas.
+    if (comp === 'todas' || SOLO_RELLENO.has(comp)) continue;
     let partidos;
     try {
       partidos = partidosAbiertos(comp).filter((p) => Date.parse(p.fecha) <= hasta);
