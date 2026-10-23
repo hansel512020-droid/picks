@@ -124,12 +124,21 @@ input:-webkit-autofill {
   transition: background-color 600000s 0s, border-color .2s ease, box-shadow .2s ease;
 }
 
-/* ── Lo que se pulsa ─────────────────────────────────────────────── */
+/* ── Lo que se pulsa ─────────────────────────────────────────────────
+   Todo lo que se anima aquí es transform u opacity: es lo único que la
+   tarjeta gráfica mueve sola, sin que el navegador vuelva a pintar la página.
+   Un filtro o una sombra animados obligan a repintar en cada fotograma, y en
+   un portátil modesto eso se nota al desplazarse. */
 [data-gp~="p"] {
   cursor: pointer;
-  transition: opacity .18s ease, transform .22s cubic-bezier(.2,.8,.2,1),
-    filter .2s ease, background-color .2s ease, border-color .2s ease,
-    box-shadow .25s ease;
+  transition: opacity .18s ease, transform .22s cubic-bezier(.2,.8,.2,1);
+}
+/* El brillo al pasar el ratón es una capa clara por encima del fondo y por
+   debajo del contenido, que solo cambia de opacidad. */
+[data-gp~="p"]:not([data-gp~="plano"])::before {
+  content: ""; position: absolute; inset: 0; border-radius: inherit;
+  background: #FFFFFF; opacity: 0; pointer-events: none;
+  transition: opacity .16s ease;
 }
 [data-gp~="p"]:focus-visible { outline: 2px solid rgba(201,255,61,.75); outline-offset: 2px; }
 [data-gp~="p"]:not([data-gp~="plano"]):active { transform: scale(.97); }
@@ -137,11 +146,11 @@ input:-webkit-autofill {
 /* ── Superficies ─────────────────────────────────────────────────── */
 [data-gp~="tarjeta"] {
   background-image: linear-gradient(180deg, rgba(255,255,255,.028), rgba(255,255,255,0) 42%);
-  transition: transform .28s cubic-bezier(.2,.8,.2,1), box-shadow .28s ease, border-color .28s ease;
+  transition: transform .28s cubic-bezier(.2,.8,.2,1), border-color .28s ease;
 }
 
 @media (hover: hover) and (pointer: fine) {
-  [data-gp~="p"]:not([data-gp~="plano"]):hover { filter: brightness(1.15); }
+  [data-gp~="p"]:not([data-gp~="plano"]):hover::before { opacity: .06; }
   [data-gp~="eleva"]:hover {
     transform: translateY(-3px);
     box-shadow: 0 20px 40px -22px rgba(0,0,0,.95), 0 0 0 1px rgba(201,255,61,.10);
@@ -149,35 +158,35 @@ input:-webkit-autofill {
   [data-gp~="eleva"]:not([data-gp~="vivo"]):hover { border-color: #31363E !important; }
 }
 
-/* ── Cristal (barra de pestañas) ─────────────────────────────────── */
-[data-gp~="cristal"] {
-  -webkit-backdrop-filter: blur(18px) saturate(1.5);
-  backdrop-filter: blur(18px) saturate(1.5);
-}
-
-/* ── Entradas ────────────────────────────────────────────────────── */
+/* ── Entradas ──────────────────────────────────────────────────────
+   Las animaciones de una sola vez van con relleno "backwards" y no "both":
+   se ven igual —esperan en su primer fotograma y acaban en el estado normal
+   de la pieza— pero al terminar desaparecen del todo. Con "both" la animación
+   seguía aplicada para siempre y el navegador mantenía cada tarjeta y cada
+   barra en su propia capa de la tarjeta gráfica: con una lista larga eran
+   cientos de capas que recomponer en cada fotograma del scroll. */
 @keyframes gp-entra {
-  from { opacity: 0; transform: translateY(16px) scale(.985); }
+  from { opacity: 0; transform: translateY(14px); }
   to { opacity: 1; transform: none; }
 }
-[data-gp~="entra"] { animation: gp-entra .55s cubic-bezier(.2,.8,.2,1) both; }
+[data-gp~="entra"] { animation: gp-entra .55s cubic-bezier(.2,.8,.2,1) backwards; }
 
 /* Al abrir una pantalla, su contenido sube un poco y aparece: en la web la
    navegación no anima nada y el cambio de pantalla era un salto seco. */
 @keyframes gp-pagina { from { opacity: 0; transform: translateY(10px); } to { opacity: 1; transform: none; } }
-[data-gp~="pagina"] { animation: gp-pagina .42s cubic-bezier(.2,.8,.2,1) both; }
+[data-gp~="pagina"] { animation: gp-pagina .42s cubic-bezier(.2,.8,.2,1) backwards; }
 
 @keyframes gp-despliega {
   from { opacity: 0; transform: translateY(-6px) scale(.98); }
   to { opacity: 1; transform: none; }
 }
-[data-gp~="despliega"] { animation: gp-despliega .26s cubic-bezier(.2,.8,.2,1) both; transform-origin: top center; }
+[data-gp~="despliega"] { animation: gp-despliega .26s cubic-bezier(.2,.8,.2,1) backwards; transform-origin: top center; }
 
 @keyframes gp-crece { from { transform: scaleX(0); } to { transform: scaleX(1); } }
-[data-gp~="crece"] { transform-origin: left center; animation: gp-crece .8s cubic-bezier(.2,.8,.2,1) both; }
+[data-gp~="crece"] { transform-origin: left center; animation: gp-crece .8s cubic-bezier(.2,.8,.2,1) backwards; }
 
 @keyframes gp-sube { from { transform: scaleY(0); } to { transform: scaleY(1); } }
-[data-gp~="sube"] { transform-origin: center bottom; animation: gp-sube .7s cubic-bezier(.2,.8,.2,1) both; }
+[data-gp~="sube"] { transform-origin: center bottom; animation: gp-sube .7s cubic-bezier(.2,.8,.2,1) backwards; }
 
 @keyframes gp-pop { 0% { transform: scale(1); } 40% { transform: scale(1.32); } 100% { transform: scale(1); } }
 [data-gp~="pop"] { animation: gp-pop .38s cubic-bezier(.2,.8,.2,1); }
@@ -188,12 +197,19 @@ input:-webkit-autofill {
 [data-gp~="color"] { transition: color .2s ease, background-color .2s ease, border-color .2s ease; }
 
 /* ── En vivo ─────────────────────────────────────────────────────── */
+/* Una copia del punto que crece y se desvanece. Era una sombra animada, que
+   obliga a repintar en cada fotograma mientras haya un partido en juego; así
+   es solo transform y opacidad. */
 @keyframes gp-latido {
-  0% { box-shadow: 0 0 0 0 rgba(240,82,75,.6); }
-  70% { box-shadow: 0 0 0 7px rgba(240,82,75,0); }
-  100% { box-shadow: 0 0 0 0 rgba(240,82,75,0); }
+  0% { transform: scale(1); opacity: .75; }
+  80%, 100% { transform: scale(2.8); opacity: 0; }
 }
-[data-gp~="latido"] { animation: gp-latido 1.8s ease-out infinite; }
+[data-gp~="latido"] { position: relative; }
+[data-gp~="latido"]::after {
+  content: ""; position: absolute; inset: 0; border-radius: 50%;
+  background: inherit; pointer-events: none;
+  animation: gp-latido 1.8s cubic-bezier(0,0,.2,1) infinite;
+}
 
 /* ── Reflejo que cruza ───────────────────────────────────────────── */
 @keyframes gp-barrido { from { transform: translateX(-100%); } to { transform: translateX(100%); } }
@@ -202,7 +218,9 @@ input:-webkit-autofill {
   content: ""; position: absolute; inset: 0; pointer-events: none;
   background: linear-gradient(100deg, transparent 20%, rgba(255,255,255,.16) 50%, transparent 80%);
   transform: translateX(-100%);
-  animation: gp-barrido 3.2s cubic-bezier(.4,0,.2,1) 1.2s infinite;
+  /* Tres pasadas y se queda quieto: llama la atención al llegar y después
+     no gasta nada. */
+  animation: gp-barrido 3.2s cubic-bezier(.4,0,.2,1) 1.2s 3;
 }
 
 /* ── Pantalla de carga ───────────────────────────────────────────── */

@@ -142,8 +142,14 @@ export const LISTA_LIGERA = {
   updateCellsBatchingPeriod: 40,
 } as const;
 
-/** Altura reservada para la barra de pestanas flotante. */
-export const ALTO_TABS = 62;
+/**
+ * Altura de la barra de pestañas flotante.
+ *
+ * Cada pestaña necesita 51: el hueco del icono (28), el nombre (13) y 5 de
+ * margen arriba y abajo. Con 62 y los rellenos de la cápsula quedaban 48 y el
+ * nombre salía cortado por abajo. Con 66 caben con aire.
+ */
+export const ALTO_TABS = 66;
 
 /** Separación de la barra flotante con el borde de abajo de la pantalla. */
 export const MARGEN_TABS = 12;

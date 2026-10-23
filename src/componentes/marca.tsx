@@ -1,8 +1,9 @@
 import { LinearGradient } from 'expo-linear-gradient';
 import { View, Text, type StyleProp, type ViewStyle } from 'react-native';
+import { useSafeAreaInsets } from 'react-native-safe-area-context';
 import { marca } from './movimiento';
 import Svg, { Circle, Path } from 'react-native-svg';
-import { C, T } from '@/tema';
+import { C, HUECO_PESTANAS, T } from '@/tema';
 
 /**
  * Marca de Golden: una estrella de cuatro puntas dentro de un anillo. Es el
@@ -59,6 +60,33 @@ export function Resplandor({ alto = 340, desde = 0 }: { alto?: number; desde?: n
         left: 0,
         right: 0,
         height: alto - desde,
+      }}
+    />
+  );
+}
+
+/**
+ * Un fundido al color del fondo en el pie de las pantallas de pestañas.
+ *
+ * La barra de abajo flota y la lista pasa por debajo; sin esto, las tarjetas
+ * se veían cortadas a los lados y detrás de la cápsula, y el pie de la
+ * pantalla parecía un montón de cosas encima de otras. Con el fundido el
+ * contenido se desvanece antes de llegar a la barra. Va el último dentro de la
+ * pantalla, para pintarse encima de la lista, y no recibe toques.
+ */
+export function FundidoInferior() {
+  const insets = useSafeAreaInsets();
+  return (
+    <LinearGradient
+      colors={['rgba(7,10,15,0)', 'rgba(7,10,15,0.82)', C.fondo]}
+      locations={[0, 0.5, 1]}
+      style={{
+        pointerEvents: 'none',
+        position: 'absolute',
+        left: 0,
+        right: 0,
+        bottom: 0,
+        height: HUECO_PESTANAS + insets.bottom,
       }}
     />
   );

@@ -5,7 +5,7 @@ import { FlatList, Text, View } from 'react-native';
 import { useSafeAreaInsets } from 'react-native-safe-area-context';
 import { Chip, Pulsable, Separador, Tarjeta, Txt, Vacio } from '@/componentes/base';
 import { Icono } from '@/componentes/iconos';
-import { Resplandor } from '@/componentes/marca';
+import { FundidoInferior, Resplandor } from '@/componentes/marca';
 import { Dato, TiraChips } from '@/componentes/navegacion';
 import { Escudo } from '@/componentes/imagen';
 import { Aparece, marca } from '@/componentes/movimiento';
@@ -540,6 +540,8 @@ export default function Rendimiento() {
           )
         }
       />
+      {/* La lista se desvanece antes de llegar a la barra flotante. */}
+      <FundidoInferior />
     </View>
   );
 }

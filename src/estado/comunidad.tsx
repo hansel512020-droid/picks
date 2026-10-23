@@ -41,6 +41,38 @@ const CADA_REFRESCO = 30_000;
 
 const Contexto = createContext<Comunidad | null>(null);
 
+/**
+ * Mezcla lo que llega del servidor con lo que ya había, y devuelve el MISMO
+ * objeto si no ha cambiado ningún número.
+ *
+ * Antes se estrenaba un objeto en cada respuesta aunque las cifras fueran las
+ * mismas, y eso repintaba todas las tarjetas de la app —y hacía que la portada
+ * volviera a ordenar la lista entera— cada medio minuto y cada vez que entraba
+ * una tarjeta nueva al desplazarse. Con "Todas" eran cientos de picks
+ * reordenados en mitad del scroll: tirones. Si nada cambia, React no repinta.
+ */
+function mezcla(
+  prev: Record<string, number>,
+  ids: string[],
+  nuevos: Record<string, number>,
+  mios: Set<string>,
+): Record<string, number> {
+  let salida: Record<string, number> | null = null;
+  for (const id of ids) {
+    const servidor = nuevos[id] ?? 0;
+    // Un pick que nadie ha guardado no viene en la respuesta: es un cero, no
+    // un "no se sabe". Pero lo que el usuario acaba de guardar no baja por
+    // debajo de lo que ya se le enseñó, aunque el servidor aún no lo cuente.
+    const valor = mios.has(id) ? Math.max(servidor, prev[id] ?? 0) : servidor;
+    // Lo que no está apuntado ya cuenta como cero (ver `cuenta`): un cero que
+    // llega no cambia nada que se vea.
+    if ((prev[id] ?? 0) === valor) continue;
+    if (!salida) salida = { ...prev };
+    salida[id] = valor;
+  }
+  return salida ?? prev;
+}
+
 export function ProveedorComunidad({ children }: { children: ReactNode }) {
   // Quien guarda: con cuenta cuenta una vez, aunque use varios navegadores.
   const { sesion } = useSesion();
@@ -66,17 +98,7 @@ export function ProveedorComunidad({ children }: { children: ReactNode }) {
     pendientes.current.clear();
     if (!ids.length) return;
     const nuevos = await contadores(ids);
-    setCuentas((prev) => {
-      const salida = { ...prev };
-      // Un pick que nadie ha guardado no viene en la respuesta: es un cero,
-      // no un "no se sabe". Pero lo que el usuario acaba de guardar no baja por
-      // debajo de lo que ya se le enseñó, aunque el servidor aún no lo cuente.
-      for (const id of ids) {
-        const servidor = nuevos[id] ?? 0;
-        salida[id] = mios.current.has(id) ? Math.max(servidor, prev[id] ?? 0) : servidor;
-      }
-      return salida;
-    });
+    setCuentas((prev) => mezcla(prev, ids, nuevos, mios.current));
   }, []);
 
   const pide = useCallback(
@@ -122,14 +144,7 @@ export function ProveedorComunidad({ children }: { children: ReactNode }) {
       const ids = [...pedidos.current];
       if (!ids.length) return;
       const nuevos = await contadores(ids);
-      setCuentas((prev) => {
-        const salida = { ...prev };
-        for (const id of ids) {
-          const servidor = nuevos[id] ?? 0;
-          salida[id] = mios.current.has(id) ? Math.max(servidor, prev[id] ?? 0) : servidor;
-        }
-        return salida;
-      });
+      setCuentas((prev) => mezcla(prev, ids, nuevos, mios.current));
     }, CADA_REFRESCO);
 
     return () => clearInterval(reloj);
