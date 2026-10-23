@@ -505,6 +505,7 @@ async function main() {
             `${parte.porLiga} encontrados en su liga, ${parte.porNombre} por nombre exacto ` +
             `(${parte.buscados} buscados uno a uno) · siguen sin escudo ${parte.quedan.length}`,
         );
+        if (parte.fallo) console.log(`    TheSportsDB no contestó bien: ${parte.fallo}`);
         if (parte.ligasSinEncontrar.length) {
           const ligas = parte.ligasSinEncontrar.join(', ');
           console.log(`    Ligas que TheSportsDB no conoce con ese nombre: ${ligas}`);

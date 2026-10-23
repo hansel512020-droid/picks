@@ -11,7 +11,20 @@
 const fs = require('node:fs');
 const path = require('node:path');
 
-const API = 'https://www.thesportsdb.com/api/v1/json/3';
+/*
+ * La clave de la API.
+ *
+ * La gratuita de pruebas era "3" y TheSportsDB la cambió por "123". Con la
+ * vieja todas las peticiones fallaban, y como el bot servía casi todo de su
+ * caché, no se notó en semanas: lo nuevo —caras, escudos de los equipos
+ * importados— simplemente no llegaba. Se puede pasar otra, una de pago, en
+ * THESPORTSDB_KEY.
+ */
+const CLAVE_API = process.env.THESPORTSDB_KEY || '123';
+const API = `https://www.thesportsdb.com/api/v1/json/${CLAVE_API}`;
+
+/** La caché va sin la clave: la respuesta es la misma con cualquiera. */
+const sinClave = (url) => url.replace(/\/api\/v1\/json\/[^/]+\//, '/api/v1/json/');
 
 /**
  * Clave con la que se guarda cada escudo: el nombre completo, sin quitarle
@@ -52,13 +65,21 @@ function parecido(a, b) {
 }
 
 class Buscador {
-  constructor(dirCache, { pausaMs = 340 } = {}) {
+  /*
+   * Una petición cada 2,1 segundos. El plan gratuito admite 30 por minuto; más
+   * deprisa contesta 429, y una petición que agota sus reintentos se pierde.
+   */
+  constructor(dirCache, { pausaMs = 2100 } = {}) {
     this.archivo = path.join(dirCache, 'thesportsdb.json');
     fs.mkdirSync(dirCache, { recursive: true });
     this.cache = {};
     if (fs.existsSync(this.archivo)) {
       try {
-        this.cache = JSON.parse(fs.readFileSync(this.archivo, 'utf8'));
+        // Lo guardado con la clave vieja vale igual: se guarda sin ella.
+        const guardada = JSON.parse(fs.readFileSync(this.archivo, 'utf8'));
+        this.cache = Object.fromEntries(
+          Object.entries(guardada).map(([url, datos]) => [sinClave(url), datos]),
+        );
       } catch {
         this.cache = {};
       }
@@ -66,6 +87,9 @@ class Buscador {
     this.pausaMs = pausaMs;
     this.peticiones = 0;
     this.ultima = 0;
+    /** Peticiones que agotaron sus intentos, y por qué falló la última. */
+    this.fallos = 0;
+    this.ultimoFallo = null;
   }
 
   guarda() {
@@ -73,7 +97,8 @@ class Buscador {
   }
 
   async pide(url) {
-    if (this.cache[url] !== undefined) return this.cache[url];
+    const clave = sinClave(url);
+    if (this.cache[clave] !== undefined) return this.cache[clave];
 
     // Hasta tres intentos, esperando cada vez mas. La API comunitaria corta
     // cuando se le pide rapido, y un fallo NO se cachea: si se guardara, el
@@ -93,15 +118,18 @@ class Buscador {
         });
         if (r.ok) {
           const datos = await r.json();
-          this.cache[url] = datos;
+          this.cache[clave] = datos;
           return datos;
         }
         // 429 y demas: se espera mas antes de reintentar.
-        this.pausaMs = Math.min(2500, Math.round(this.pausaMs * 1.6));
-      } catch {
-        this.pausaMs = Math.min(2500, Math.round(this.pausaMs * 1.6));
+        this.ultimoFallo = `HTTP ${r.status}`;
+        this.pausaMs = Math.min(4000, Math.round(this.pausaMs * 1.6));
+      } catch (error) {
+        this.ultimoFallo = error?.message ?? String(error);
+        this.pausaMs = Math.min(4000, Math.round(this.pausaMs * 1.6));
       }
     }
+    this.fallos++;
     return null;
   }
 
