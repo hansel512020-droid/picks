@@ -1,7 +1,13 @@
 import { Aleatorio } from '@/utiles/aleatorio';
 import { competicion, TODAS } from './competiciones';
 import { cuandoCambienLosDatos, equiposImportados, partidosDelEquipoEnTodas } from './importado';
-import { normalSobre, precioDe, probMercadoEquipo, probMercadoJugador } from './mercado';
+import {
+  normalSobre,
+  precioDe,
+  probMercadoEquipo,
+  probMercadoJugador,
+  probMercadoSiNo,
+} from './mercado';
 import { temporada } from './motor';
 import type { Equipo, Familia, Partido, Pick, RegistroJugador } from './tipos';
 
@@ -582,10 +588,30 @@ export const METRICAS_EQUIPO: MetricaEquipo[] = [
 
 export const METRICAS_PARTIDO = [
   { clave: 'golesTotales', mercado: 'goles', familia: 'goles' as Familia, valor: (p: Partido) => p.golesLocal + p.golesVisitante, lineas: [1.5, 2.5, 3.5] },
+  /*
+   * Ambos marcan: 1 si marcaron los dos, 0 si no. Con la línea en 0.5, "más"
+   * es el Sí y "menos" es el No.
+   */
+  { clave: 'ambosMarcan', mercado: 'ambos marcan', familia: 'goles' as Familia, valor: (p: Partido) => (p.golesLocal > 0 && p.golesVisitante > 0 ? 1 : 0), lineas: [0.5] },
+  /*
+   * Goles en el primer tiempo. Sin marcador al descanso el valor es NaN y el
+   * partido se queda fuera de la muestra: no se cuenta como un 0-0.
+   */
+  { clave: 'golesPrimeraParte', mercado: 'goles en el primer tiempo', familia: 'goles' as Familia, valor: (p: Partido) => golesAlDescanso(p), lineas: [0.5, 1.5] },
   { clave: 'cornersTotales', mercado: 'córners', familia: 'corners' as Familia, valor: (p: Partido) => p.estadisticas.local.corners + p.estadisticas.visitante.corners, lineas: [8.5, 9.5, 10.5, 11.5] },
   { clave: 'tarjetasTotales', mercado: 'tarjetas', familia: 'tarjetas' as Familia, valor: (p: Partido) => p.estadisticas.local.amarillas + p.estadisticas.visitante.amarillas, lineas: [3.5, 4.5, 5.5] },
   { clave: 'rematesTotales', mercado: 'remates', familia: 'tiros' as Familia, valor: (p: Partido) => p.estadisticas.local.remates + p.estadisticas.visitante.remates, lineas: [21.5, 24.5, 26.5] },
 ];
+
+/** Goles de la primera parte, o NaN si el partido no trae el marcador al descanso. */
+function golesAlDescanso(p: Partido): number {
+  const l = p.golesLocalDescanso;
+  const v = p.golesVisitanteDescanso;
+  return typeof l === 'number' && typeof v === 'number' ? l + v : NaN;
+}
+
+/** Los mercados de partido que no necesitan el acta con las estadísticas. */
+const SOLO_MARCADOR = new Set(['golesTotales', 'ambosMarcan', 'golesPrimeraParte']);
 
 /**
  * Las líneas de hándicap que se ofrecen.
@@ -1303,22 +1329,26 @@ export function picksDePartido(
        * un cero falso. Fuera de la muestra. El total de goles no lo necesita.
        * El detalle de un partido se baja entero, así que basta mirar un lado.
        */
-      const soloConDetalle = met.clave !== 'golesTotales';
-      const muestra = soloConDetalle
-        ? delPartido.filter((p) => tieneDetalle(p, true))
-        : delPartido;
+      const soloConDetalle = !SOLO_MARCADOR.has(met.clave);
+      // Fuera también los que no tienen el dato (el descanso, que no siempre viene).
+      const muestra = (
+        soloConDetalle ? delPartido.filter((p) => tieneDetalle(p, true)) : delPartido
+      ).filter((p) => Number.isFinite(met.valor(p)));
       if (muestra.length < 8) continue;
       const valores = muestra.map(met.valor);
       const mediaCompeticion = mediaDeLaCompeticion(
         competicionId,
         t.partidos,
         `pt-${met.clave}-${soloConDetalle ? 'det' : 'todo'}`,
-        (p) =>
-          soloConDetalle && !tieneDetalle(p, true)
+        (p) => {
+          const v = met.valor(p);
+          return (soloConDetalle && !tieneDetalle(p, true)) || !Number.isFinite(v)
             ? { suma: 0, cuenta: 0 }
-            : { suma: met.valor(p), cuenta: 1 },
+            : { suma: v, cuenta: 1 };
+        },
         partido.fecha,
       );
+      const siNo = met.clave === 'ambosMarcan';
 
       for (const l of met.lineas) {
         for (const sentido of ['mas', 'menos'] as const) {
@@ -1327,11 +1357,22 @@ export function picksDePartido(
           const prob = probabilidad(ev.aciertosL10, ev.aciertosL20, ev.muestraL20, ev.aciertosL40, ev.muestraL40);
           const id = `${partidoId}-partido-${met.clave}-${l}-${sentido}`;
           const mediaPropia = valores.reduce((a, b) => a + b, 0) / Math.max(1, valores.length);
-          const pMercado = probMercadoEquipo(met.clave, l, mediaCompeticion, mediaPropia);
+          const pMercado = siNo
+            ? probMercadoSiNo(mediaCompeticion, mediaPropia)
+            : probMercadoEquipo(met.clave, l, mediaCompeticion, mediaPropia);
           const cuota = precioDe(sentido === 'mas' ? pMercado : 1 - pMercado, casaId, id);
           const ventaja = Number(((prob - 1 / cuota) * 100).toFixed(1));
           const casa = casaId;
           if (!admisible(cuota, ventaja, sentido)) continue;
+
+          const mercadoP = siNo
+            ? `Ambos marcan: ${sentido === 'mas' ? 'Sí' : 'No'}`
+            : `${sentido === 'mas' ? 'Más' : 'Menos'} de ${linea(l)} ${met.mercado}`;
+          const argumentoP = siNo
+            ? sentido === 'mas'
+              ? `Marcaron los dos equipos en ${ev.aciertosL10} de los últimos 10 partidos de ${local.nombre} y ${visitante.nombre}.`
+              : `En ${ev.aciertosL10} de los últimos 10 partidos de ${local.nombre} y ${visitante.nombre} al menos uno se quedó sin marcar.`
+            : `Promedio combinado: ${coma(ev.media)} ${met.mercado}. ${sentido === 'mas' ? 'Más' : 'Menos'} de ${linea(l)} acierta ${ev.aciertosL10 * 10}% en los últimos 10 partidos.`;
 
           picks.push({
             id,
@@ -1350,9 +1391,9 @@ export function picksDePartido(
              * pero seguía escrita aquí dentro, en el texto del pick, que es
              * justo donde más se lee.
              */
-            argumento: `Promedio combinado: ${coma(ev.media)} ${met.mercado}. ${sentido === 'mas' ? 'Más' : 'Menos'} de ${linea(l)} acierta ${ev.aciertosL10 * 10}% en los últimos 10 partidos.`,
+            argumento: argumentoP,
             familia: met.familia,
-            mercado: `${sentido === 'mas' ? 'Más' : 'Menos'} de ${linea(l)} ${met.mercado}`,
+            mercado: mercadoP,
             metrica: met.clave,
             linea: l,
             sentido,

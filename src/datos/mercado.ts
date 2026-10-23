@@ -113,6 +113,16 @@ export function probMercadoEquipo(
   return poissonSobre(lambda, linea);
 }
 
+/**
+ * Un mercado de sí o no ("ambos marcan"): la media de la competición y la del
+ * partido ya son frecuencias, así que la probabilidad es su mezcla, sin
+ * Poisson de por medio.
+ */
+export function probMercadoSiNo(mediaCompeticion: number, mediaPropia: number): number {
+  const p = mediaCompeticion * (1 - PESO_JUGADOR) + mediaPropia * PESO_JUGADOR;
+  return Math.min(0.95, Math.max(0.05, p));
+}
+
 /** Convierte probabilidad en precio con el margen de la casa. */
 export function precioDe(prob: number, casaId: string, semilla: string): number {
   const c = buscaCasa(casaId);
