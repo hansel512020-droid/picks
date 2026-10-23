@@ -9,7 +9,7 @@ import { marca } from '@/componentes/movimiento';
 import { CabeceraAtras, FilaDato, Segmentado } from '@/componentes/navegacion';
 import { competicion, competicionOpcional } from '@/datos/competiciones';
 import { partidoConEstadisticas, partidosDelEquipoEnTodas, valoracionReal } from '@/datos/importado';
-import { temporada } from '@/datos/motor';
+import { registrosDelJugador, temporada } from '@/datos/motor';
 import { coma } from '@/datos/picks';
 import type { Partido } from '@/datos/tipos';
 import { useTienda } from '@/estado/tienda';
@@ -73,14 +73,15 @@ export default function PantallaEquipo() {
        */
       plantilla: (() => {
         const suyosJugadores = t.jugadores.filter((j) => j.equipoId === equipoId);
-        const jugados = (id: string) => t.registrosPorJugador.get(id)?.length ?? 0;
+        const jugados = (id: string) => registrosDelJugador(t, id).length;
         const conPartidos = suyosJugadores.filter((j) => jugados(j.id) > 0);
         return (conPartidos.length ? conPartidos : suyosJugadores).sort(
           (a, b) => jugados(b.id) - jugados(a.id) || b.nivel - a.nivel,
         );
       })(),
       equipos: t.porEquipo,
-      registros: t.registrosPorJugador,
+      // Con "Todas", sus partidos en todas las competiciones, no solo en esta.
+      registrosDe: (id: string) => registrosDelJugador(t, id),
       // Partidos de otras competiciones, listos para mezclar con los de esta.
       deOtras: otras
         .filter((x) => x.partido.estado === 'finalizado')
@@ -335,7 +336,7 @@ export default function PantallaEquipo() {
                   </Txt>
                   <Tarjeta style={{ overflow: 'hidden' }}>
                     {grupo.map((j, i) => {
-                      const regs = datos.registros.get(j.id) ?? [];
+                      const regs = datos.registrosDe(j.id);
                       const goles = regs.reduce((a, r) => a + r.goles, 0);
                       const asis = regs.reduce((a, r) => a + r.asistencias, 0);
                       return (

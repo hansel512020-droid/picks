@@ -417,6 +417,48 @@ export interface Temporada {
 
 const TEMPORADAS = new Map<string, Temporada>();
 
+/** El número de la fuente al final del identificador: `laliga:e231388` → `e231388`. */
+const NUMERO_DE_FUENTE = /:([esj]\d+)$/;
+const FICHAS_DEL_JUGADOR = new WeakMap<Temporada, Map<string, string[]>>();
+
+/**
+ * Las fichas de un mismo jugador en todas las competiciones de la temporada.
+ *
+ * Un jugador importado tiene una ficha por competición —`laliga:e231388` y
+ * `champions:e231388` son el mismo Mbappé—, y con "Todas" su página enseñaba
+ * solo los partidos de una de ellas: los de Liga sí, los de Champions no. El
+ * número de ESPN (o de la fuente que sea) es el mismo en todas, y por él se
+ * juntan. Dentro de una sola competición no cambia nada: hay una ficha.
+ */
+export function fichasDelJugador(t: Temporada, jugadorId: string): string[] {
+  const numero = jugadorId.match(NUMERO_DE_FUENTE)?.[1];
+  if (!numero) return [jugadorId];
+  let indice = FICHAS_DEL_JUGADOR.get(t);
+  if (!indice) {
+    indice = new Map();
+    for (const j of t.jugadores) {
+      const suyo = j.id.match(NUMERO_DE_FUENTE)?.[1];
+      if (!suyo) continue;
+      const lista = indice.get(suyo);
+      if (lista) lista.push(j.id);
+      else indice.set(suyo, [j.id]);
+    }
+    FICHAS_DEL_JUGADOR.set(t, indice);
+  }
+  return indice.get(numero) ?? [jugadorId];
+}
+
+/** Los partidos de un jugador en todas sus fichas, del más reciente al más viejo y sin repetir. */
+export function registrosDelJugador(t: Temporada, jugadorId: string): RegistroJugador[] {
+  const fichas = fichasDelJugador(t, jugadorId);
+  if (fichas.length === 1) return t.registrosPorJugador.get(jugadorId) ?? [];
+  const vistos = new Set<string>();
+  return fichas
+    .flatMap((id) => t.registrosPorJugador.get(id) ?? [])
+    .filter((r) => (vistos.has(r.partidoId) ? false : (vistos.add(r.partidoId), true)))
+    .sort((a, b) => b.fecha.localeCompare(a.fecha));
+}
+
 /*
  * Al llegar datos nuevos hay que tirar las temporadas ya montadas: llevan
  * dentro los partidos, los equipos y los registros del archivo anterior, y sin

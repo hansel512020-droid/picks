@@ -514,8 +514,14 @@ export function partidosDelEquipoEnTodas(
    * uruguaya del otro. Con la bandera de país se separan; quien no la pase se
    * queda con el comportamiento de antes.
    */
+  /*
+   * Una ficha con el emoji del torneo en vez de bandera (el Real Madrid de la
+   * Champions lleva 🌟) no se descarta: no dice de qué país es. Antes se
+   * comparaba tal cual con 🇪🇸 y la ficha del Madrid se quedaba sin sus
+   * partidos de Champions.
+   */
   const equipos = (porNombre.get(claveEquipo(nombreEquipo)) ?? []).filter(
-    (e) => !banderaPais || !e.bandera || e.bandera === banderaPais,
+    (e) => !banderaPais || !esBanderaDePais(e.bandera) || e.bandera === banderaPais,
   );
 
   const salida: { competicionId: string; partido: Partido; esLocal: boolean }[] = [];
