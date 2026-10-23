@@ -18,13 +18,13 @@ import {
 } from '@/componentes/base';
 import { Campo, CampoReal } from '@/componentes/campo';
 import { Icono } from '@/componentes/iconos';
-import { Escudo } from '@/componentes/imagen';
+import { Escudo, LogoCompeticion } from '@/componentes/imagen';
 import { marca } from '@/componentes/movimiento';
 import { CabeceraAtras, FilaDato, Pestanas, Segmentado, TiraChips } from '@/componentes/navegacion';
 import { SelloCasa, TarjetaPick } from '@/componentes/pick';
 import { alineacionesDelPartido, type OnceEquipo } from '@/datos/alineaciones';
 import { ANTIGUOS_POR_PERFIL, CASAS, casa as casaPorId } from '@/datos/casas';
-import { competicion } from '@/datos/competiciones';
+import { competicion, competicionOpcional } from '@/datos/competiciones';
 import {
   equiposImportados,
   hayEstadisticas,
@@ -67,7 +67,8 @@ export default function PantallaPartido() {
   const competicionId = comp ?? ajustes.competicionId;
   const partidoId = decodeURIComponent(id ?? '');
 
-  const [vista, setVista] = useState<Vista>('insights');
+  // Sin elegir, depende del partido: ver `vista` más abajo.
+  const [vistaElegida, setVista] = useState<Vista>();
   const [pestana, setPestana] = useState<Pestana>('picks');
   const [familias, setFamilias] = useState<Familia[]>([]);
   const [lado, setLado] = useState<'local' | 'visitante'>('local');
@@ -241,6 +242,12 @@ export default function PantallaPartido() {
   const reloj = enDirecto?.reloj;
   const vivo = seJuegaAhora(estado);
   const jugado = estado === 'finalizado';
+  /*
+   * Un partido ya jugado abre por el duelo, con las estadísticas de lo que
+   * pasó. Abría por los picks, que de un partido terminado no hay, y lo
+   * primero que se veía era "Sin picks para este filtro".
+   */
+  const vista: Vista = vistaElegida ?? (jugado ? 'duelo' : 'insights');
 
   /*
    * Partido retrasado: la hora de inicio pasó hace más de veinte minutos y
@@ -253,7 +260,13 @@ export default function PantallaPartido() {
    */
   const retrasado =
     !vivo && !jugado && Date.now() - new Date(partido.fecha).getTime() > 20 * 60_000;
-  const competicionNombre = competicion(competicionId).nombre;
+  /*
+   * La competición del propio partido, no la que está elegida en la app: con
+   * "Todas" puesto, la cabecera decía "TODAS LAS COMPETICIONES" encima de un
+   * Atlético-Dortmund, que es de la Champions.
+   */
+  const compPartido = competicionOpcional(partido.competicionId) ?? competicion(competicionId);
+  const fase = partido.ronda || (partido.jornada ? `Jornada ${partido.jornada}` : '');
 
   return (
     <View style={{ flex: 1, backgroundColor: C.fondo }}>
@@ -326,7 +339,7 @@ export default function PantallaPartido() {
                       bandera={e.bandera}
                       corto={e.corto}
                       color={e.color}
-                      tam={46}
+                      tam={60}
                     />
                   </Pulsable>
                   {/*
@@ -389,18 +402,41 @@ export default function PantallaPartido() {
               </View>
             ) : (
               <Txt v="etiqueta" color={C.texto3}>
-                {jugado ? 'FINALIZADO' : new Date(partido.fecha).toLocaleString('es', {
-                  weekday: 'short',
-                  day: 'numeric',
-                  month: 'short',
-                  hour: '2-digit',
-                  minute: '2-digit',
-                })}
+                {jugado
+                  ? `FINALIZADO · ${new Date(partido.fecha)
+                      .toLocaleDateString('es', { weekday: 'short', day: 'numeric', month: 'short' })
+                      .toUpperCase()}`
+                  : new Date(partido.fecha).toLocaleString('es', {
+                      weekday: 'short',
+                      day: 'numeric',
+                      month: 'short',
+                      hour: '2-digit',
+                      minute: '2-digit',
+                    })}
               </Txt>
             )}
-            <Txt v="pequeno" color={C.texto2}>
-              {competicionNombre.toUpperCase()}
-            </Txt>
+            <View
+              style={{
+                flexDirection: 'row',
+                alignItems: 'center',
+                gap: 6,
+                marginTop: 2,
+                paddingHorizontal: 10,
+                paddingVertical: 4,
+                borderRadius: R.pill,
+                backgroundColor: C.carta2,
+              }}
+            >
+              <LogoCompeticion competicionId={compPartido.id} bandera={compPartido.bandera} tam={16} cuadrado />
+              <Txt v="pequenoFuerte" color={C.texto}>
+                {compPartido.nombre}
+              </Txt>
+              {fase ? (
+                <Txt v="pequeno" color={C.texto3}>
+                  · {fase}
+                </Txt>
+              ) : null}
+            </View>
             {/*
               El árbitro solo si se sabe quién es.
 
