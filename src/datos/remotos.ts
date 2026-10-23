@@ -323,9 +323,12 @@ export async function descargaDatos(forzar = false): Promise<boolean> {
 
     if (bajada === 'igual') {
       await AsyncStorage.setItem(CLAVE_FECHA, String(Date.now()));
-      // El núcleo no ha cambiado, pero las ligas se publican aparte y se
-      // preguntan una a una (con sello: lo que no cambió no se descarga).
-      void sincronizaLigas(true);
+      /*
+       * Lo de cada liga, de lo guardado. No se pregunta al servidor: el bot
+       * publica las ligas en la misma pasada que el núcleo, así que si el
+       * núcleo no ha cambiado, ellas tampoco.
+       */
+      void sincronizaLigas(false);
       return false;
     }
 
@@ -373,9 +376,10 @@ export async function descargaDatos(forzar = false): Promise<boolean> {
  * ── Guardado entre visitas ─────────────────────────────────────────────────
  *
  * Cada liga trae dos piezas, las estadísticas de sus partidos y sus jugadores,
- * y cada una se guarda en el navegador con su sello, igual que el núcleo. En la
- * visita siguiente se pregunta con el sello y, si no ha cambiado, el servidor
- * contesta 304 sin mandar nada.
+ * y cada una se guarda en el navegador con su sello, igual que el núcleo. En
+ * las visitas siguientes se usa lo guardado, y cuando el núcleo cambia se
+ * pregunta por cada pieza con su sello: lo que no ha cambiado contesta 304 sin
+ * mandar nada.
  *
  * Antes no se guardaban, y solo se pedían cuando el núcleo había cambiado: al
  * recargar la página, o al volver con el núcleo igual, quien había pagado se
