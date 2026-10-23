@@ -38,6 +38,150 @@ const DIRECCION = 'https://goldenpicks.vercel.app';
  */
 const IMAGEN = `${DIRECCION}/portada.png`;
 
+/*
+ * El movimiento y los acabados de la web, en CSS.
+ *
+ * Las piezas se marcan con `data-gp` desde `componentes/movimiento.tsx` y aquí
+ * se decide qué hace cada marca. Va en CSS y no en JavaScript para que el
+ * navegador lo anime por su cuenta: el hover de veinte tarjetas no le cuesta
+ * nada a React.
+ *
+ * Va en un <style> en línea porque la política de seguridad de `vercel.json`
+ * admite estilos en línea pero no scripts: esto no necesita tocarla.
+ *
+ * Solo se anima `transform` y `opacity` en lo que se repite mucho, que es lo
+ * que el navegador mueve sin recalcular la página.
+ */
+const ESTILOS = `
+:root { color-scheme: dark; }
+html, body { background-color: #0A0B0D; }
+body {
+  -webkit-font-smoothing: antialiased;
+  -moz-osx-font-smoothing: grayscale;
+  text-rendering: optimizeLegibility;
+  -webkit-tap-highlight-color: transparent;
+}
+::selection { background: rgba(201,255,61,0.28); color: #fff; }
+
+* { scrollbar-width: thin; scrollbar-color: #2A2E35 transparent; }
+::-webkit-scrollbar { width: 10px; height: 10px; }
+::-webkit-scrollbar-track { background: transparent; }
+::-webkit-scrollbar-thumb {
+  background-color: #2A2E35; border-radius: 10px;
+  border: 3px solid transparent; background-clip: padding-box;
+}
+::-webkit-scrollbar-thumb:hover { background-color: #3A3F46; }
+
+/* ── Campos de texto ─────────────────────────────────────────────── */
+input, textarea { caret-color: #C9FF3D; transition: border-color .2s ease, box-shadow .2s ease; }
+/* El contorno blanco del navegador se cambia por el anillo lima de la app. */
+input:focus, textarea:focus { outline: none; }
+input:focus-visible, textarea:focus-visible {
+  border-color: rgba(201,255,61,.55) !important;
+  box-shadow: 0 0 0 3px rgba(201,255,61,.12);
+}
+/* Un campo que va dentro de una caja con icono: el anillo es de la caja. */
+[data-gp~="campo"] { transition: border-color .2s ease, box-shadow .2s ease; }
+[data-gp~="campo"]:focus-within {
+  border-color: rgba(201,255,61,.55) !important;
+  box-shadow: 0 0 0 3px rgba(201,255,61,.12);
+}
+[data-gp~="campo"] input:focus-visible { box-shadow: none; }
+/* El autocompletado de Chrome pinta los campos de amarillo o azul claro, que
+   sobre fondo negro deja el texto ilegible. Se mantiene el fondo de la app. */
+input:-webkit-autofill {
+  -webkit-text-fill-color: #FFFFFF;
+  transition: background-color 600000s 0s, border-color .2s ease, box-shadow .2s ease;
+}
+
+/* ── Lo que se pulsa ─────────────────────────────────────────────── */
+[data-gp~="p"] {
+  cursor: pointer;
+  transition: opacity .18s ease, transform .22s cubic-bezier(.2,.8,.2,1),
+    filter .2s ease, background-color .2s ease, border-color .2s ease,
+    box-shadow .25s ease;
+}
+[data-gp~="p"]:focus-visible { outline: 2px solid rgba(201,255,61,.75); outline-offset: 2px; }
+[data-gp~="p"]:not([data-gp~="plano"]):active { transform: scale(.97); }
+
+/* ── Superficies ─────────────────────────────────────────────────── */
+[data-gp~="tarjeta"] {
+  background-image: linear-gradient(180deg, rgba(255,255,255,.028), rgba(255,255,255,0) 42%);
+  transition: transform .28s cubic-bezier(.2,.8,.2,1), box-shadow .28s ease, border-color .28s ease;
+}
+
+@media (hover: hover) and (pointer: fine) {
+  [data-gp~="p"]:not([data-gp~="plano"]):hover { filter: brightness(1.15); }
+  [data-gp~="eleva"]:hover {
+    transform: translateY(-3px);
+    box-shadow: 0 20px 40px -22px rgba(0,0,0,.95), 0 0 0 1px rgba(201,255,61,.10);
+  }
+  [data-gp~="eleva"]:not([data-gp~="vivo"]):hover { border-color: #31363E !important; }
+}
+
+/* ── Entradas ────────────────────────────────────────────────────── */
+@keyframes gp-entra {
+  from { opacity: 0; transform: translateY(16px) scale(.985); }
+  to { opacity: 1; transform: none; }
+}
+[data-gp~="entra"] { animation: gp-entra .55s cubic-bezier(.2,.8,.2,1) both; }
+
+@keyframes gp-despliega {
+  from { opacity: 0; transform: translateY(-6px) scale(.98); }
+  to { opacity: 1; transform: none; }
+}
+[data-gp~="despliega"] { animation: gp-despliega .26s cubic-bezier(.2,.8,.2,1) both; transform-origin: top center; }
+
+@keyframes gp-crece { from { transform: scaleX(0); } to { transform: scaleX(1); } }
+[data-gp~="crece"] { transform-origin: left center; animation: gp-crece .8s cubic-bezier(.2,.8,.2,1) both; }
+
+@keyframes gp-sube { from { transform: scaleY(0); } to { transform: scaleY(1); } }
+[data-gp~="sube"] { transform-origin: center bottom; animation: gp-sube .7s cubic-bezier(.2,.8,.2,1) both; }
+
+@keyframes gp-pop { 0% { transform: scale(1); } 40% { transform: scale(1.32); } 100% { transform: scale(1); } }
+[data-gp~="pop"] { animation: gp-pop .38s cubic-bezier(.2,.8,.2,1); }
+
+/* ── Indicadores que viajan ──────────────────────────────────────── */
+[data-gp~="desliza"] { transition: left .32s cubic-bezier(.2,.8,.2,1), width .32s cubic-bezier(.2,.8,.2,1); }
+[data-gp~="ancho"] { transition: width .6s cubic-bezier(.2,.8,.2,1); }
+[data-gp~="color"] { transition: color .2s ease, background-color .2s ease, border-color .2s ease; }
+
+/* ── En vivo ─────────────────────────────────────────────────────── */
+@keyframes gp-latido {
+  0% { box-shadow: 0 0 0 0 rgba(240,82,75,.6); }
+  70% { box-shadow: 0 0 0 7px rgba(240,82,75,0); }
+  100% { box-shadow: 0 0 0 0 rgba(240,82,75,0); }
+}
+[data-gp~="latido"] { animation: gp-latido 1.8s ease-out infinite; }
+
+/* ── Reflejo que cruza ───────────────────────────────────────────── */
+@keyframes gp-barrido { from { transform: translateX(-100%); } to { transform: translateX(100%); } }
+[data-gp~="brillo"] { position: relative; overflow: hidden; }
+[data-gp~="brillo"]::after {
+  content: ""; position: absolute; inset: 0; pointer-events: none;
+  background: linear-gradient(100deg, transparent 20%, rgba(255,255,255,.16) 50%, transparent 80%);
+  transform: translateX(-100%);
+  animation: gp-barrido 3.2s cubic-bezier(.4,0,.2,1) 1.2s infinite;
+}
+
+/* ── Pantalla de carga ───────────────────────────────────────────── */
+@keyframes gp-halo { 0%, 100% { opacity: .35; transform: scale(.9); } 50% { opacity: .7; transform: scale(1.08); } }
+[data-gp~="halo"] { filter: blur(26px); animation: gp-halo 2.6s ease-in-out infinite; }
+@keyframes gp-gira { to { transform: rotate(360deg); } }
+[data-gp~="gira"] { animation: gp-gira 1.4s linear infinite; }
+@keyframes gp-respira { 0%, 100% { opacity: .55; } 50% { opacity: 1; } }
+[data-gp~="respira"] { animation: gp-respira 1.8s ease-in-out infinite; }
+
+@media (prefers-reduced-motion: reduce) {
+  *, *::before, *::after {
+    animation-duration: .001ms !important;
+    animation-iteration-count: 1 !important;
+    animation-delay: 0ms !important;
+    transition-duration: .001ms !important;
+  }
+}
+`;
+
 export default function Html({ children }: PropsWithChildren) {
   return (
     <html lang="es">
@@ -79,6 +223,7 @@ export default function Html({ children }: PropsWithChildren) {
           pantallas con lista propia acaban con dos barras de desplazamiento.
         */}
         <ScrollViewStyleReset />
+        <style dangerouslySetInnerHTML={{ __html: ESTILOS }} />
       </head>
       <body>{children}</body>
     </html>

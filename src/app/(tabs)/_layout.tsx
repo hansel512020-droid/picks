@@ -8,9 +8,32 @@ import {
   useRef,
   useState,
 } from 'react';
-import { Platform } from 'react-native';
+import { Platform, View } from 'react-native';
 import { Icono, type NombreIcono } from '@/componentes/iconos';
+import { marca } from '@/componentes/movimiento';
 import { C, T } from '@/tema';
+
+/**
+ * El icono de la pestaña, con una pastilla lima detrás cuando está elegida.
+ *
+ * Solo con el color, la pestaña activa se distinguía de las demás por un tono
+ * de verde en un icono de veinte píxeles. La pastilla se ve de reojo.
+ */
+function IconoPestana({ nombre, color, activa }: { nombre: NombreIcono; color: string; activa: boolean }) {
+  return (
+    <View
+      {...marca('color')}
+      style={{
+        paddingHorizontal: 16,
+        paddingVertical: 3,
+        borderRadius: 999,
+        backgroundColor: activa ? C.limaTenue : 'transparent',
+      }}
+    >
+      <Icono nombre={nombre} tam={21} color={color} />
+    </View>
+  );
+}
 
 const PESTANAS: { name: string; titulo: string; icono: NombreIcono }[] = [
   { name: 'index', titulo: 'Inicio', icono: 'casa' },
@@ -95,7 +118,7 @@ export default function LayoutPestanas() {
                 borderTopColor: C.bordeSuave,
                 borderTopWidth: 1,
                 height: Platform.OS === 'ios' ? 84 : 64,
-                paddingTop: 8,
+                paddingTop: 7,
               },
           tabBarLabelStyle: { ...T.mini, fontSize: 10 },
           sceneStyle: { backgroundColor: C.fondo },
@@ -118,8 +141,8 @@ export default function LayoutPestanas() {
                */
               tabBarLabel: p.titulo,
               title: 'Golden Picks',
-              tabBarIcon: ({ color }) => (
-                <Icono nombre={p.icono} tam={22} color={String(color)} />
+              tabBarIcon: ({ color, focused }) => (
+                <IconoPestana nombre={p.icono} color={String(color)} activa={focused} />
               ),
             }}
           />

@@ -6,6 +6,7 @@ import { Chip, Insignia, Pulsable, Txt, Vacio } from '@/componentes/base';
 import { BotonCompeticion } from '@/componentes/carruseles';
 import { Icono } from '@/componentes/iconos';
 import { Escudo } from '@/componentes/imagen';
+import { Aparece, marca } from '@/componentes/movimiento';
 import { TiraChips } from '@/componentes/navegacion';
 import { competicion } from '@/datos/competiciones';
 import { claveDelPartido , seJuegaAhora } from '@/datos/envivo';
@@ -87,7 +88,10 @@ export function FilaPartido({
       <View style={{ width: 48, alignItems: 'center' }}>
         {vivo ? (
           <View style={{ alignItems: 'center', gap: 3 }}>
-            <View style={{ width: 6, height: 6, borderRadius: 3, backgroundColor: C.rojo }} />
+            <View
+              {...marca('latido')}
+              style={{ width: 6, height: 6, borderRadius: 3, backgroundColor: C.rojo }}
+            />
             <Txt v="pequenoFuerte" color={C.rojo}>
               {estado === 'descanso' ? 'DES' : `${reloj ?? 0}'`}
             </Txt>
@@ -273,14 +277,16 @@ export default function Partidos() {
               <Insignia texto={`${section.data.length}`} />
             </View>
           )}
-          renderItem={({ item }) => (
-            <View
+          renderItem={({ item, index }) => (
+            <Aparece
+              orden={index}
               style={{
                 marginHorizontal: E.lg,
                 borderRadius: R.md,
                 backgroundColor: C.carta,
                 borderWidth: 1,
                 borderColor: C.borde,
+                borderTopColor: C.bordeLuz,
                 marginBottom: E.sm,
               }}
             >
@@ -290,7 +296,7 @@ export default function Partidos() {
                 visitante={item.visitante}
                 competicionId={competicionId}
               />
-            </View>
+            </Aparece>
           )}
           ListEmptyComponent={
             <Vacio icono="calendario" titulo="No hay partidos" detalle="Cambia de filtro o de competición." />

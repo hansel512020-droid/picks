@@ -7,12 +7,13 @@ import { Chip, Pulsable, Separador, Tarjeta, Txt, Vacio } from '@/componentes/ba
 import { Icono } from '@/componentes/iconos';
 import { Dato, TiraChips } from '@/componentes/navegacion';
 import { Escudo } from '@/componentes/imagen';
+import { Aparece } from '@/componentes/movimiento';
 import { Avatar } from '@/componentes/pick';
 import { temporada } from '@/datos/motor';
 import type { PickGuardado, ResultadoPick } from '@/datos/tipos';
 import { useTienda } from '@/estado/tienda';
 import { usePartidoDelPick, useVivo } from '@/estado/vivo';
-import { C, E, R } from '@/tema';
+import { brillo, C, E, R } from '@/tema';
 
 /**
  * Historial de picks guardados y como han salido. El porcentaje de acierto y
@@ -501,7 +502,11 @@ export default function Rendimiento() {
             </TiraChips>
           </View>
         }
-        renderItem={({ item }) => <FilaGuardado g={item} onQuitar={() => quitar(item.pickId)} />}
+        renderItem={({ item, index }) => (
+          <Aparece orden={index}>
+            <FilaGuardado g={item} onQuitar={() => quitar(item.pickId)} />
+          </Aparece>
+        )}
         ListEmptyComponent={
           guardados.length === 0 ? (
             <View style={{ gap: E.lg, alignItems: 'center' }}>
@@ -512,11 +517,13 @@ export default function Rendimiento() {
               />
               <Pulsable
                 onPress={() => router.push('/')}
+                marcas="brillo"
                 style={{
                   paddingHorizontal: 20,
                   paddingVertical: 12,
                   borderRadius: R.md,
                   backgroundColor: C.lima,
+                  boxShadow: brillo.limaFuerte,
                 }}
               >
                 <Text style={{ fontWeight: '700', color: '#0A0B0D' }}>Ver picks destacados</Text>

@@ -1,6 +1,6 @@
 import { Image } from 'expo-image';
 import { useState } from 'react';
-import { Text, View, type StyleProp, type ViewStyle } from 'react-native';
+import { StyleSheet, Text, View, type StyleProp, type ViewStyle } from 'react-native';
 import { caraJugador, escudoEquipo, logoCompeticion } from '@/datos/imagenes';
 import { C, T } from '@/tema';
 
@@ -11,6 +11,15 @@ import { C, T } from '@/tema';
  */
 
 const TRANSICION = 180;
+
+/*
+ * Lo fijo del círculo, compilado una vez: es lo que más se repite de la app
+ * —cada escudo, cada cara— y en la web un estilo en línea se traduce a CSS cada
+ * vez que se monta.
+ */
+const est = StyleSheet.create({
+  redondo: { alignItems: 'center', justifyContent: 'center', overflow: 'hidden' },
+});
 
 function Redondo({
   tam,
@@ -28,16 +37,14 @@ function Redondo({
   return (
     <View
       style={[
+        est.redondo,
         {
           width: tam,
           height: tam,
           borderRadius: tam / 2,
-          alignItems: 'center',
-          justifyContent: 'center',
           backgroundColor: fondo ?? C.carta2,
           borderWidth: borde ? 1.5 : 1,
           borderColor: borde ?? C.borde,
-          overflow: 'hidden',
         },
         estilo,
       ]}

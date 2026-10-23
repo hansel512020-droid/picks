@@ -2,7 +2,7 @@ import { seJuegaAhora } from '@/datos/envivo';
 import * as Haptics from 'expo-haptics';
 import { router } from 'expo-router';
 import { useEffect, useState } from 'react';
-import { Platform, Text, View } from 'react-native';
+import { Platform, StyleSheet, Text, View } from 'react-native';
 import { casa as buscaCasa } from '@/datos/casas';
 import { competicion } from '@/datos/competiciones';
 import { esPickDelDia } from '@/datos/picks';
@@ -15,6 +15,7 @@ import { C, E, R, T } from '@/tema';
 import { Fuego, Insignia, Pulsable, Tarjeta, Txt } from './base';
 import { Icono } from './iconos';
 import { Cara, Enfrentamiento, Escudo, LogoCompeticion } from './imagen';
+import { marca } from './movimiento';
 
 /**
  * La tarjeta de pick es la pieza central de la app: sujeto, argumento, mercado
@@ -147,7 +148,13 @@ export function Angulos({
         }}
       >
         <View
-          style={{ width: 8, height: 8, borderRadius: 4, backgroundColor: lectura.color }}
+          style={{
+            width: 8,
+            height: 8,
+            borderRadius: 4,
+            backgroundColor: lectura.color,
+            boxShadow: `0 0 8px ${lectura.color}`,
+          }}
         />
         <Text style={{ ...T.mini, color: lectura.color, fontWeight: '800' }}>
           {lectura.titulo}
@@ -168,21 +175,16 @@ export function Angulos({
               El recuento va donde tiene sentido, pegado a su porcentaje.
             */}
             <Text style={{ ...T.mini, color: C.texto2, width: 64 }}>Últimos {de}</Text>
-            <View
-              style={{
-                flex: 1,
-                height: 7,
-                borderRadius: 4,
-                backgroundColor: C.carta2,
-                overflow: 'hidden',
-              }}
-            >
+            <View style={est.carril}>
               {/*
                 La barra va del color del porcentaje, no en gris. Con el gris
                 había que leer el número para saber si el dato era bueno; así el
                 bloque entero se juzga de un vistazo y el número solo confirma.
               */}
-              <View style={{ width: `${porcentaje}%`, height: '100%', backgroundColor: color }} />
+              <View
+                {...marca('crece')}
+                style={[est.relleno, { width: `${porcentaje}%`, backgroundColor: color }]}
+              />
             </View>
             <Text style={{ ...T.mini, color: C.texto2, width: 48, textAlign: 'right' }}>
               {aciertos} de {de}
@@ -197,7 +199,7 @@ export function Angulos({
       })}
 
       {hayExtra && abierto ? (
-        <View style={{ gap: 7, paddingTop: 2 }}>
+        <View {...marca('despliega')} style={{ gap: 7, paddingTop: 2 }}>
           {racha?.length ? (
             <View style={{ gap: 4 }}>
               {/*
@@ -209,16 +211,11 @@ export function Angulos({
               <Text style={{ ...T.pequeno, color: C.texto2 }}>
                 Partido a partido, del más antiguo al más reciente
               </Text>
-              <View style={{ flexDirection: 'row', gap: 3 }}>
+              <View {...marca('crece')} style={{ flexDirection: 'row', gap: 3 }}>
                 {racha.map((acierto, i) => (
                   <View
                     key={i}
-                    style={{
-                      flex: 1,
-                      height: 8,
-                      borderRadius: 3,
-                      backgroundColor: acierto ? C.verde : C.rojo,
-                    }}
+                    style={[est.segmento, { backgroundColor: acierto ? C.verde : C.rojo }]}
                   />
                 ))}
               </View>
@@ -302,7 +299,7 @@ export function Angulos({
       ) : null}
 
       {hayExtra ? (
-        <Pulsable onPress={() => setAbierto((v) => !v)} hitSlop={8}>
+        <Pulsable onPress={() => setAbierto((v) => !v)} hitSlop={8} plano>
           <Text style={{ ...T.pequenoFuerte, color: C.lima }}>
             {abierto ? '▴  Ver menos' : '▾  Ver 2 ángulos más'}
           </Text>
@@ -337,7 +334,7 @@ export function BarraL10({
       >
         <Text style={{ ...T.etiqueta, color: C.texto3 }}>{etiqueta}</Text>
       </View>
-      <View style={{ flex: 1, flexDirection: 'row', gap: 3 }}>
+      <View {...marca('crece')} style={{ flex: 1, flexDirection: 'row', gap: 3 }}>
         {racha.map((acierto, i) => (
           <View
             key={i}
@@ -401,17 +398,7 @@ export function FilaMercado({
   precioReal?: boolean;
 }) {
   return (
-    <View
-      style={{
-        flexDirection: 'row',
-        alignItems: 'center',
-        gap: E.sm,
-        backgroundColor: C.carta2,
-        borderRadius: R.md,
-        paddingHorizontal: E.md,
-        paddingVertical: 11,
-      }}
-    >
+    <View style={est.mercado}>
       <Icono nombre={bloqueado ? 'candado' : 'grafico'} tam={15} color={C.texto3} />
       <Text
         numberOfLines={1}
@@ -432,35 +419,11 @@ export function FilaMercado({
         * eso sigue entero justo debajo.
       */}
       {bloqueado ? (
-        <View
-          style={{
-            flexDirection: 'row',
-            alignItems: 'center',
-            gap: 6,
-            borderWidth: 1,
-            borderColor: C.borde,
-            borderRadius: R.sm,
-            paddingHorizontal: 8,
-            paddingVertical: 5,
-            backgroundColor: C.carta,
-          }}
-        >
+        <View style={est.precio}>
           <Icono nombre="candado" tam={13} color={C.texto3} />
         </View>
       ) : precioReal === false ? null : (
-        <View
-          style={{
-            flexDirection: 'row',
-            alignItems: 'center',
-            gap: 6,
-            borderWidth: 1,
-            borderColor: C.borde,
-            borderRadius: R.sm,
-            paddingHorizontal: 8,
-            paddingVertical: 5,
-            backgroundColor: C.carta,
-          }}
-        >
+        <View style={[est.precio, est.precioReal]}>
           <Text style={{ ...T.cuerpoFuerte, color: C.lima }}>{cuota.toFixed(2)}</Text>
           <SelloCasa casaId={casaId} />
         </View>
@@ -649,6 +612,7 @@ export function MarchaEnVivo({
         }}
       >
         <View
+          {...marca('ancho')}
           style={{
             width: `${Math.round(parte * 100)}%`,
             height: '100%',
@@ -718,8 +682,16 @@ export function TarjetaPick({
    */
   const fuego = comunidad.cuenta(pick.id) ?? 0;
 
+  /*
+   * Cuántas veces se ha tocado el marcador en esta tarjeta. Solo sirve para
+   * que el icono rebote al tocarlo: cambia la `key` y la animación vuelve a
+   * empezar. Arranca en cero para que al pintar la lista no rebote nada.
+   */
+  const [toques, setToques] = useState(0);
+
   const alternarGuardado = () => {
     vibra();
+    setToques((n) => n + 1);
     if (bloqueado) {
       router.push('/pro');
     } else if (guardado) {
@@ -749,17 +721,17 @@ export function TarjetaPick({
 
   return (
     <Tarjeta
-      style={{
-        padding: 0,
-        gap: 0,
-        overflow: 'hidden',
+      interactiva
+      vivo={jugando}
+      style={[
+        est.tarjeta,
         /*
          * Un pick cuyo partido se está jugando tiene que cantar: es el único
          * que se puede seguir minuto a minuto y el que más cambia de valor.
          * Borde rojo entero y fondo teñido, no un detalle de un píxel.
          */
-        ...(jugando ? { borderColor: C.rojo, borderWidth: 1.5, backgroundColor: '#1A1315' } : null),
-      }}
+        jugando ? est.tarjetaVivo : null,
+      ]}
     >
       {jugando ? (
         <View
@@ -772,7 +744,10 @@ export function TarjetaPick({
             backgroundColor: C.rojo,
           }}
         >
-          <View style={{ width: 6, height: 6, borderRadius: 3, backgroundColor: '#FFF' }} />
+          <View
+            {...marca('latido')}
+            style={{ width: 6, height: 6, borderRadius: 3, backgroundColor: '#FFF' }}
+          />
           <Text style={{ ...T.etiqueta, color: '#FFF' }}>
             EN VIVO · {enVivo?.estado === 'descanso' ? 'DESCANSO' : `${enVivo?.reloj ?? enVivo?.minuto ?? 0}'`}
           </Text>
@@ -801,7 +776,7 @@ export function TarjetaPick({
       ) : null}
 
       <View style={{ padding: E.md, gap: E.md }}>
-      <Pulsable onPress={abrir} style={{ flexDirection: 'row', alignItems: 'center', gap: E.md }}>
+      <Pulsable onPress={abrir} plano style={est.cabecera}>
         <Avatar imagen={pick.imagen} nombres={pick.nombres} sujeto={pick.sujeto} />
         <View style={{ flex: 1 }}>
           {/* Un pick de partido lleva los dos clubes enteros en el título y no
@@ -893,12 +868,10 @@ export function TarjetaPick({
           */}
           {bloqueado ? null : (
             <View
-              style={{
-                paddingHorizontal: 7,
-                paddingVertical: 3,
-                borderRadius: R.sm,
-                backgroundColor: pick.probabilidad >= 0.7 ? C.acierto + '22' : C.ambarTenue,
-              }}
+              style={[
+                est.confianza,
+                pick.probabilidad >= 0.7 ? est.confianzaAlta : est.confianzaMedia,
+              ]}
             >
               <Txt v="pequenoFuerte" color={pick.probabilidad >= 0.7 ? C.acierto : C.ambar}>
                 {Math.round(pick.probabilidad * 100)}%
@@ -917,24 +890,19 @@ export function TarjetaPick({
         <Pulsable
           onPress={alternarGuardado}
           hitSlop={8}
-          style={{
-            width: 30,
-            height: 30,
-            borderRadius: 15,
-            alignItems: 'center',
-            justifyContent: 'center',
-            backgroundColor: guardado ? C.limaTenue : C.carta2,
-          }}
+          style={[est.guardar, guardado ? est.guardarActivo : null]}
         >
-          <Icono
-            nombre={guardado ? 'guardado' : 'guardar'}
-            tam={15}
-            color={guardado ? C.lima : C.texto2}
-          />
+          <View key={toques} {...marca(toques > 0 && 'pop')}>
+            <Icono
+              nombre={guardado ? 'guardado' : 'guardar'}
+              tam={15}
+              color={guardado ? C.lima : C.texto2}
+            />
+          </View>
         </Pulsable>
       </Pulsable>
 
-      <Pulsable onPress={abrir} style={{ gap: E.md }}>
+      <Pulsable onPress={abrir} plano style={{ gap: E.md }}>
         <Txt v="cuerpo" color={bloqueado ? C.texto3 : C.texto} numberOfLines={3}>
           {bloqueado
             ? 'Análisis disponible con Golden Pro. Desbloquea el argumento, el precio y la tendencia de los últimos 10 partidos.'
@@ -979,3 +947,52 @@ export function TarjetaPick({
     </Tarjeta>
   );
 }
+
+/*
+ * Lo fijo de la tarjeta, compilado una vez.
+ *
+ * Es la pieza que más se repite de la app —una lista entera de ellas— y en la
+ * web cada estilo escrito en línea se traduce a CSS al montarse. Así se
+ * traduce al arrancar y cada tarjeta solo reparte clases.
+ */
+const est = StyleSheet.create({
+  tarjeta: { padding: 0, gap: 0, overflow: 'hidden' },
+  tarjetaVivo: { borderColor: C.rojo, borderTopColor: C.rojo, borderWidth: 1.5, backgroundColor: '#1A1315' },
+  cabecera: { flexDirection: 'row', alignItems: 'center', gap: E.md },
+  confianza: { paddingHorizontal: 7, paddingVertical: 3, borderRadius: R.sm, borderWidth: 1 },
+  confianzaAlta: { backgroundColor: C.acierto + '22', borderColor: C.acierto + '40' },
+  confianzaMedia: { backgroundColor: C.ambarTenue, borderColor: C.ambar + '40' },
+  guardar: {
+    width: 30,
+    height: 30,
+    borderRadius: 15,
+    alignItems: 'center',
+    justifyContent: 'center',
+    backgroundColor: C.carta2,
+  },
+  guardarActivo: { backgroundColor: C.limaTenue, boxShadow: '0 0 14px rgba(201,255,61,0.30)' },
+  mercado: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    gap: E.sm,
+    backgroundColor: C.carta2,
+    borderRadius: R.md,
+    paddingHorizontal: E.md,
+    paddingVertical: 11,
+  },
+  precio: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    gap: 6,
+    borderWidth: 1,
+    borderColor: C.borde,
+    borderRadius: R.sm,
+    paddingHorizontal: 8,
+    paddingVertical: 5,
+    backgroundColor: C.carta,
+  },
+  precioReal: { borderColor: C.limaBorde, boxShadow: '0 0 14px -4px rgba(201,255,61,0.35)' },
+  carril: { flex: 1, height: 7, borderRadius: 4, backgroundColor: C.carta2, overflow: 'hidden' },
+  relleno: { height: '100%', borderRadius: 4 },
+  segmento: { flex: 1, height: 8, borderRadius: 3 },
+});

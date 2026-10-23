@@ -5,6 +5,7 @@ import { useSafeAreaInsets } from 'react-native-safe-area-context';
 import { Insignia, Pulsable, Separador, Tarjeta, Txt, Vacio } from '@/componentes/base';
 import { Icono } from '@/componentes/iconos';
 import { Cara, Escudo, LogoCompeticion } from '@/componentes/imagen';
+import { marca } from '@/componentes/movimiento';
 import { CabeceraAtras } from '@/componentes/navegacion';
 import { competicion, competicionesVisibles } from '@/datos/competiciones';
 import { temporada } from '@/datos/motor';
@@ -85,6 +86,7 @@ export default function Buscar() {
 
       <View style={{ paddingHorizontal: E.lg, marginBottom: E.lg }}>
         <View
+          {...marca('campo')}
           style={{
             flexDirection: 'row',
             alignItems: 'center',

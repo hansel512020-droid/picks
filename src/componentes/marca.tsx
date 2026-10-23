@@ -1,3 +1,4 @@
+import { LinearGradient } from 'expo-linear-gradient';
 import { View, Text, type StyleProp, type ViewStyle } from 'react-native';
 import Svg, { Circle, Path } from 'react-native-svg';
 import { C, T } from '@/tema';
@@ -32,5 +33,30 @@ export function Logo({
       <Simbolo tam={tam + 6} />
       <Text style={{ ...T.titulo, color: C.texto, fontSize: tam }}>Golden Picks</Text>
     </View>
+  );
+}
+
+/**
+ * Un resplandor lima muy tenue que cae desde arriba.
+ *
+ * Es solo ambiente: le quita a la pantalla el negro plano de la cabecera sin
+ * competir con nada, y se funde antes de llegar al contenido. Va detrás de
+ * todo y no recibe toques. Quien lo usa lo pone el primero dentro de su
+ * contenedor, para que lo demás se pinte encima.
+ */
+export function Resplandor({ alto = 340, desde = 0 }: { alto?: number; desde?: number }) {
+  return (
+    <LinearGradient
+      colors={['rgba(201,255,61,0.09)', 'rgba(201,255,61,0.025)', 'rgba(201,255,61,0)']}
+      locations={[0, 0.45, 1]}
+      style={{
+        pointerEvents: 'none',
+        position: 'absolute',
+        top: desde,
+        left: 0,
+        right: 0,
+        height: alto - desde,
+      }}
+    />
   );
 }

@@ -3,12 +3,13 @@ import { ActivityIndicator, FlatList, View } from 'react-native';
 import { useSafeAreaInsets } from 'react-native-safe-area-context';
 import { Chip, Txt, Vacio } from '@/componentes/base';
 import { CabeceraAtras, TiraChips } from '@/componentes/navegacion';
+import { Aparece } from '@/componentes/movimiento';
 import { TarjetaPick } from '@/componentes/pick';
 import { competicion } from '@/datos/competiciones';
 import { FAMILIAS } from '@/datos/picks';
 import type { Familia } from '@/datos/tipos';
 import { useTienda } from '@/estado/tienda';
-import { C, E } from '@/tema';
+import { C, E, LISTA_LIGERA } from '@/tema';
 import { usePicksDelServidor } from '@/utiles/picks';
 
 /** Lista completa de picks de la competicion activa: el "Ver todo" de la portada. */
@@ -51,10 +52,11 @@ export default function TodosLosPicks() {
         keyExtractor={(p) => p.id}
         contentContainerStyle={{ paddingBottom: E.xxxl, gap: E.md }}
         showsVerticalScrollIndicator={false}
-        renderItem={({ item }) => (
-          <View style={{ paddingHorizontal: E.lg }}>
+        {...LISTA_LIGERA}
+        renderItem={({ item, index }) => (
+          <Aparece orden={index} style={{ paddingHorizontal: E.lg }}>
             <TarjetaPick pick={item} />
-          </View>
+          </Aparece>
         )}
         ListEmptyComponent={
           picks === undefined ? (

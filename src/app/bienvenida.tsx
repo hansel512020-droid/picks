@@ -11,7 +11,8 @@ import {
 import { useSafeAreaInsets } from 'react-native-safe-area-context';
 import { Boton, Insignia, Pulsable, Tarjeta, Txt } from '@/componentes/base';
 import { Icono, type NombreIcono } from '@/componentes/iconos';
-import { Simbolo } from '@/componentes/marca';
+import { Resplandor, Simbolo } from '@/componentes/marca';
+import { marca } from '@/componentes/movimiento';
 import { BarraL10, FilaMercado } from '@/componentes/pick';
 import { COMPETICIONES } from '@/datos/competiciones';
 import { competicionesImportadas } from '@/datos/importado';
@@ -382,6 +383,7 @@ export default function Bienvenida() {
 
   return (
     <View style={{ flex: 1, backgroundColor: C.fondo, paddingTop: insets.top }}>
+      <Resplandor alto={420} />
       <View
         style={{
           flexDirection: 'row',
@@ -421,7 +423,7 @@ export default function Bienvenida() {
             contentContainerStyle={{ paddingHorizontal: E.lg, paddingBottom: E.xl, gap: E.lg }}
             showsVerticalScrollIndicator={false}
           >
-            <View style={{ gap: E.sm, paddingTop: E.lg }}>
+            <View {...marca('entra')} style={{ gap: E.sm, paddingTop: E.lg }}>
               <Txt v="displayXL" style={{ textAlign: 'center', fontSize: 32 }}>
                 {d.titulo}
               </Txt>
@@ -442,11 +444,13 @@ export default function Bienvenida() {
           {DIAPOSITIVAS.map((_, i) => (
             <View
               key={i}
+              {...marca('desliza', 'color')}
               style={{
                 width: i === pagina ? 20 : 6,
                 height: 6,
                 borderRadius: 3,
                 backgroundColor: i === pagina ? C.lima : C.borde,
+                boxShadow: i === pagina ? '0 0 10px rgba(201,255,61,0.55)' : undefined,
               }}
             />
           ))}
