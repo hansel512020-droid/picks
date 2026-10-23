@@ -248,6 +248,7 @@ export default function PantallaJugador() {
               <Cara
                 nombre={jugador.nombre}
                 bandera={jugador.bandera}
+                equipo={equipo.nombre}
                 tam={84}
                 estilo={{ borderColor: C.limaBorde, borderWidth: 2 }}
               />

@@ -125,15 +125,22 @@ export function Escudo({
   );
 }
 
-/** Cara de un jugador, con respaldo a su bandera. */
+/** Cara de un jugador, con respaldo al escudo de su club o a su bandera. */
 export function Cara({
   nombre,
   bandera,
+  equipo,
   tam = 38,
   estilo,
 }: {
   nombre: string;
   bandera?: string;
+  /**
+   * Su club. Sin foto, se enseña su escudo y no la bandera: en un pick de
+   * Haaland lo que identifica es el City, y una bandera de Noruega —o la de
+   * la liga, en los datos viejos— parecía un error.
+   */
+  equipo?: string;
   tam?: number;
   estilo?: StyleProp<ViewStyle>;
 }) {
@@ -153,8 +160,15 @@ export function Cara({
           onError={() => setFallida(url)}
           cachePolicy="disk"
         />
-        {/* La bandera pequena identifica al jugador aunque la foto no cargue. */}
-        {bandera ? (
+        {/*
+          En la esquina, el escudo de su club si se sabe cuál es: es lo que
+          identifica al jugador en un pick. Si no, la bandera.
+        */}
+        {equipo ? (
+          <View style={{ position: 'absolute', right: -1, bottom: -1 }}>
+            <Escudo nombre={equipo} tam={tam * 0.42} />
+          </View>
+        ) : bandera ? (
           <View
             style={{
               position: 'absolute',
@@ -176,6 +190,7 @@ export function Cara({
     );
   }
 
+  if (equipo) return <Escudo nombre={equipo} tam={tam} estilo={estilo} />;
   return (
     <Redondo tam={tam} estilo={estilo}>
       <Text style={{ fontSize: tam * 0.55 }}>{bandera ?? '👤'}</Text>

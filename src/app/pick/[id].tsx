@@ -640,7 +640,13 @@ ${enlace}`;
 
           <Tarjeta style={{ padding: E.lg, gap: E.md }}>
             <View style={{ flexDirection: 'row', alignItems: 'center', gap: E.md }}>
-              <Avatar imagen={pick.imagen} tam={44} nombres={pick.nombres} sujeto={pick.sujeto} />
+              <Avatar
+                imagen={pick.imagen}
+                tam={44}
+                nombres={pick.nombres}
+                sujeto={pick.sujeto}
+                equipo={pick.equipo}
+              />
               <View style={{ flex: 1 }}>
                 <Txt v="titulo">{pick.titulo}</Txt>
                 <Txt v="pequeno" color={C.texto3}>

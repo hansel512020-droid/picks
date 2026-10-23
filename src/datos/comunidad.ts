@@ -85,14 +85,21 @@ export async function contadores(pickIds: string[]): Promise<Record<string, numb
   return salida;
 }
 
-/** Los picks mas guardados de una competicion, con su recuento. */
+/**
+ * Los picks más guardados, con su recuento: de una competición o de todas
+ * ('todas'). Solo los que alguien ha guardado en la última semana, que son los
+ * de los partidos que vienen; los de jornadas pasadas llenarían la lista.
+ */
 export async function masGuardados(
   competicionId: string,
   limite = 40,
 ): Promise<{ pickId: string; total: number }[]> {
+  const desde = new Date(Date.now() - 7 * 86_400_000).toISOString();
+  const filtro =
+    competicionId === 'todas' ? '' : `&competicion=eq.${encodeURIComponent(competicionId)}`;
   const filas = await pide<{ pick_id: string; total: number }[]>(
-    `conteo_guardados?select=pick_id,total&competicion=eq.${encodeURIComponent(competicionId)}` +
-      `&order=total.desc&limit=${limite}`,
+    `conteo_guardados?select=pick_id,total${filtro}` +
+      `&ultimo=gte.${encodeURIComponent(desde)}&order=total.desc&limit=${limite}`,
     { headers: cabeceras() },
     [],
   );

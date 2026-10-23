@@ -1,4 +1,4 @@
-import { useCallback, useMemo, useState } from 'react';
+import { useCallback, useEffect, useMemo, useState } from 'react';
 import { ActivityIndicator, FlatList, View } from 'react-native';
 import { useSafeAreaInsets } from 'react-native-safe-area-context';
 import { Chip, Fuego, Tarjeta, TituloSeccion, Txt, Vacio } from '@/componentes/base';
@@ -7,10 +7,12 @@ import { Aparece } from '@/componentes/movimiento';
 import { FundidoInferior, Resplandor } from '@/componentes/marca';
 import { TiraChips } from '@/componentes/navegacion';
 import { TarjetaPick } from '@/componentes/pick';
+import { masGuardados } from '@/datos/comunidad';
 import { competicion } from '@/datos/competiciones';
 import type { Familia, Pick } from '@/datos/tipos';
 import { useComunidad } from '@/estado/comunidad';
 import { useTienda } from '@/estado/tienda';
+import { usePicksVigentes } from '@/estado/vivo';
 import { C, COLUMNA, E, HUECO_PESTANAS, R } from '@/tema';
 import { usePicksDelServidor } from '@/utiles/picks';
 import { useRejilla } from '@/utiles/rejilla';
@@ -19,6 +21,18 @@ import { useRejilla } from '@/utiles/rejilla';
  * Lo que esta guardando el resto de la gente. Es la misma lista de picks, pero
  * ordenada por el contador de la llama en vez de por la ventaja.
  */
+
+/**
+ * La jornada: lo que se juega en los próximos tres días. Contando todo lo que
+ * viene, la cabecera decía "10.661 picks en cartel" y la lista mezclaba
+ * partidos de la semana que viene con los de esta tarde.
+ */
+const JORNADA_MS = 3 * 86_400_000;
+
+/** Cada cuánto se vuelve a pedir la lista de los más guardados. */
+const CADA_REFRESCO = 60_000;
+
+const SIN_PICKS: Pick[] = [];
 
 const FILTROS: { id: Familia | 'todos'; texto: string }[] = [
   { id: 'todos', texto: 'Todos' },
@@ -36,7 +50,38 @@ export default function Comunidad() {
   const competicionId = ajustes.competicionId;
 
   // La misma lista del servidor; aquí se reordena por guardados más abajo.
-  const picks = usePicksDelServidor(competicionId);
+  const todos = usePicksDelServidor(competicionId);
+  const deLaJornada = useMemo(() => {
+    if (!todos) return undefined;
+    const hasta = Date.now() + JORNADA_MS;
+    return todos.filter((p) => Date.parse(p.cuando ?? '') <= hasta);
+  }, [todos]);
+  // Sin los partidos que ya han empezado: esos ya no se pueden apostar.
+  const vigentes = usePicksVigentes(deLaJornada ?? SIN_PICKS);
+  const picks = deLaJornada ? vigentes : undefined;
+
+  /*
+   * Los más guardados, preguntados al servidor de una vez.
+   *
+   * El contador de cada tarjeta solo se pide cuando la tarjeta aparece en
+   * pantalla, así que de los miles de picks de la jornada la app no sabía
+   * cuáles tenían guardados hasta verlos: la pantalla sumaba ceros, decía "0
+   * guardados" y ordenaba al azar. Ahora pide directamente el ranking.
+   */
+  const [ranking, setRanking] = useState<Map<string, number>>(new Map());
+  useEffect(() => {
+    let vivo = true;
+    const trae = () =>
+      masGuardados(competicionId, 500).then((filas) => {
+        if (vivo) setRanking(new Map(filas.map((f) => [f.pickId, f.total])));
+      });
+    trae();
+    const reloj = setInterval(trae, CADA_REFRESCO);
+    return () => {
+      vivo = false;
+      clearInterval(reloj);
+    };
+  }, [competicionId]);
 
   /*
    * Los guardados de verdad, no los que inventa el generador.
@@ -50,13 +95,23 @@ export default function Comunidad() {
    * nada que contar y es cero, no un número inventado.
    */
   const comunidad = useComunidad();
-  const guardadosDe = useCallback((p: Pick) => comunidad.cuenta(p.id) ?? 0, [comunidad]);
+  // El mayor de los dos: el ranking puede ir un minuto por detrás de un
+  // guardado que el usuario acaba de hacer.
+  const guardadosDe = useCallback(
+    (p: Pick) => Math.max(ranking.get(p.id) ?? 0, comunidad.cuenta(p.id) ?? 0),
+    [comunidad, ranking],
+  );
 
+  /*
+   * Primero los más guardados y, a igualdad (o si nadie ha guardado nada
+   * todavía), los de más probabilidad: los mejores de la jornada, no un
+   * orden al azar.
+   */
   const visibles = useMemo(
     () =>
       (picks ?? [])
         .filter((p) => filtro === 'todos' || p.familia === filtro)
-        .sort((a, b) => guardadosDe(b) - guardadosDe(a)),
+        .sort((a, b) => guardadosDe(b) - guardadosDe(a) || b.probabilidad - a.probabilidad),
     [picks, filtro, guardadosDe],
   );
 
@@ -107,6 +162,7 @@ export default function Comunidad() {
                 <Fuego n={totalGuardados} grande />
                 <View style={{ flex: 1 }}>
                   <Txt v="cuerpoFuerte">Lo que guarda la gente esta jornada</Txt>
+                  {/* "Esta jornada" son los próximos tres días: se dice. */}
                   <Txt v="pequeno" color={C.texto3}>
                     en {comp.nombre}
                   </Txt>
@@ -116,7 +172,7 @@ export default function Comunidad() {
                 {[
                   { n: totalGuardados, texto: 'guardados', color: C.ambar },
                   { n: conApoyo, texto: 'picks con apoyo', color: C.texto },
-                  { n: picks?.length ?? 0, texto: 'picks en cartel', color: C.texto },
+                  { n: picks?.length ?? 0, texto: 'picks en 3 días', color: C.texto },
                 ].map((d) => (
                   <View
                     key={d.texto}
@@ -157,7 +213,15 @@ export default function Comunidad() {
             </TiraChips>
 
             <View style={{ paddingHorizontal: E.lg }}>
-              <TituloSeccion>Los más guardados 🔥</TituloSeccion>
+              <TituloSeccion>
+                {totalGuardados ? 'Los más guardados 🔥' : 'Los mejores de la jornada'}
+              </TituloSeccion>
+              {totalGuardados ? null : (
+                <Txt v="pequeno" color={C.texto3} style={{ marginTop: 4 }}>
+                  Todavía nadie ha guardado picks de estos partidos. Mientras tanto, van primero los de
+                  más probabilidad: guarda uno y será el primero de la lista.
+                </Txt>
+              )}
             </View>
           </View>
         }
