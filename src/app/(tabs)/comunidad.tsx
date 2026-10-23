@@ -1,17 +1,19 @@
 import { useCallback, useMemo, useState } from 'react';
 import { ActivityIndicator, FlatList, View } from 'react-native';
 import { useSafeAreaInsets } from 'react-native-safe-area-context';
-import { Chip, Fuego, Tarjeta, Txt, Vacio } from '@/componentes/base';
+import { Chip, Fuego, Tarjeta, TituloSeccion, Txt, Vacio } from '@/componentes/base';
 import { BotonCompeticion } from '@/componentes/carruseles';
 import { Aparece } from '@/componentes/movimiento';
+import { Resplandor } from '@/componentes/marca';
 import { TiraChips } from '@/componentes/navegacion';
 import { TarjetaPick } from '@/componentes/pick';
 import { competicion } from '@/datos/competiciones';
 import type { Familia, Pick } from '@/datos/tipos';
 import { useComunidad } from '@/estado/comunidad';
 import { useTienda } from '@/estado/tienda';
-import { C, E, LISTA_LIGERA } from '@/tema';
+import { C, COLUMNA, E, HUECO_PESTANAS, LISTA_LIGERA } from '@/tema';
 import { usePicksDelServidor } from '@/utiles/picks';
+import { useRejilla } from '@/utiles/rejilla';
 
 /**
  * Lo que esta guardando el resto de la gente. Es la misma lista de picks, pero
@@ -64,13 +66,21 @@ export default function Comunidad() {
   );
 
   const comp = competicion(competicionId);
+  const { columnas, fila, celda } = useRejilla();
 
   return (
     <View style={{ flex: 1, backgroundColor: C.fondo, paddingTop: insets.top }}>
+      <Resplandor />
       <FlatList
+        key={columnas}
+        numColumns={columnas}
+        columnWrapperStyle={fila}
         data={visibles}
         keyExtractor={(p) => p.id}
-        contentContainerStyle={{ paddingBottom: E.xxxl, gap: E.md }}
+        contentContainerStyle={[
+          { paddingBottom: HUECO_PESTANAS + insets.bottom, gap: E.md },
+          COLUMNA.amplia,
+        ]}
         showsVerticalScrollIndicator={false}
         {...LISTA_LIGERA}
         ListHeaderComponent={
@@ -117,12 +127,12 @@ export default function Comunidad() {
             </TiraChips>
 
             <View style={{ paddingHorizontal: E.lg }}>
-              <Txt v="subtitulo">Los más guardados 🔥</Txt>
+              <TituloSeccion>Los más guardados 🔥</TituloSeccion>
             </View>
           </View>
         }
         renderItem={({ item, index }) => (
-          <Aparece orden={index} style={{ paddingHorizontal: E.lg, gap: 6 }}>
+          <Aparece orden={index} style={[celda ?? { paddingHorizontal: E.lg }, { gap: 6 }]}>
             <Txt v="etiqueta" color={index < 3 ? C.ambar : C.texto3}>
               #{index + 1}
             </Txt>

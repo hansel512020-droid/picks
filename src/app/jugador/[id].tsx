@@ -4,6 +4,8 @@ import { ActivityIndicator, ScrollView, Text, View } from 'react-native';
 import { useSafeAreaInsets } from 'react-native-safe-area-context';
 import { Chip, Insignia, Pulsable, Separador, Tarjeta, Txt, Vacio } from '@/componentes/base';
 import { Cara, Escudo } from '@/componentes/imagen';
+import { Resplandor } from '@/componentes/marca';
+import { marca } from '@/componentes/movimiento';
 import { CabeceraAtras, FilaDato, Segmentado, TiraChips } from '@/componentes/navegacion';
 import { BarraL10 } from '@/componentes/pick';
 import { competicion } from '@/datos/competiciones';
@@ -12,7 +14,7 @@ import { temporada } from '@/datos/motor';
 import { coma, linea as formatoLinea, METRICAS_JUGADOR } from '@/datos/picks';
 import type { RegistroJugador } from '@/datos/tipos';
 import { useTienda } from '@/estado/tienda';
-import { C, E, R } from '@/tema';
+import { C, COLUMNA, E, R } from '@/tema';
 import { useCalculo } from '@/utiles/carga';
 
 /**
@@ -180,10 +182,12 @@ export default function PantallaJugador() {
 
   return (
     <View style={{ flex: 1, backgroundColor: C.fondo, paddingTop: insets.top + E.sm }}>
+      <Resplandor />
       <CabeceraAtras titulo={jugador.nombre} subtitulo={`${equipo.nombre} · ${competicion(competicionId).corto}`} />
 
       <ScrollView
-        contentContainerStyle={{ paddingBottom: E.xxxl, gap: E.lg }}
+        {...marca('pagina')}
+        contentContainerStyle={[{ paddingBottom: E.xxxl, gap: E.lg }, COLUMNA.lectura]}
         showsVerticalScrollIndicator={false}
       >
         {/* ----------------------------------------------------- identidad */}

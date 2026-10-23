@@ -4,9 +4,11 @@ import { ScrollView, View } from 'react-native';
 import { useSafeAreaInsets } from 'react-native-safe-area-context';
 import { Pulsable, Separador, Tarjeta, Txt, Vacio } from '@/componentes/base';
 import { Icono } from '@/componentes/iconos';
+import { Resplandor } from '@/componentes/marca';
+import { marca } from '@/componentes/movimiento';
 import { CabeceraAtras } from '@/componentes/navegacion';
 import { useAvisos } from '@/estado/avisos';
-import { C, E } from '@/tema';
+import { C, COLUMNA, E } from '@/tema';
 
 /** Historial de avisos: qué ha pasado con tus picks mientras no mirabas. */
 
@@ -36,6 +38,7 @@ export default function Avisos() {
 
   return (
     <View style={{ flex: 1, backgroundColor: C.fondo, paddingTop: insets.top + E.sm }}>
+      <Resplandor />
       <CabeceraAtras
         titulo="Avisos"
         subtitulo={lista.length ? `${lista.length} en el historial` : undefined}
@@ -48,7 +51,10 @@ export default function Avisos() {
           detalle="Aquí aparecerán tus picks en cuanto se cumplan o se caigan, y los partidos a punto de empezar."
         />
       ) : (
-        <ScrollView contentContainerStyle={{ paddingBottom: E.xxxl, gap: E.sm }}>
+        <ScrollView
+          {...marca('pagina')}
+          contentContainerStyle={[{ paddingBottom: E.xxxl, gap: E.sm }, COLUMNA.lectura]}
+        >
           <Tarjeta style={{ marginHorizontal: E.lg, overflow: 'hidden' }}>
             {lista.map((a, i) => (
               <View key={a.id}>

@@ -19,6 +19,7 @@ import {
 import { Campo, CampoReal } from '@/componentes/campo';
 import { Icono } from '@/componentes/iconos';
 import { Escudo } from '@/componentes/imagen';
+import { marca } from '@/componentes/movimiento';
 import { CabeceraAtras, FilaDato, Pestanas, Segmentado, TiraChips } from '@/componentes/navegacion';
 import { SelloCasa, TarjetaPick } from '@/componentes/pick';
 import { alineacionesDelPartido, type OnceEquipo } from '@/datos/alineaciones';
@@ -32,7 +33,7 @@ import type { Equipo, Familia, Partido } from '@/datos/tipos';
 import { useDerechos } from '@/estado/derechos';
 import { useTienda } from '@/estado/tienda';
 import { usePartidoVivoDe, usePicksVigentes } from '@/estado/vivo';
-import { C, E, R } from '@/tema';
+import { C, COLUMNA, E, R } from '@/tema';
 import { useCalculo } from '@/utiles/carga';
 
 type Vista = 'cuotas' | 'insights' | 'duelo';
@@ -252,6 +253,7 @@ export default function PantallaPartido() {
   return (
     <View style={{ flex: 1, backgroundColor: C.fondo }}>
       <ScrollView
+        {...marca('pagina')}
         contentContainerStyle={{ paddingBottom: E.xxxl }}
         showsVerticalScrollIndicator={false}
       >
@@ -262,13 +264,16 @@ export default function PantallaPartido() {
         >
           <CabeceraAtras />
           <View
-            style={{
-              flexDirection: 'row',
-              alignItems: 'center',
-              justifyContent: 'space-between',
-              paddingHorizontal: E.lg,
-              gap: E.sm,
-            }}
+            style={[
+              {
+                flexDirection: 'row',
+                alignItems: 'center',
+                justifyContent: 'space-between',
+                paddingHorizontal: E.lg,
+                gap: E.sm,
+              },
+              COLUMNA.lectura,
+            ]}
           >
             {/*
               Tres zonas: equipo · marcador · equipo.
@@ -340,7 +345,10 @@ export default function PantallaPartido() {
           <View style={{ alignItems: 'center', gap: 3, marginTop: E.sm }}>
             {vivo ? (
               <View style={{ flexDirection: 'row', alignItems: 'center', gap: 6 }}>
-                <View style={{ width: 6, height: 6, borderRadius: 3, backgroundColor: C.rojo }} />
+                <View
+                  {...marca('latido')}
+                  style={{ width: 6, height: 6, borderRadius: 3, backgroundColor: C.rojo }}
+                />
                 <Txt v="etiqueta" color={C.rojo}>
                   {estado === 'descanso'
                     ? 'DESCANSO'
@@ -438,200 +446,267 @@ export default function PantallaPartido() {
           </View>
         </LinearGradient>
 
-        {/* ---------------------------------------------------------- vistas */}
-        <View style={{ paddingHorizontal: E.lg, marginBottom: E.lg }}>
-          <Segmentado
-            valor={vista}
-            onCambia={setVista}
-            opciones={[
-              { id: 'cuotas', texto: 'Precios', icono: 'moneda' },
-              { id: 'insights', texto: 'Insights', icono: 'grafico' },
-              { id: 'duelo', texto: 'Duelo', icono: 'duelo' },
-            ]}
-          />
-        </View>
-
-        {vista === 'insights' ? (
-          <>
-            <Pestanas
-              valor={pestana}
-              onCambia={setPestana}
+        {/* Debajo del marcador, todo en la columna de lectura: el degradado
+            sí va de lado a lado, pero lo que se lee no. */}
+        <View style={COLUMNA.lectura}>
+          {/* ---------------------------------------------------------- vistas */}
+          <View style={{ paddingHorizontal: E.lg, marginBottom: E.lg }}>
+            <Segmentado
+              valor={vista}
+              onCambia={setVista}
               opciones={[
-                { id: 'picks', texto: 'Picks' },
-                { id: 'formaciones', texto: 'Formaciones' },
-                { id: 'lesiones', texto: 'Lesiones' },
+                { id: 'cuotas', texto: 'Precios', icono: 'moneda' },
+                { id: 'insights', texto: 'Insights', icono: 'grafico' },
+                { id: 'duelo', texto: 'Duelo', icono: 'duelo' },
               ]}
             />
+          </View>
 
-            {penales?.lanzamientos.length ? (
-              <Tarjeta style={{ padding: E.md, gap: E.sm, marginBottom: E.lg }}>
-                <View style={{ flexDirection: 'row', alignItems: 'center', gap: E.sm }}>
-                  <Txt v="cuerpoFuerte" style={{ flex: 1 }}>
-                    Tanda de penaltis
-                  </Txt>
-                  <Insignia
-                    texto={`${penales.golesLocal}-${penales.golesVisitante}`}
-                    color={C.ambar}
-                    fondo={C.ambarTenue}
-                  />
-                </View>
-                {penales.lanzamientos.map((l) => {
-                  const color =
-                    l.suerte === 'gol' ? C.verde : l.suerte === 'parado' ? C.violeta : C.rojo;
-                  return (
-                    <View
-                      key={`${l.orden}-${l.jugador}`}
-                      style={{ flexDirection: 'row', alignItems: 'center', gap: E.sm }}
-                    >
-                      <Txt v="mini" color={C.texto3} style={{ width: 18 }}>
-                        {l.orden}
-                      </Txt>
-                      <Escudo nombre={l.equipo} tam={18} />
-                      <Txt v="pequeno" style={{ flex: 1 }} numberOfLines={1}>
-                        {l.jugador}
-                      </Txt>
-                      <Insignia
-                        texto={
-                          l.suerte === 'gol' ? 'GOL' : l.suerte === 'parado' ? 'PARADO' : 'FUERA'
+          {vista === 'insights' ? (
+            <>
+              <Pestanas
+                valor={pestana}
+                onCambia={setPestana}
+                opciones={[
+                  { id: 'picks', texto: 'Picks' },
+                  { id: 'formaciones', texto: 'Formaciones' },
+                  { id: 'lesiones', texto: 'Lesiones' },
+                ]}
+              />
+
+              {penales?.lanzamientos.length ? (
+                <Tarjeta style={{ padding: E.md, gap: E.sm, marginBottom: E.lg }}>
+                  <View style={{ flexDirection: 'row', alignItems: 'center', gap: E.sm }}>
+                    <Txt v="cuerpoFuerte" style={{ flex: 1 }}>
+                      Tanda de penaltis
+                    </Txt>
+                    <Insignia
+                      texto={`${penales.golesLocal}-${penales.golesVisitante}`}
+                      color={C.ambar}
+                      fondo={C.ambarTenue}
+                    />
+                  </View>
+                  {penales.lanzamientos.map((l) => {
+                    const color =
+                      l.suerte === 'gol' ? C.verde : l.suerte === 'parado' ? C.violeta : C.rojo;
+                    return (
+                      <View
+                        key={`${l.orden}-${l.jugador}`}
+                        style={{ flexDirection: 'row', alignItems: 'center', gap: E.sm }}
+                      >
+                        <Txt v="mini" color={C.texto3} style={{ width: 18 }}>
+                          {l.orden}
+                        </Txt>
+                        <Escudo nombre={l.equipo} tam={18} />
+                        <Txt v="pequeno" style={{ flex: 1 }} numberOfLines={1}>
+                          {l.jugador}
+                        </Txt>
+                        <Insignia
+                          texto={
+                            l.suerte === 'gol' ? 'GOL' : l.suerte === 'parado' ? 'PARADO' : 'FUERA'
+                          }
+                          color={color}
+                          fondo={C.carta2}
+                        />
+                      </View>
+                    );
+                  })}
+                </Tarjeta>
+              ) : null}
+
+              {pestana === 'picks' ? (
+                <View style={{ paddingTop: E.lg, gap: E.md }}>
+                  <TiraChips>
+                    {FAMILIAS.map((f) => (
+                      <Chip
+                        key={f.id}
+                        texto={f.nombre}
+                        activo={familias.includes(f.id)}
+                        onPress={() =>
+                          setFamilias((prev) =>
+                            prev.includes(f.id) ? prev.filter((x) => x !== f.id) : [...prev, f.id],
+                          )
                         }
-                        color={color}
-                        fondo={C.carta2}
                       />
-                    </View>
-                  );
-                })}
-              </Tarjeta>
-            ) : null}
+                    ))}
+                  </TiraChips>
+                  {picks === undefined ? (
+                    <ActivityIndicator color={C.lima} style={{ marginTop: E.xl }} />
+                  ) : picksEnCartel.length ? (
+                    picksEnCartel.map((p) => (
+                      <View key={p.id} style={{ paddingHorizontal: E.lg }}>
+                        <TarjetaPick pick={p} />
+                      </View>
+                    ))
+                  ) : (
+                    /*
+                      Tres motivos distintos para una lista vacía, y hay que
+                      decir cuál es.
 
-            {pestana === 'picks' ? (
-              <View style={{ paddingTop: E.lg, gap: E.md }}>
-                <TiraChips>
-                  {FAMILIAS.map((f) => (
-                    <Chip
-                      key={f.id}
-                      texto={f.nombre}
-                      activo={familias.includes(f.id)}
-                      onPress={() =>
-                        setFamilias((prev) =>
-                          prev.includes(f.id) ? prev.filter((x) => x !== f.id) : [...prev, f.id],
-                        )
+                      El caso nuevo es el de en medio: había picks y todos se han
+                      cumplido ya con el partido en marcha, así que se han
+                      retirado. Antes salía "prueba con otro mercado", que manda a
+                      buscar donde no hay nada: el problema no es el filtro, es
+                      que ya no queda nada que ofrecer.
+                    */
+                    <Vacio
+                      icono={picksVisibles.length ? 'check' : 'filtro'}
+                      titulo={
+                        jugado
+                          ? 'Sin picks para este filtro'
+                          : picksVisibles.length
+                            ? 'Los picks de este partido ya se han cumplido'
+                            : 'Sin picks para este filtro'
+                      }
+                      detalle={
+                        jugado
+                          ? 'Este partido ya se jugó: mira los precios o el duelo.'
+                          : picksVisibles.length
+                            ? 'Con el marcador que lleva ya no queda nada que apostar aquí.'
+                            : 'Prueba con otro mercado.'
                       }
                     />
-                  ))}
-                </TiraChips>
-                {picks === undefined ? (
-                  <ActivityIndicator color={C.lima} style={{ marginTop: E.xl }} />
-                ) : picksEnCartel.length ? (
-                  picksEnCartel.map((p) => (
-                    <View key={p.id} style={{ paddingHorizontal: E.lg }}>
-                      <TarjetaPick pick={p} />
-                    </View>
-                  ))
-                ) : (
-                  /*
-                    Tres motivos distintos para una lista vacía, y hay que
-                    decir cuál es.
+                  )}
+                </View>
+              ) : null}
 
-                    El caso nuevo es el de en medio: había picks y todos se han
-                    cumplido ya con el partido en marcha, así que se han
-                    retirado. Antes salía "prueba con otro mercado", que manda a
-                    buscar donde no hay nada: el problema no es el filtro, es
-                    que ya no queda nada que ofrecer.
-                  */
-                  <Vacio
-                    icono={picksVisibles.length ? 'check' : 'filtro'}
-                    titulo={
-                      jugado
-                        ? 'Sin picks para este filtro'
-                        : picksVisibles.length
-                          ? 'Los picks de este partido ya se han cumplido'
-                          : 'Sin picks para este filtro'
-                    }
-                    detalle={
-                      jugado
-                        ? 'Este partido ya se jugó: mira los precios o el duelo.'
-                        : picksVisibles.length
-                          ? 'Con el marcador que lleva ya no queda nada que apostar aquí.'
-                          : 'Prueba con otro mercado.'
-                    }
+              {pestana === 'formaciones' ? (
+                <View style={{ padding: E.lg, gap: E.md }}>
+                  <Segmentado
+                    valor={lado}
+                    onCambia={setLado}
+                    // También aquí el nombre entero: son dos botones a mitad de
+                    // pantalla cada uno, hay sitio de sobra.
+                    opciones={[
+                      { id: 'local', texto: local.nombre },
+                      { id: 'visitante', texto: visitante.nombre },
+                    ]}
                   />
-                )}
-              </View>
-            ) : null}
+                  <Formacion
+                    competicionId={competicionId}
+                    partidoId={partidoId}
+                    idEspn={partido.idEspn}
+                    esLocal={lado === 'local'}
+                    equipoId={lado === 'local' ? local.id : visitante.id}
+                    color={lado === 'local' ? local.color : visitante.color}
+                    jugadores={jugadores}
+                  />
+                </View>
+              ) : null}
 
-            {pestana === 'formaciones' ? (
-              <View style={{ padding: E.lg, gap: E.md }}>
-                <Segmentado
-                  valor={lado}
-                  onCambia={setLado}
-                  // También aquí el nombre entero: son dos botones a mitad de
-                  // pantalla cada uno, hay sitio de sobra.
-                  opciones={[
-                    { id: 'local', texto: local.nombre },
-                    { id: 'visitante', texto: visitante.nombre },
-                  ]}
-                />
-                <Formacion
-                  competicionId={competicionId}
-                  partidoId={partidoId}
-                  idEspn={partido.idEspn}
-                  esLocal={lado === 'local'}
-                  equipoId={lado === 'local' ? local.id : visitante.id}
-                  color={lado === 'local' ? local.color : visitante.color}
-                  jugadores={jugadores}
-                />
-              </View>
-            ) : null}
-
-            {pestana === 'lesiones' ? (
-              <View style={{ padding: E.lg, gap: E.lg }}>
-                {[local, visitante].map((e) => (
-                  <View key={e.id} style={{ gap: E.sm }}>
-                    <View style={{ flexDirection: 'row', alignItems: 'center', gap: E.sm }}>
-                      <Escudo nombre={e.nombre} id={e.id} bandera={e.bandera} corto={e.corto} tam={26} />
-                      <Txt v="subtitulo">{e.nombre}</Txt>
+              {pestana === 'lesiones' ? (
+                <View style={{ padding: E.lg, gap: E.lg }}>
+                  {[local, visitante].map((e) => (
+                    <View key={e.id} style={{ gap: E.sm }}>
+                      <View style={{ flexDirection: 'row', alignItems: 'center', gap: E.sm }}>
+                        <Escudo nombre={e.nombre} id={e.id} bandera={e.bandera} corto={e.corto} tam={26} />
+                        <Txt v="subtitulo">{e.nombre}</Txt>
+                      </View>
+                      <ListaBajas competicionId={competicionId} equipoId={e.id} />
                     </View>
-                    <ListaBajas competicionId={competicionId} equipoId={e.id} />
-                  </View>
-                ))}
-              </View>
-            ) : null}
-          </>
-        ) : null}
+                  ))}
+                </View>
+              ) : null}
+            </>
+          ) : null}
 
-        {vista === 'cuotas' ? (
-          <View style={{ paddingHorizontal: E.lg, gap: E.lg }}>
-            {/*
-              El 1X2 completo, para enseñar. La portada solo publica lo que tiene
-              ventaja —casi siempre la doble oportunidad del equipo flojo—, así
-              que parecía que no había mercado de "quién gana". Aquí salen las
-              seis opciones con su probabilidad y su cuota, y la de valor marcada.
-            */}
-            {(() => {
-              const ops = desglose1x2(competicionId, partidoId, ajustes.casaId);
-              if (!ops.length) return null;
-              return (
-                <Tarjeta style={{ overflow: 'hidden' }}>
-                  <View
-                    style={{
-                      flexDirection: 'row',
-                      paddingHorizontal: E.md,
-                      paddingVertical: 10,
-                      backgroundColor: C.carta2,
-                    }}
-                  >
-                    <Txt v="mini" color={C.texto3} style={{ flex: 1 }}>
-                      RESULTADO (1X2)
+          {vista === 'cuotas' ? (
+            <View style={{ paddingHorizontal: E.lg, gap: E.lg }}>
+              {/*
+                El 1X2 completo, para enseñar. La portada solo publica lo que tiene
+                ventaja —casi siempre la doble oportunidad del equipo flojo—, así
+                que parecía que no había mercado de "quién gana". Aquí salen las
+                seis opciones con su probabilidad y su cuota, y la de valor marcada.
+              */}
+              {(() => {
+                const ops = desglose1x2(competicionId, partidoId, ajustes.casaId);
+                if (!ops.length) return null;
+                return (
+                  <Tarjeta style={{ overflow: 'hidden' }}>
+                    <View
+                      style={{
+                        flexDirection: 'row',
+                        paddingHorizontal: E.md,
+                        paddingVertical: 10,
+                        backgroundColor: C.carta2,
+                      }}
+                    >
+                      <Txt v="mini" color={C.texto3} style={{ flex: 1 }}>
+                        RESULTADO (1X2)
+                      </Txt>
+                      <Txt v="mini" color={C.texto3} style={{ width: 52, textAlign: 'center' }}>
+                        MODELO
+                      </Txt>
+                      <Txt v="mini" color={C.texto3} style={{ width: 52, textAlign: 'center' }}>
+                        CUOTA
+                      </Txt>
+                    </View>
+                    {ops.map((o, i) => (
+                      <View key={o.nombre}>
+                        {i > 0 ? <Separador /> : null}
+                        <View
+                          style={{
+                            flexDirection: 'row',
+                            alignItems: 'center',
+                            paddingHorizontal: E.md,
+                            paddingVertical: 12,
+                            gap: E.sm,
+                          }}
+                        >
+                          <View
+                            style={{
+                              flex: 1,
+                              flexDirection: 'row',
+                              alignItems: 'center',
+                              gap: 6,
+                              flexWrap: 'wrap',
+                            }}
+                          >
+                            <Txt v="pequeno" numberOfLines={1}>
+                              {o.nombre}
+                            </Txt>
+                            {o.valor ? (
+                              <Insignia texto="VALOR" color={C.lima} fondo={C.limaTenue} />
+                            ) : null}
+                          </View>
+                          <Txt
+                            v="cuerpoFuerte"
+                            color={o.valor ? C.lima : C.texto}
+                            style={{ width: 52, textAlign: 'center' }}
+                          >
+                            {(o.probModelo * 100).toFixed(0)}%
+                          </Txt>
+                          <Txt v="cuerpoFuerte" style={{ width: 52, textAlign: 'center' }}>
+                            {o.cuota.toFixed(2)}
+                          </Txt>
+                        </View>
+                      </View>
+                    ))}
+                  </Tarjeta>
+                );
+              })()}
+              <Tarjeta style={{ overflow: 'hidden' }}>
+                <View
+                  style={{
+                    flexDirection: 'row',
+                    paddingHorizontal: E.md,
+                    paddingVertical: 10,
+                    backgroundColor: C.carta2,
+                  }}
+                >
+                  <Txt v="mini" color={C.texto3} style={{ flex: 1 }}>
+                    FUENTE
+                  </Txt>
+                  {['1', '×', '2'].map((t) => (
+                    <Txt key={t} v="mini" color={C.texto3} style={{ width: 54, textAlign: 'center' }}>
+                      {t}
                     </Txt>
-                    <Txt v="mini" color={C.texto3} style={{ width: 52, textAlign: 'center' }}>
-                      MODELO
-                    </Txt>
-                    <Txt v="mini" color={C.texto3} style={{ width: 52, textAlign: 'center' }}>
-                      CUOTA
-                    </Txt>
-                  </View>
-                  {ops.map((o, i) => (
-                    <View key={o.nombre}>
+                  ))}
+                </View>
+                {filasDePrecio.map(({ casa, c }, i) => {
+                  const mejor = Math.max(c.local, c.empate, c.visitante);
+                  return (
+                    <View key={casa.id}>
                       {i > 0 ? <Separador /> : null}
                       <View
                         style={{
@@ -639,149 +714,86 @@ export default function PantallaPartido() {
                           alignItems: 'center',
                           paddingHorizontal: E.md,
                           paddingVertical: 12,
-                          gap: E.sm,
                         }}
                       >
                         <View
-                          style={{
-                            flex: 1,
-                            flexDirection: 'row',
-                            alignItems: 'center',
-                            gap: 6,
-                            flexWrap: 'wrap',
-                          }}
+                          style={{ flex: 1, flexDirection: 'row', alignItems: 'center', gap: E.sm }}
                         >
+                          <SelloCasa casaId={casa.id} tam={20} />
                           <Txt v="pequeno" numberOfLines={1}>
-                            {o.nombre}
+                            {casa.nombre}
                           </Txt>
-                          {o.valor ? (
-                            <Insignia texto="VALOR" color={C.lima} fondo={C.limaTenue} />
-                          ) : null}
+                          {/*
+                            Cuál es un precio que alguien publicó y cuál una
+                            cuenta nuestra. El orden y la nota de abajo lo dicen,
+                            pero en una tabla se lee fila a fila, no de arriba
+                            abajo: la marca tiene que estar en la propia fila.
+                          */}
+                          {casa.real ? (
+                            <Insignia texto="PUBLICADO" color={C.lima} fondo={C.limaTenue} />
+                          ) : (
+                            <Insignia texto="CALCULADO" color={C.texto3} fondo={C.carta2} />
+                          )}
                         </View>
-                        <Txt
-                          v="cuerpoFuerte"
-                          color={o.valor ? C.lima : C.texto}
-                          style={{ width: 52, textAlign: 'center' }}
-                        >
-                          {(o.probModelo * 100).toFixed(0)}%
-                        </Txt>
-                        <Txt v="cuerpoFuerte" style={{ width: 52, textAlign: 'center' }}>
-                          {o.cuota.toFixed(2)}
-                        </Txt>
+                        {[c.local, c.empate, c.visitante].map((v, k) => (
+                          <Txt
+                            key={k}
+                            v="cuerpoFuerte"
+                            color={v === mejor ? C.lima : C.texto}
+                            style={{ width: 54, textAlign: 'center' }}
+                          >
+                            {v.toFixed(2)}
+                          </Txt>
+                        ))}
                       </View>
                     </View>
-                  ))}
-                </Tarjeta>
-              );
-            })()}
-            <Tarjeta style={{ overflow: 'hidden' }}>
-              <View
-                style={{
-                  flexDirection: 'row',
-                  paddingHorizontal: E.md,
-                  paddingVertical: 10,
-                  backgroundColor: C.carta2,
-                }}
-              >
-                <Txt v="mini" color={C.texto3} style={{ flex: 1 }}>
-                  FUENTE
-                </Txt>
-                {['1', '×', '2'].map((t) => (
-                  <Txt key={t} v="mini" color={C.texto3} style={{ width: 54, textAlign: 'center' }}>
-                    {t}
-                  </Txt>
-                ))}
-              </View>
-              {filasDePrecio.map(({ casa, c }, i) => {
-                const mejor = Math.max(c.local, c.empate, c.visitante);
-                return (
-                  <View key={casa.id}>
-                    {i > 0 ? <Separador /> : null}
-                    <View
-                      style={{
-                        flexDirection: 'row',
-                        alignItems: 'center',
-                        paddingHorizontal: E.md,
-                        paddingVertical: 12,
-                      }}
-                    >
-                      <View
-                        style={{ flex: 1, flexDirection: 'row', alignItems: 'center', gap: E.sm }}
-                      >
-                        <SelloCasa casaId={casa.id} tam={20} />
-                        <Txt v="pequeno" numberOfLines={1}>
-                          {casa.nombre}
-                        </Txt>
-                        {/*
-                          Cuál es un precio que alguien publicó y cuál una
-                          cuenta nuestra. El orden y la nota de abajo lo dicen,
-                          pero en una tabla se lee fila a fila, no de arriba
-                          abajo: la marca tiene que estar en la propia fila.
-                        */}
-                        {casa.real ? (
-                          <Insignia texto="PUBLICADO" color={C.lima} fondo={C.limaTenue} />
-                        ) : (
-                          <Insignia texto="CALCULADO" color={C.texto3} fondo={C.carta2} />
-                        )}
-                      </View>
-                      {[c.local, c.empate, c.visitante].map((v, k) => (
-                        <Txt
-                          key={k}
-                          v="cuerpoFuerte"
-                          color={v === mejor ? C.lima : C.texto}
-                          style={{ width: 54, textAlign: 'center' }}
-                        >
-                          {v.toFixed(2)}
-                        </Txt>
-                      ))}
-                    </View>
-                  </View>
-                );
-              })}
-            </Tarjeta>
+                  );
+                })}
+              </Tarjeta>
 
-            {/*
-              Quién dijo qué, en una línea.
+              {/*
+                Quién dijo qué, en una línea.
 
-              Sin esto la tabla vuelve a mentir por omisión: las filas de arriba
-              son precios publicados y las de abajo son cuentas nuestras, y a
-              simple vista se leen igual. Quien va a arriesgar dinero con esos
-              números tiene derecho a saber cuál puede ir a buscar.
-            */}
-            <Txt v="mini" color={C.texto3} style={{ paddingHorizontal: E.sm }}>
-              {hayReales
-                ? 'Arriba, precios publicados por su fuente. Debajo, el mismo precio llevado a distintos márgenes de mercado: son cálculos nuestros, no ofertas de nadie.'
-                : 'Nadie ha publicado precio para este partido todavía. Lo que ves son estimaciones a distintos márgenes de mercado, calculadas por la app.'}
-            </Txt>
-
-            <Tarjeta style={{ padding: E.md }}>
-              <Txt v="cuerpoFuerte" style={{ marginBottom: E.sm }}>
-                Otros mercados
+                Sin esto la tabla vuelve a mentir por omisión: las filas de arriba
+                son precios publicados y las de abajo son cuentas nuestras, y a
+                simple vista se leen igual. Quien va a arriesgar dinero con esos
+                números tiene derecho a saber cuál puede ir a buscar.
+              */}
+              <Txt v="mini" color={C.texto3} style={{ paddingHorizontal: E.sm }}>
+                {hayReales
+                  ? 'Arriba, precios publicados por su fuente. Debajo, el mismo precio llevado a distintos márgenes de mercado: son cálculos nuestros, no ofertas de nadie.'
+                  : 'Nadie ha publicado precio para este partido todavía. Lo que ves son estimaciones a distintos márgenes de mercado, calculadas por la app.'}
               </Txt>
-              <FilaDato etiqueta="Más de 2.5 goles" valor={partido.cuotas.mas25.toFixed(2)} destacado />
-              <Separador />
-              <FilaDato etiqueta="Menos de 2.5 goles" valor={partido.cuotas.menos25.toFixed(2)} />
-              <Separador />
-              <FilaDato etiqueta="Ambos marcan" valor={partido.cuotas.ambosMarcan.toFixed(2)} />
-              <Separador />
-              <FilaDato etiqueta="Ambos no marcan" valor={partido.cuotas.ambosNoMarcan.toFixed(2)} />
-            </Tarjeta>
 
-            <Txt v="mini" color={C.texto3}>
-              Precios de referencia calculados por el modelo de Golden. Comprueba siempre el precio
-              real en su fuente antes de decidir.
-            </Txt>
-          </View>
-        ) : null}
+              <Tarjeta style={{ padding: E.md }}>
+                <Txt v="cuerpoFuerte" style={{ marginBottom: E.sm }}>
+                  Otros mercados
+                </Txt>
+                <FilaDato etiqueta="Más de 2.5 goles" valor={partido.cuotas.mas25.toFixed(2)} destacado />
+                <Separador />
+                <FilaDato etiqueta="Menos de 2.5 goles" valor={partido.cuotas.menos25.toFixed(2)} />
+                <Separador />
+                <FilaDato etiqueta="Ambos marcan" valor={partido.cuotas.ambosMarcan.toFixed(2)} />
+                <Separador />
+                <FilaDato etiqueta="Ambos no marcan" valor={partido.cuotas.ambosNoMarcan.toFixed(2)} />
+              </Tarjeta>
 
-        {vista === 'duelo' ? (
-          <Duelo
-            competicionId={competicionId}
-            partidoId={partidoId}
-            localId={local.id}
-            visitanteId={visitante.id}
-          />
-        ) : null}
+              <Txt v="mini" color={C.texto3}>
+                Precios de referencia calculados por el modelo de Golden. Comprueba siempre el precio
+                real en su fuente antes de decidir.
+              </Txt>
+            </View>
+          ) : null}
+
+          {vista === 'duelo' ? (
+            <Duelo
+              competicionId={competicionId}
+              partidoId={partidoId}
+              localId={local.id}
+              visitanteId={visitante.id}
+            />
+          ) : null}
+        </View>
       </ScrollView>
     </View>
   );

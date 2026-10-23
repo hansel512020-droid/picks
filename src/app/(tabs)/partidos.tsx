@@ -7,6 +7,7 @@ import { BotonCompeticion } from '@/componentes/carruseles';
 import { Icono } from '@/componentes/iconos';
 import { Escudo } from '@/componentes/imagen';
 import { Aparece, marca } from '@/componentes/movimiento';
+import { Resplandor } from '@/componentes/marca';
 import { TiraChips } from '@/componentes/navegacion';
 import { competicion } from '@/datos/competiciones';
 import { claveDelPartido , seJuegaAhora } from '@/datos/envivo';
@@ -14,7 +15,7 @@ import { temporada } from '@/datos/motor';
 import type { Equipo, Partido } from '@/datos/tipos';
 import { useTienda } from '@/estado/tienda';
 import { usePartidoVivoDe, useVivo } from '@/estado/vivo';
-import { C, E, R } from '@/tema';
+import { C, COLUMNA, E, HUECO_PESTANAS, R } from '@/tema';
 import { useCalculo } from '@/utiles/carga';
 
 type Filtro = 'todos' | 'vivo' | 'hoy' | 'proximos' | 'jugados';
@@ -220,20 +221,24 @@ export default function Partidos() {
 
   return (
     <View style={{ flex: 1, backgroundColor: C.fondo, paddingTop: insets.top }}>
+      <Resplandor />
       <View
-        style={{
-          flexDirection: 'row',
-          alignItems: 'center',
-          justifyContent: 'space-between',
-          paddingHorizontal: E.lg,
-          paddingVertical: E.md,
-        }}
+        style={[
+          {
+            flexDirection: 'row',
+            alignItems: 'center',
+            justifyContent: 'space-between',
+            paddingHorizontal: E.lg,
+            paddingVertical: E.md,
+          },
+          COLUMNA.lectura,
+        ]}
       >
         <Txt v="titulo">Partidos</Txt>
         <BotonCompeticion competicionId={competicionId} />
       </View>
 
-      <TiraChips estilo={{ marginBottom: E.md }}>
+      <TiraChips estilo={[{ marginBottom: E.md }, COLUMNA.lectura]}>
         {FILTROS.map((f) => (
           <Chip
             key={f.id}
@@ -254,10 +259,14 @@ export default function Partidos() {
         </View>
       ) : (
         <SectionList
+          {...marca('pagina')}
           sections={secciones}
           keyExtractor={(item) => item.partido.id}
           stickySectionHeadersEnabled={false}
-          contentContainerStyle={{ paddingBottom: E.xxxl }}
+          contentContainerStyle={[
+            { paddingBottom: HUECO_PESTANAS + insets.bottom },
+            COLUMNA.lectura,
+          ]}
           showsVerticalScrollIndicator={false}
           renderSectionHeader={({ section }) => (
             <View

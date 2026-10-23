@@ -4,6 +4,8 @@ import { ActivityIndicator, ScrollView, Text, View } from 'react-native';
 import { useSafeAreaInsets } from 'react-native-safe-area-context';
 import { Chip, Insignia, Pulsable, Separador, Tarjeta, Txt, Vacio } from '@/componentes/base';
 import { Escudo, LogoCompeticion } from '@/componentes/imagen';
+import { Resplandor } from '@/componentes/marca';
+import { marca } from '@/componentes/movimiento';
 import { CabeceraAtras, FilaDato, Segmentado } from '@/componentes/navegacion';
 import { competicion, competicionOpcional } from '@/datos/competiciones';
 import { partidosDelEquipoEnTodas } from '@/datos/importado';
@@ -11,7 +13,7 @@ import { temporada } from '@/datos/motor';
 import { coma } from '@/datos/picks';
 import type { Partido } from '@/datos/tipos';
 import { useTienda } from '@/estado/tienda';
-import { C, E, R } from '@/tema';
+import { C, COLUMNA, E, R } from '@/tema';
 import { useCalculo } from '@/utiles/carga';
 
 /** Ficha de equipo: forma, medias por partido, plantilla y calendario. */
@@ -134,10 +136,12 @@ export default function PantallaEquipo() {
 
   return (
     <View style={{ flex: 1, backgroundColor: C.fondo, paddingTop: insets.top + E.sm }}>
+      <Resplandor />
       <CabeceraAtras titulo={equipo.nombre} subtitulo={competicion(competicionId).nombre} />
 
       <ScrollView
-        contentContainerStyle={{ paddingBottom: E.xxxl, gap: E.lg }}
+        {...marca('pagina')}
+        contentContainerStyle={[{ paddingBottom: E.xxxl, gap: E.lg }, COLUMNA.lectura]}
         showsVerticalScrollIndicator={false}
       >
         <View style={{ alignItems: 'center', gap: E.sm }}>

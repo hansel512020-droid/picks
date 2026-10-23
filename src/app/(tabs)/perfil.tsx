@@ -5,7 +5,8 @@ import { useSafeAreaInsets } from 'react-native-safe-area-context';
 import { Descargo, Insignia, Pulsable, Separador, Tarjeta, Txt } from '@/componentes/base';
 import { Icono, type NombreIcono } from '@/componentes/iconos';
 import { LogoCompeticion } from '@/componentes/imagen';
-import { Simbolo } from '@/componentes/marca';
+import { Resplandor, Simbolo } from '@/componentes/marca';
+import { marca } from '@/componentes/movimiento';
 import { SelloCasa } from '@/componentes/pick';
 import { casa as buscaCasa } from '@/datos/casas';
 import { competicion } from '@/datos/competiciones';
@@ -17,7 +18,7 @@ import { useDerechos } from '@/estado/derechos';
 import { useSesion } from '@/estado/sesion';
 import { calculaRendimiento, useTienda, type Ajustes } from '@/estado/tienda';
 import { useVivo } from '@/estado/vivo';
-import { C, E, R } from '@/tema';
+import { C, COLUMNA, E, HUECO_PESTANAS, R } from '@/tema';
 
 /** Perfil, ajustes y estado de la suscripcion. */
 
@@ -194,314 +195,325 @@ export default function Perfil() {
   const casa = buscaCasa(ajustes.casaId);
 
   return (
-    <ScrollView
-      style={{ flex: 1, backgroundColor: C.fondo }}
-      contentContainerStyle={{ paddingTop: insets.top + E.md, paddingBottom: E.xxxl, gap: E.lg }}
-      showsVerticalScrollIndicator={false}
-    >
-      {/* ------------------------------------------------------- identidad */}
-      <View style={{ alignItems: 'center', gap: E.sm, paddingHorizontal: E.lg }}>
-        <View
-          style={{
-            width: 72,
-            height: 72,
-            borderRadius: 36,
-            alignItems: 'center',
-            justifyContent: 'center',
-            backgroundColor: C.carta,
-            borderWidth: 1,
-            borderColor: C.borde,
-          }}
-        >
-          <Simbolo tam={34} />
-        </View>
-        <Txt v="titulo">{ajustes.nombre}</Txt>
-        {/*
-          Con un plan parcial manda el número de ligas, no el periodo. Poner
-          "Pro · Mensual" a quien compró dos ligas no dice lo que tiene: lo que
-          quiere saber es cuántas competiciones le caben, y es lo que distingue
-          su plan del completo, que también se cobra al mes.
-        */}
-        <Insignia
-          texto={
-            huecos
-              ? `Pro · ${huecos} ligas`
-              : (periodo && NOMBRES_PLAN[periodo]) || (pro ? 'Pro' : 'Gratis')
-          }
-          color={pro ? C.lima : C.texto2}
-          fondo={pro ? C.limaTenue : C.carta2}
-        />
-
-        {/*
-          Cuáles ha elegido, por su nombre.
-
-          El "Pro · 2 ligas" dice cuántas caben, pero no cuáles son, y eso es lo
-          que uno viene a mirar aquí: si el mes que viene quiere cambiar una,
-          primero necesita acordarse de las que tiene.
-        */}
-        {huecos && ligasElegidas.length ? (
-          <Txt v="mini" color={C.texto3} style={{ textAlign: 'center' }}>
-            {ligasElegidas.join(' · ')}
-          </Txt>
-        ) : null}
-        {huecos && !ligasElegidas.length ? (
-          <Pulsable onPress={() => router.push('/mis-ligas')}>
-            <Txt v="mini" color={C.lima}>
-              Todavía no has elegido tus ligas
-            </Txt>
-          </Pulsable>
-        ) : null}
-      </View>
-
-      {/* -------------------------------------------------------- resumen */}
-      <View style={{ flexDirection: 'row', gap: E.sm, paddingHorizontal: E.lg }}>
-        {[
-          { v: `${rendimiento.acierto.toFixed(0)}%`, e: 'Acierto' },
-          { v: `${guardados.length}`, e: 'Guardados' },
-          /*
-           * Aquí iba el ROI. Fuera: se calculaba con la cuota de cada pick, y
-           * la de casi todos la pone el propio modelo, así que no era dinero
-           * sino una cuenta del modelo consigo mismo. En su sitio, cuántos
-           * están esperando resultado, que es un dato de verdad.
-           */
-          { v: `${rendimiento.pendientes}`, e: 'En juego' },
-        ].map((d) => (
-          <Tarjeta key={d.e} style={{ flex: 1, alignItems: 'center', paddingVertical: E.md, gap: 2 }}>
-            <Txt v="subtitulo">{d.v}</Txt>
-            <Txt v="mini" color={C.texto3}>
-              {d.e}
-            </Txt>
-          </Tarjeta>
-        ))}
-      </View>
-
-      {/* Aquí va fijo y sin equis: en el perfil es la ficha de tu suscripción,
-          el sitio donde uno viene justamente a mirar cómo está. */}
-      <AvisoCobroFallido />
-
-      {/*
-        "Cambiar de plan" va aquí arriba, junto a la insignia, y no enterrado
-        al final entre la versión y el borrado de datos. Es una decisión sobre
-        lo que pagas: su sitio es donde se lee lo que tienes.
-      */}
-      <AvisoCambiaDePlan />
-
-      {/* ------------------------------------------------------------ pro */}
-      {!pro ? (
-        <Pulsable onPress={() => router.push('/pro')} style={{ paddingHorizontal: E.lg }}>
+    <View style={{ flex: 1, backgroundColor: C.fondo }}>
+      <Resplandor />
+      <ScrollView
+        {...marca('pagina')}
+        style={{ flex: 1 }}
+        contentContainerStyle={[
+          {
+            paddingTop: insets.top + E.md,
+            paddingBottom: HUECO_PESTANAS + insets.bottom,
+            gap: E.lg,
+          },
+          COLUMNA.lectura,
+        ]}
+        showsVerticalScrollIndicator={false}
+      >
+        {/* ------------------------------------------------------- identidad */}
+        <View style={{ alignItems: 'center', gap: E.sm, paddingHorizontal: E.lg }}>
           <View
             style={{
-              borderRadius: R.lg,
-              padding: E.lg,
-              gap: 6,
-              backgroundColor: C.limaTenue,
+              width: 72,
+              height: 72,
+              borderRadius: 36,
+              alignItems: 'center',
+              justifyContent: 'center',
+              backgroundColor: C.carta,
               borderWidth: 1,
-              borderColor: C.limaBorde,
+              borderColor: C.borde,
             }}
           >
-            <View style={{ flexDirection: 'row', alignItems: 'center', gap: E.sm }}>
-              <Icono nombre="rayo" tam={18} color={C.lima} />
-              <Txt v="subtitulo" color={C.lima}>
-                Golden Pro
+            <Simbolo tam={34} />
+          </View>
+          <Txt v="titulo">{ajustes.nombre}</Txt>
+          {/*
+            Con un plan parcial manda el número de ligas, no el periodo. Poner
+            "Pro · Mensual" a quien compró dos ligas no dice lo que tiene: lo que
+            quiere saber es cuántas competiciones le caben, y es lo que distingue
+            su plan del completo, que también se cobra al mes.
+          */}
+          <Insignia
+            texto={
+              huecos
+                ? `Pro · ${huecos} ligas`
+                : (periodo && NOMBRES_PLAN[periodo]) || (pro ? 'Pro' : 'Gratis')
+            }
+            color={pro ? C.lima : C.texto2}
+            fondo={pro ? C.limaTenue : C.carta2}
+          />
+
+          {/*
+            Cuáles ha elegido, por su nombre.
+
+            El "Pro · 2 ligas" dice cuántas caben, pero no cuáles son, y eso es lo
+            que uno viene a mirar aquí: si el mes que viene quiere cambiar una,
+            primero necesita acordarse de las que tiene.
+          */}
+          {huecos && ligasElegidas.length ? (
+            <Txt v="mini" color={C.texto3} style={{ textAlign: 'center' }}>
+              {ligasElegidas.join(' · ')}
+            </Txt>
+          ) : null}
+          {huecos && !ligasElegidas.length ? (
+            <Pulsable onPress={() => router.push('/mis-ligas')}>
+              <Txt v="mini" color={C.lima}>
+                Todavía no has elegido tus ligas
+              </Txt>
+            </Pulsable>
+          ) : null}
+        </View>
+
+        {/* -------------------------------------------------------- resumen */}
+        <View style={{ flexDirection: 'row', gap: E.sm, paddingHorizontal: E.lg }}>
+          {[
+            { v: `${rendimiento.acierto.toFixed(0)}%`, e: 'Acierto' },
+            { v: `${guardados.length}`, e: 'Guardados' },
+            /*
+             * Aquí iba el ROI. Fuera: se calculaba con la cuota de cada pick, y
+             * la de casi todos la pone el propio modelo, así que no era dinero
+             * sino una cuenta del modelo consigo mismo. En su sitio, cuántos
+             * están esperando resultado, que es un dato de verdad.
+             */
+            { v: `${rendimiento.pendientes}`, e: 'En juego' },
+          ].map((d) => (
+            <Tarjeta key={d.e} style={{ flex: 1, alignItems: 'center', paddingVertical: E.md, gap: 2 }}>
+              <Txt v="subtitulo">{d.v}</Txt>
+              <Txt v="mini" color={C.texto3}>
+                {d.e}
+              </Txt>
+            </Tarjeta>
+          ))}
+        </View>
+
+        {/* Aquí va fijo y sin equis: en el perfil es la ficha de tu suscripción,
+            el sitio donde uno viene justamente a mirar cómo está. */}
+        <AvisoCobroFallido />
+
+        {/*
+          "Cambiar de plan" va aquí arriba, junto a la insignia, y no enterrado
+          al final entre la versión y el borrado de datos. Es una decisión sobre
+          lo que pagas: su sitio es donde se lee lo que tienes.
+        */}
+        <AvisoCambiaDePlan />
+
+        {/* ------------------------------------------------------------ pro */}
+        {!pro ? (
+          <Pulsable onPress={() => router.push('/pro')} style={{ paddingHorizontal: E.lg }}>
+            <View
+              style={{
+                borderRadius: R.lg,
+                padding: E.lg,
+                gap: 6,
+                backgroundColor: C.limaTenue,
+                borderWidth: 1,
+                borderColor: C.limaBorde,
+              }}
+            >
+              <View style={{ flexDirection: 'row', alignItems: 'center', gap: E.sm }}>
+                <Icono nombre="rayo" tam={18} color={C.lima} />
+                <Txt v="subtitulo" color={C.lima}>
+                  Golden Pro
+                </Txt>
+              </View>
+              <Txt v="pequeno" color={C.texto2}>
+                Todos los picks de las 60 competiciones, filtros avanzados, proyecciones y
+                alineaciones sin límite.
               </Txt>
             </View>
-            <Txt v="pequeno" color={C.texto2}>
-              Todos los picks de las 60 competiciones, filtros avanzados, proyecciones y
-              alineaciones sin límite.
-            </Txt>
-          </View>
-        </Pulsable>
-      ) : null}
+          </Pulsable>
+        ) : null}
 
-      {/* ------------------------------------------------------ preferencias */}
-      <View style={{ gap: E.sm }}>
-        <Txt v="pequenoFuerte" color={C.texto3} style={{ paddingHorizontal: E.lg }}>
-          PREFERENCIAS
-        </Txt>
-        {/* Aquí había un selector de casa de apuestas. Se quitó porque la app
-            no se apoya en el precio de una casa concreta: el 1X2 sale de la
-            cuota publicada que haya, y los mercados de jugador y de equipo los
-            tarifica el modelo. Dejar elegir casa daba a entender que el precio
-            cambiaba según la que eligieras, y no era cierto. */}
-        <Tarjeta style={{ marginHorizontal: E.lg, overflow: 'hidden' }}>
-          <Fila
-            icono="copa"
-            titulo="Competición activa"
-            detalle={competicion(ajustes.competicionId).nombre}
-            onPress={() => router.push('/competiciones')}
-            derecha={
-              <View style={{ flexDirection: 'row', alignItems: 'center', gap: 8 }}>
-                <LogoCompeticion competicionId={ajustes.competicionId} bandera={competicion(ajustes.competicionId).bandera} tam={20} cuadrado />
-                <Icono nombre="flechaDerecha" tam={15} color={C.texto3} />
-              </View>
-            }
-          />
-          <Separador />
-          {/* Solo con un plan parcial: es la pantalla donde se escogen las
-              competiciones que se han pagado. */}
-          {huecos ? (
-            <>
-              <Fila
-                icono="candado"
-                titulo="Mis ligas"
-                detalle={`Tus ${huecos} competiciones`}
-                onPress={() => router.push("/mis-ligas")}
-              />
-              <Separador />
-            </>
-          ) : null}
-          <Fila
-            icono="estrella"
-            titulo="Ligas que sigo"
-            detalle={`${ajustes.ligasSeguidas.length} competiciones`}
-            onPress={() => router.push('/competiciones?modo=seguir')}
-          />
-          <Separador />
-          <Fila
-            icono="guardado"
-            titulo="Picks guardados"
-            detalle={`${guardados.length} en tu historial`}
-            onPress={() => router.push('/rendimiento')}
-          />
-        </Tarjeta>
-      </View>
+        {/* ------------------------------------------------------ preferencias */}
+        <View style={{ gap: E.sm }}>
+          <Txt v="pequenoFuerte" color={C.texto3} style={{ paddingHorizontal: E.lg }}>
+            PREFERENCIAS
+          </Txt>
+          {/* Aquí había un selector de casa de apuestas. Se quitó porque la app
+              no se apoya en el precio de una casa concreta: el 1X2 sale de la
+              cuota publicada que haya, y los mercados de jugador y de equipo los
+              tarifica el modelo. Dejar elegir casa daba a entender que el precio
+              cambiaba según la que eligieras, y no era cierto. */}
+          <Tarjeta style={{ marginHorizontal: E.lg, overflow: 'hidden' }}>
+            <Fila
+              icono="copa"
+              titulo="Competición activa"
+              detalle={competicion(ajustes.competicionId).nombre}
+              onPress={() => router.push('/competiciones')}
+              derecha={
+                <View style={{ flexDirection: 'row', alignItems: 'center', gap: 8 }}>
+                  <LogoCompeticion competicionId={ajustes.competicionId} bandera={competicion(ajustes.competicionId).bandera} tam={20} cuadrado />
+                  <Icono nombre="flechaDerecha" tam={15} color={C.texto3} />
+                </View>
+              }
+            />
+            <Separador />
+            {/* Solo con un plan parcial: es la pantalla donde se escogen las
+                competiciones que se han pagado. */}
+            {huecos ? (
+              <>
+                <Fila
+                  icono="candado"
+                  titulo="Mis ligas"
+                  detalle={`Tus ${huecos} competiciones`}
+                  onPress={() => router.push("/mis-ligas")}
+                />
+                <Separador />
+              </>
+            ) : null}
+            <Fila
+              icono="estrella"
+              titulo="Ligas que sigo"
+              detalle={`${ajustes.ligasSeguidas.length} competiciones`}
+              onPress={() => router.push('/competiciones?modo=seguir')}
+            />
+            <Separador />
+            <Fila
+              icono="guardado"
+              titulo="Picks guardados"
+              detalle={`${guardados.length} en tu historial`}
+              onPress={() => router.push('/rendimiento')}
+            />
+          </Tarjeta>
+        </View>
 
-      {/* ---------------------------------------------------- notificaciones */}
-      <View style={{ gap: E.sm }}>
-        <Txt v="pequenoFuerte" color={C.texto3} style={{ paddingHorizontal: E.lg }}>
-          NOTIFICACIONES
-        </Txt>
-        <Tarjeta style={{ marginHorizontal: E.lg, overflow: 'hidden' }}>
-          <Interruptor
-            clave="notificarPicks"
-            icono="rayo"
-            titulo="Picks con ventaja"
-            detalle="Cuando aparece una oportunidad en tus ligas"
-          />
-          <Separador />
-          <Interruptor
-            clave="notificarPartidos"
-            icono="balon"
-            titulo="Inicio de partido"
-            detalle="15 minutos antes del pitido inicial"
-          />
-          <Separador />
-          <Interruptor
-            clave="notificarResultados"
-            icono="check"
-            titulo="Resultado de mis picks"
-            detalle="En cuanto se resuelve un pick guardado"
-          />
-        </Tarjeta>
-      </View>
+        {/* ---------------------------------------------------- notificaciones */}
+        <View style={{ gap: E.sm }}>
+          <Txt v="pequenoFuerte" color={C.texto3} style={{ paddingHorizontal: E.lg }}>
+            NOTIFICACIONES
+          </Txt>
+          <Tarjeta style={{ marginHorizontal: E.lg, overflow: 'hidden' }}>
+            <Interruptor
+              clave="notificarPicks"
+              icono="rayo"
+              titulo="Picks con ventaja"
+              detalle="Cuando aparece una oportunidad en tus ligas"
+            />
+            <Separador />
+            <Interruptor
+              clave="notificarPartidos"
+              icono="balon"
+              titulo="Inicio de partido"
+              detalle="15 minutos antes del pitido inicial"
+            />
+            <Separador />
+            <Interruptor
+              clave="notificarResultados"
+              icono="check"
+              titulo="Resultado de mis picks"
+              detalle="En cuanto se resuelve un pick guardado"
+            />
+          </Tarjeta>
+        </View>
 
-      {/* -------------------------------------------------------- la app */}
-      <View style={{ gap: E.sm }}>
-        <Txt v="pequenoFuerte" color={C.texto3} style={{ paddingHorizontal: E.lg }}>
-          LA APP
-        </Txt>
-        <Tarjeta style={{ marginHorizontal: E.lg, overflow: 'hidden' }}>
-          <Fila
-            icono="info"
-            titulo="Cómo se calculan los picks"
-            detalle="Modelo, muestra y ventaja"
-            onPress={() => router.push('/metodo')}
-          />
-          <Separador />
-          <Fila
-            icono="mundo"
-            titulo="Origen de los datos"
-            // Sin recuento: la insignia de la derecha ya dice si son reales o
-            // simulados, y repetirlo con un número solo añade ruido.
-            detalle={competicionesImportadas().length ? undefined : 'Datos simulados'}
-            onPress={() => router.push('/metodo')}
-            derecha={
-              <Insignia
-                texto={competicionesImportadas().length ? 'REALES' : 'SIMULADOS'}
-                color={competicionesImportadas().length ? C.lima : C.texto2}
-                fondo={competicionesImportadas().length ? C.limaTenue : C.carta2}
-              />
-            }
-          />
-          <Separador />
-          <Fila
-            icono="rayo"
-            titulo="Contador de la comunidad"
-            detalle={COMUNIDAD_ACTIVA ? 'Cuenta guardados reales' : 'Estimado por el modelo'}
-            derecha={
-              <Insignia
-                texto={COMUNIDAD_ACTIVA ? 'REAL' : 'ESTIMADO'}
-                color={COMUNIDAD_ACTIVA ? C.lima : C.texto2}
-                fondo={COMUNIDAD_ACTIVA ? C.limaTenue : C.carta2}
-              />
-            }
-          />
-          <Separador />
-          {/*
-            Para avisar de fallos. Al tocarlo se abre el correo con la
-            dirección y el asunto puestos; si el dispositivo no tiene cliente
-            de correo, la dirección se queda a la vista para copiarla, que es
-            lo que de verdad hace falta.
-          */}
-          <Fila
-            icono="correo"
-            titulo="Informar de un fallo"
-            detalle={CORREO_CONTACTO}
-            onPress={() => {
-              const asunto = encodeURIComponent('Golden Picks · fallo');
-              Linking.openURL(`mailto:${CORREO_CONTACTO}?subject=${asunto}`).catch(() => {});
-            }}
-          />
-          <Separador />
-          {/* Obligatorio tenerlo a la vista: se cobran suscripciones y se
-              guardan cuentas. Va aqui, donde la gente busca lo de la app. */}
-          <Fila
-            icono="info"
-            titulo="Términos y privacidad"
-            detalle="Qué vendemos, qué datos guardamos"
-            onPress={() => router.push('/legal')}
-          />
-          <Separador />
-          <Fila icono="mundo" titulo="Versión" detalle="Golden Picks 1.0.0" />
-          {/*
-            Antes esto llamaba a `activaPlan('ninguno')`, que solo borraba un
-            valor del teléfono: PayPal seguía cobrando tan tranquilo y el
-            acceso volvía en cuanto se releía la tabla. Ahora la baja se pide
-            al servidor, que la ejecuta en PayPal de verdad.
-          */}
-          {pro ? (
-            <>
-              <Separador />
-              <Fila
-                icono="recarga"
-                titulo={confirmando ? '¿Seguro que quieres cancelar?' : 'Cancelar suscripción'}
-                detalle={
-                  cancelando
-                    ? 'Cancelando…'
-                    : confirmando
-                      ? 'Toca otra vez para confirmar. Dejará de cobrarse.'
-                      : 'Dejas de pagar. Mantienes el acceso hasta que acabe el periodo pagado.'
-                }
-                onPress={confirmando ? cancela : () => setConfirmando(true)}
-              />
-              {avisoBaja ? (
-                <Txt v="mini" color={C.texto3} style={{ paddingHorizontal: E.md, paddingBottom: E.sm }}>
-                  {avisoBaja}
-                </Txt>
-              ) : null}
-            </>
-          ) : null}
-          <Separador />
-          <Fila
-            icono="cruz"
-            titulo="Borrar mis datos"
-            detalle="Picks guardados y ajustes"
-            onPress={reinicia}
-          />
-        </Tarjeta>
-      </View>
+        {/* -------------------------------------------------------- la app */}
+        <View style={{ gap: E.sm }}>
+          <Txt v="pequenoFuerte" color={C.texto3} style={{ paddingHorizontal: E.lg }}>
+            LA APP
+          </Txt>
+          <Tarjeta style={{ marginHorizontal: E.lg, overflow: 'hidden' }}>
+            <Fila
+              icono="info"
+              titulo="Cómo se calculan los picks"
+              detalle="Modelo, muestra y ventaja"
+              onPress={() => router.push('/metodo')}
+            />
+            <Separador />
+            <Fila
+              icono="mundo"
+              titulo="Origen de los datos"
+              // Sin recuento: la insignia de la derecha ya dice si son reales o
+              // simulados, y repetirlo con un número solo añade ruido.
+              detalle={competicionesImportadas().length ? undefined : 'Datos simulados'}
+              onPress={() => router.push('/metodo')}
+              derecha={
+                <Insignia
+                  texto={competicionesImportadas().length ? 'REALES' : 'SIMULADOS'}
+                  color={competicionesImportadas().length ? C.lima : C.texto2}
+                  fondo={competicionesImportadas().length ? C.limaTenue : C.carta2}
+                />
+              }
+            />
+            <Separador />
+            <Fila
+              icono="rayo"
+              titulo="Contador de la comunidad"
+              detalle={COMUNIDAD_ACTIVA ? 'Cuenta guardados reales' : 'Estimado por el modelo'}
+              derecha={
+                <Insignia
+                  texto={COMUNIDAD_ACTIVA ? 'REAL' : 'ESTIMADO'}
+                  color={COMUNIDAD_ACTIVA ? C.lima : C.texto2}
+                  fondo={COMUNIDAD_ACTIVA ? C.limaTenue : C.carta2}
+                />
+              }
+            />
+            <Separador />
+            {/*
+              Para avisar de fallos. Al tocarlo se abre el correo con la
+              dirección y el asunto puestos; si el dispositivo no tiene cliente
+              de correo, la dirección se queda a la vista para copiarla, que es
+              lo que de verdad hace falta.
+            */}
+            <Fila
+              icono="correo"
+              titulo="Informar de un fallo"
+              detalle={CORREO_CONTACTO}
+              onPress={() => {
+                const asunto = encodeURIComponent('Golden Picks · fallo');
+                Linking.openURL(`mailto:${CORREO_CONTACTO}?subject=${asunto}`).catch(() => {});
+              }}
+            />
+            <Separador />
+            {/* Obligatorio tenerlo a la vista: se cobran suscripciones y se
+                guardan cuentas. Va aqui, donde la gente busca lo de la app. */}
+            <Fila
+              icono="info"
+              titulo="Términos y privacidad"
+              detalle="Qué vendemos, qué datos guardamos"
+              onPress={() => router.push('/legal')}
+            />
+            <Separador />
+            <Fila icono="mundo" titulo="Versión" detalle="Golden Picks 1.0.0" />
+            {/*
+              Antes esto llamaba a `activaPlan('ninguno')`, que solo borraba un
+              valor del teléfono: PayPal seguía cobrando tan tranquilo y el
+              acceso volvía en cuanto se releía la tabla. Ahora la baja se pide
+              al servidor, que la ejecuta en PayPal de verdad.
+            */}
+            {pro ? (
+              <>
+                <Separador />
+                <Fila
+                  icono="recarga"
+                  titulo={confirmando ? '¿Seguro que quieres cancelar?' : 'Cancelar suscripción'}
+                  detalle={
+                    cancelando
+                      ? 'Cancelando…'
+                      : confirmando
+                        ? 'Toca otra vez para confirmar. Dejará de cobrarse.'
+                        : 'Dejas de pagar. Mantienes el acceso hasta que acabe el periodo pagado.'
+                  }
+                  onPress={confirmando ? cancela : () => setConfirmando(true)}
+                />
+                {avisoBaja ? (
+                  <Txt v="mini" color={C.texto3} style={{ paddingHorizontal: E.md, paddingBottom: E.sm }}>
+                    {avisoBaja}
+                  </Txt>
+                ) : null}
+              </>
+            ) : null}
+            <Separador />
+            <Fila
+              icono="cruz"
+              titulo="Borrar mis datos"
+              detalle="Picks guardados y ajustes"
+              onPress={reinicia}
+            />
+          </Tarjeta>
+        </View>
 
-      <Descargo style={{ paddingHorizontal: E.xl }} />
-    </ScrollView>
+        <Descargo style={{ paddingHorizontal: E.xl }} />
+      </ScrollView>
+    </View>
   );
 }

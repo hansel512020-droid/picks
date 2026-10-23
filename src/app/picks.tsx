@@ -3,14 +3,15 @@ import { ActivityIndicator, FlatList, View } from 'react-native';
 import { useSafeAreaInsets } from 'react-native-safe-area-context';
 import { Chip, Txt, Vacio } from '@/componentes/base';
 import { CabeceraAtras, TiraChips } from '@/componentes/navegacion';
-import { Aparece } from '@/componentes/movimiento';
+import { Aparece, marca } from '@/componentes/movimiento';
 import { TarjetaPick } from '@/componentes/pick';
 import { competicion } from '@/datos/competiciones';
 import { FAMILIAS } from '@/datos/picks';
 import type { Familia } from '@/datos/tipos';
 import { useTienda } from '@/estado/tienda';
-import { C, E, LISTA_LIGERA } from '@/tema';
+import { C, COLUMNA, E, LISTA_LIGERA } from '@/tema';
 import { usePicksDelServidor } from '@/utiles/picks';
+import { useRejilla } from '@/utiles/rejilla';
 
 /** Lista completa de picks de la competicion activa: el "Ver todo" de la portada. */
 export default function TodosLosPicks() {
@@ -25,14 +26,16 @@ export default function TodosLosPicks() {
     () => (picks ?? []).filter((p) => !familias.length || familias.includes(p.familia)),
     [picks, familias],
   );
+  const { columnas, fila, celda } = useRejilla();
 
   return (
     <View style={{ flex: 1, backgroundColor: C.fondo, paddingTop: insets.top + E.sm }}>
       <CabeceraAtras
         titulo="Todos los picks"
         subtitulo={`${competicion(competicionId).nombre} · ${visibles.length} oportunidades`}
+        ancho="amplia"
       />
-      <TiraChips estilo={{ marginBottom: E.md }}>
+      <TiraChips estilo={[{ marginBottom: E.md }, COLUMNA.amplia]}>
         {FAMILIAS.map((f) => (
           <Chip
             key={f.id}
@@ -48,13 +51,17 @@ export default function TodosLosPicks() {
       </TiraChips>
 
       <FlatList
+        {...marca('pagina')}
+        key={columnas}
+        numColumns={columnas}
+        columnWrapperStyle={fila}
         data={visibles}
         keyExtractor={(p) => p.id}
-        contentContainerStyle={{ paddingBottom: E.xxxl, gap: E.md }}
+        contentContainerStyle={[{ paddingBottom: E.xxxl, gap: E.md }, COLUMNA.amplia]}
         showsVerticalScrollIndicator={false}
         {...LISTA_LIGERA}
         renderItem={({ item, index }) => (
-          <Aparece orden={index} style={{ paddingHorizontal: E.lg }}>
+          <Aparece orden={index} style={celda ?? { paddingHorizontal: E.lg }}>
             <TarjetaPick pick={item} />
           </Aparece>
         )}

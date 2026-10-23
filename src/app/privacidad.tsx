@@ -1,8 +1,10 @@
 import { ScrollView, View } from 'react-native';
 import { useSafeAreaInsets } from 'react-native-safe-area-context';
 import { Txt } from '@/componentes/base';
+import { Resplandor } from '@/componentes/marca';
+import { marca } from '@/componentes/movimiento';
 import { CabeceraAtras } from '@/componentes/navegacion';
-import { C, E } from '@/tema';
+import { C, COLUMNA, E } from '@/tema';
 
 /**
  * Política de privacidad.
@@ -37,13 +39,18 @@ export default function Privacidad() {
   const insets = useSafeAreaInsets();
   return (
     <View style={{ flex: 1, backgroundColor: C.fondo, paddingTop: insets.top }}>
+      <Resplandor />
       <CabeceraAtras titulo="Política de Privacidad" />
       <ScrollView
-        contentContainerStyle={{
-          padding: E.lg,
-          paddingBottom: insets.bottom + E.xxxl,
-          gap: E.xl,
-        }}
+        {...marca('pagina')}
+        contentContainerStyle={[
+          {
+            padding: E.lg,
+            paddingBottom: insets.bottom + E.xxxl,
+            gap: E.xl,
+          },
+          COLUMNA.lectura,
+        ]}
       >
         <Txt v="mini" color={C.texto3}>
           Última actualización: {ACTUALIZADO}

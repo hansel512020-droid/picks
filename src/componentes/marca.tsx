@@ -1,5 +1,6 @@
 import { LinearGradient } from 'expo-linear-gradient';
 import { View, Text, type StyleProp, type ViewStyle } from 'react-native';
+import { marca } from './movimiento';
 import Svg, { Circle, Path } from 'react-native-svg';
 import { C, T } from '@/tema';
 
@@ -31,7 +32,9 @@ export function Logo({
   return (
     <View style={[{ flexDirection: 'row', alignItems: 'center', gap: 8 }, estilo]}>
       <Simbolo tam={tam + 6} />
-      <Text style={{ ...T.titulo, color: C.texto, fontSize: tam }}>Golden Picks</Text>
+      <Text {...marca('titular')} style={{ ...T.titulo, color: C.texto, fontSize: tam }}>
+        Golden Picks
+      </Text>
     </View>
   );
 }

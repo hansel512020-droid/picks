@@ -6,12 +6,14 @@ import { Chip, Insignia, Pulsable, Separador, Tarjeta, Txt } from '@/componentes
 import { RejillaCompeticiones } from '@/componentes/carruseles';
 import { Icono } from '@/componentes/iconos';
 import { LogoCompeticion } from '@/componentes/imagen';
+import { Resplandor } from '@/componentes/marca';
+import { marca } from '@/componentes/movimiento';
 import { CabeceraAtras, TiraChips } from '@/componentes/navegacion';
 import { competicion, competicionesVisibles, TODAS } from '@/datos/competiciones';
 import type { Competicion } from '@/datos/tipos';
 import { useDerechos } from '@/estado/derechos';
 import { useTienda } from '@/estado/tienda';
-import { C, E } from '@/tema';
+import { C, COLUMNA, E } from '@/tema';
 
 /**
  * Dos usos con la misma pantalla: elegir la competicion activa o marcar las
@@ -75,6 +77,7 @@ export default function Competiciones() {
 
   return (
     <View style={{ flex: 1, backgroundColor: C.fondo, paddingTop: insets.top + E.sm }}>
+      <Resplandor />
       {/* Ya no se anuncia el catálogo entero: lo que no se puede abrir no
           cuenta, y "37 de 61" solo servía para señalar lo que falta. */}
       <CabeceraAtras
@@ -83,7 +86,8 @@ export default function Competiciones() {
       />
 
       <ScrollView
-        contentContainerStyle={{ paddingBottom: E.xxxl, gap: E.lg }}
+        {...marca('pagina')}
+        contentContainerStyle={[{ paddingBottom: E.xxxl, gap: E.lg }, COLUMNA.amplia]}
         showsVerticalScrollIndicator={false}
       >
         {!pro ? (

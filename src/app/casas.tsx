@@ -3,11 +3,13 @@ import { ScrollView, View } from 'react-native';
 import { useSafeAreaInsets } from 'react-native-safe-area-context';
 import { Pulsable, Separador, Tarjeta, Txt } from '@/componentes/base';
 import { Icono } from '@/componentes/iconos';
+import { Resplandor } from '@/componentes/marca';
+import { marca } from '@/componentes/movimiento';
 import { CabeceraAtras } from '@/componentes/navegacion';
 import { SelloCasa } from '@/componentes/pick';
 import { CASAS } from '@/datos/casas';
 import { useTienda } from '@/estado/tienda';
-import { C, E } from '@/tema';
+import { C, COLUMNA, E } from '@/tema';
 
 /** Elige la casa cuyos precios se ven en toda la app. */
 export default function Casas() {
@@ -16,9 +18,13 @@ export default function Casas() {
 
   return (
     <View style={{ flex: 1, backgroundColor: C.fondo, paddingTop: insets.top + E.sm }}>
+      <Resplandor />
       <CabeceraAtras titulo="Fuente de precios" subtitulo="Los precios de la app usarán su margen" />
 
-      <ScrollView contentContainerStyle={{ paddingBottom: E.xxxl, gap: E.lg }}>
+      <ScrollView
+        {...marca('pagina')}
+        contentContainerStyle={[{ paddingBottom: E.xxxl, gap: E.lg }, COLUMNA.lectura]}
+      >
         <Tarjeta style={{ marginHorizontal: E.lg, overflow: 'hidden' }}>
           {CASAS.map((casa, i) => {
             const activa = casa.id === ajustes.casaId;

@@ -6,11 +6,12 @@ import { Insignia, Pulsable, Separador, Tarjeta, Txt, Vacio } from '@/componente
 import { Icono } from '@/componentes/iconos';
 import { Cara, Escudo, LogoCompeticion } from '@/componentes/imagen';
 import { marca } from '@/componentes/movimiento';
+import { Resplandor } from '@/componentes/marca';
 import { CabeceraAtras } from '@/componentes/navegacion';
 import { competicion, competicionesVisibles } from '@/datos/competiciones';
 import { temporada } from '@/datos/motor';
 import { useTienda } from '@/estado/tienda';
-import { C, E, R } from '@/tema';
+import { C, COLUMNA, E, R } from '@/tema';
 import { useCalculo } from '@/utiles/carga';
 
 /**
@@ -82,9 +83,10 @@ export default function Buscar() {
 
   return (
     <View style={{ flex: 1, backgroundColor: C.fondo, paddingTop: insets.top + E.sm }}>
+      <Resplandor />
       <CabeceraAtras titulo="Buscar" />
 
-      <View style={{ paddingHorizontal: E.lg, marginBottom: E.lg }}>
+      <View style={[{ paddingHorizontal: E.lg, marginBottom: E.lg }, COLUMNA.lectura]}>
         <View
           {...marca('campo')}
           style={{
@@ -116,7 +118,8 @@ export default function Buscar() {
       </View>
 
       <ScrollView
-        contentContainerStyle={{ paddingBottom: E.xxxl, gap: E.lg }}
+        {...marca('pagina')}
+        contentContainerStyle={[{ paddingBottom: E.xxxl, gap: E.lg }, COLUMNA.lectura]}
         keyboardShouldPersistTaps="handled"
         showsVerticalScrollIndicator={false}
       >
