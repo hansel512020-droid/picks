@@ -118,7 +118,6 @@ function Puerta() {
       <Stack.Screen name="bienvenida" options={{ animation: 'fade' }} />
       <Stack.Screen name="entrar" options={{ animation: 'fade' }} />
       <Stack.Screen name="pro" options={{ presentation: 'modal', animation: 'slide_from_bottom' }} />
-      <Stack.Screen name="casas" options={{ presentation: 'modal', animation: 'slide_from_bottom' }} />
       <Stack.Screen
         name="competiciones"
         options={{ presentation: 'modal', animation: 'slide_from_bottom' }}
@@ -206,7 +205,7 @@ function ConDatos({ children }: { children: React.ReactNode }) {
     return (
       <PantallaCargando
         titulo="Cargando resultados"
-        detalle="Trayendo los partidos y las cuotas de hoy"
+        detalle="Trayendo los partidos de hoy"
       />
     );
   }

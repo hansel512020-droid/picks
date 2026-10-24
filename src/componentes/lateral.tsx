@@ -309,7 +309,8 @@ export function ConLateral({ children }: { children: React.ReactNode }) {
    */
   return (
     <View style={{ flex: 1, flexDirection: 'row' }}>
-      <View style={{ display: oculto ? 'none' : 'flex' }}>
+      {/* En fila, para que el menú se estire hasta abajo como cuando iba suelto. */}
+      <View style={{ display: oculto ? 'none' : 'flex', flexDirection: 'row' }}>
         <Menu />
       </View>
       <View style={{ flex: 1, minWidth: 0 }}>{children}</View>

@@ -7,8 +7,6 @@ import { Icono, type NombreIcono } from '@/componentes/iconos';
 import { LogoCompeticion } from '@/componentes/imagen';
 import { FundidoInferior, Resplandor, Simbolo } from '@/componentes/marca';
 import { marca } from '@/componentes/movimiento';
-import { SelloCasa } from '@/componentes/pick';
-import { casa as buscaCasa } from '@/datos/casas';
 import { competicion } from '@/datos/competiciones';
 import { COMUNIDAD_ACTIVA } from '@/datos/comunidad';
 import { AvisoCambiaDePlan, AvisoCobroFallido } from '@/componentes/avisos';
@@ -195,7 +193,6 @@ export default function Perfil() {
     [guardados, resueltos],
   );
   const insets = useSafeAreaInsets();
-  const casa = buscaCasa(ajustes.casaId);
 
   return (
     <View style={{ flex: 1, backgroundColor: C.fondo }}>
@@ -332,11 +329,6 @@ export default function Perfil() {
           <Txt v="pequenoFuerte" color={C.texto3} style={{ paddingHorizontal: E.lg }}>
             PREFERENCIAS
           </Txt>
-          {/* Aquí había un selector de casa de apuestas. Se quitó porque la app
-              no se apoya en el precio de una casa concreta: el 1X2 sale de la
-              cuota publicada que haya, y los mercados de jugador y de equipo los
-              tarifica el modelo. Dejar elegir casa daba a entender que el precio
-              cambiaba según la que eligieras, y no era cierto. */}
           <Tarjeta style={{ marginHorizontal: E.lg, overflow: 'hidden' }}>
             <Fila
               icono="copa"

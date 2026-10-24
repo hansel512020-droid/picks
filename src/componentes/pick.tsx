@@ -4,7 +4,6 @@ import { router } from 'expo-router';
 import { useEffect, useState } from 'react';
 import { Platform, StyleSheet, Text, View } from 'react-native';
 import Svg, { Circle } from 'react-native-svg';
-import { casa as buscaCasa } from '@/datos/casas';
 import { competicion } from '@/datos/competiciones';
 import { esPickDelDia } from '@/datos/picks';
 import type { Pick, SujetoPick } from '@/datos/tipos';
@@ -20,7 +19,7 @@ import { marca } from './movimiento';
 
 /**
  * La tarjeta de pick es la pieza central de la app: sujeto, argumento, mercado
- * con su cuota y la tira de los ultimos 10 partidos.
+ * y la tira de los ultimos 10 partidos.
  */
 
 /** Tira verde y roja con el resultado del pick en los ultimos 10 partidos. */
@@ -403,49 +402,13 @@ export function AnilloConfianza({ valor, tam = 42 }: { valor: number; tam?: numb
   );
 }
 
-/** Chip cuadrado con las siglas de la fuente del precio. */
-export function SelloCasa({ casaId, tam = 18 }: { casaId: string; tam?: number }) {
-  const c = buscaCasa(casaId);
-  return (
-    <View
-      style={{
-        paddingHorizontal: 4,
-        height: tam,
-        minWidth: tam,
-        borderRadius: 4,
-        alignItems: 'center',
-        justifyContent: 'center',
-        backgroundColor: c.fondo,
-      }}
-    >
-      <Text style={{ fontSize: tam * 0.46, fontWeight: '800', color: c.texto }}>{c.sigla}</Text>
-    </View>
-  );
-}
-
 /**
- * Fila gris del mercado: el nombre a la izquierda y, cuando existe de verdad,
- * la cuota publicada a la derecha.
+ * Fila gris del mercado: lo que dice el pick, con el candado si no está abierto.
+ *
+ * Aquí iba también la cuota con el sello de la casa que la publicaba. Fuera: la
+ * app es de análisis y estadísticas, y no enseña precios ni casas de apuestas.
  */
-export function FilaMercado({
-  mercado,
-  cuota,
-  casaId,
-  bloqueado,
-  precioReal,
-}: {
-  mercado: string;
-  cuota: number;
-  casaId: string;
-  bloqueado?: boolean;
-  /**
-   * Si el precio viene de una cuota publicada. Cuando no, no se enseña ningún
-   * número: colgarle el sello de una casa —o hasta un "EST"— a un precio que ha
-   * puesto el modelo hace creer al usuario que puede ir a esa casa y
-   * encontrarlo, y no es verdad.
-   */
-  precioReal?: boolean;
-}) {
+export function FilaMercado({ mercado, bloqueado }: { mercado: string; bloqueado?: boolean }) {
   return (
     <View style={[est.mercado, bloqueado ? null : est.mercadoAbierto]}>
       {/* Una barrita lima en el canto: la fila del mercado es lo que se juega,
@@ -466,28 +429,13 @@ export function FilaMercado({
       >
         {/* Con el candado puesto tampoco se enseña el mercado: si se ve "Más de
             1.5 entradas" el pick ya está dado y Golden Pro no aporta nada. */}
-        {bloqueado ? 'Mercado y precio con Golden Pro' : mercado}
+        {bloqueado ? 'Disponible con Golden Pro' : mercado}
       </Text>
-      {/*
-        El precio solo se enseña cuando lo ha publicado una casa.
-        *
-        * Antes salía siempre, con un sello "EST" cuando lo ponía el modelo, y
-        * al lado una flecha verde de "aquí hay valor". Las dos cosas sobran: la
-        * ventaja estaba medida contra ese mismo precio inventado —el modelo
-        * contra sí mismo— y el número invitaba a ir a una casa a buscar una
-        * cuota que allí no existe. Lo que sostiene un pick es su histórico, y
-        * eso sigue entero justo debajo.
-      */}
       {bloqueado ? (
         <View style={est.precio}>
           <Icono nombre="candado" tam={13} color={C.texto3} />
         </View>
-      ) : precioReal === false ? null : (
-        <View style={[est.precio, est.precioReal]}>
-          <Text style={{ ...T.cuerpoFuerte, color: C.lima }}>{cuota.toFixed(2)}</Text>
-          <SelloCasa casaId={casaId} />
-        </View>
-      )}
+      ) : null}
     </View>
   );
 }
@@ -1004,17 +952,11 @@ export function TarjetaPick({
       <Pulsable onPress={abrir} plano style={{ gap: E.md }}>
         <Txt v="cuerpo" color={bloqueado ? C.texto3 : C.texto} numberOfLines={3}>
           {bloqueado
-            ? 'Análisis disponible con Golden Pro. Desbloquea el argumento, el precio y la tendencia de los últimos 10 partidos.'
+            ? 'Análisis disponible con Golden Pro. Desbloquea el argumento y la tendencia de los últimos 10 partidos.'
             : pick.argumento}
         </Txt>
 
-        <FilaMercado
-          mercado={pick.mercado}
-          cuota={pick.cuota}
-          casaId={pick.casa}
-          precioReal={pick.precioReal}
-          bloqueado={bloqueado}
-        />
+        <FilaMercado mercado={pick.mercado} bloqueado={bloqueado} />
 
         {!sinRacha && !bloqueado ? (
           <View style={{ gap: 8 }}>
@@ -1106,7 +1048,6 @@ const est = StyleSheet.create({
     paddingVertical: 5,
     backgroundColor: C.carta,
   },
-  precioReal: { borderColor: C.limaBorde, boxShadow: '0 0 14px -4px rgba(201,255,61,0.35)' },
   carril: { flex: 1, height: 7, borderRadius: 4, backgroundColor: C.carta2, overflow: 'hidden' },
   relleno: { height: '100%', borderRadius: 4 },
   segmento: { flex: 1, height: 8, borderRadius: 3 },

@@ -1555,10 +1555,11 @@ export function picksDePartido(
         sujetoId: partidoId,
         titulo: `${local.nombre} vs ${visitante.nombre}`,
         contexto,
+        // Sin mencionar la cuota: la app no enseña precios, ni siquiera en el texto.
         argumento:
           `${op.nombre === 'Empate' ? 'El empate' : op.nombre.replace('Gana ', 'La victoria de ')}` +
           ` tiene un ${(ajustada * 100).toFixed(0)}% de probabilidad según el modelo, ` +
-          `y la cuota de ${op.cuota.toFixed(2)} solo le da un ${(implicita(op.cuota) * 100).toFixed(0)}%.`,
+          `y se dio en ${gano.filter(Boolean).length} de los últimos ${gano.length} partidos.`,
         familia: 'resultado',
         mercado: op.nombre,
         metrica: '1x2',

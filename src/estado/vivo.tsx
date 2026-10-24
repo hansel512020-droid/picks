@@ -447,7 +447,7 @@ export function ProveedorVivo({ children }: { children: ReactNode }) {
         if (!montado) return;
         await avisa(
           `Nuevo pick en ${competicion(liga).corto}`,
-          `${pick.titulo} · ${pick.mercado} @ ${pick.cuota.toFixed(2)} · ${pick.aciertosL10}/10`,
+          `${pick.titulo} · ${pick.mercado} · ${pick.aciertosL10}/10`,
           // Al tocar el aviso se abre el pick del que habla. Con el partido:
           // sin él la pantalla no sabe dónde buscarlo y enseña "este pick ya no
           // está disponible" justo después de anunciarlo.
