@@ -4,6 +4,7 @@ import { ActivityIndicator, ScrollView, Text, View } from 'react-native';
 import { useSafeAreaInsets } from 'react-native-safe-area-context';
 import { Chip, Insignia, Pulsable, Separador, Tarjeta, Txt, Vacio } from '@/componentes/base';
 import { FilaComparada } from '@/componentes/comparativa';
+import { Icono } from '@/componentes/iconos';
 import { Cara, Escudo, LogoCompeticion } from '@/componentes/imagen';
 import { Resplandor } from '@/componentes/marca';
 import { marca } from '@/componentes/movimiento';
@@ -567,18 +568,8 @@ export default function PantallaEquipo() {
                     {p.estado === 'en_curso' || p.estado === 'descanso' ? (
                       <Insignia texto="EN VIVO" color={C.rojo} fondo={C.rojoTenue} />
                     ) : (
-                      <View
-                        style={{
-                          paddingHorizontal: 8,
-                          paddingVertical: 5,
-                          borderRadius: R.xs,
-                          backgroundColor: C.carta2,
-                        }}
-                      >
-                        <Txt v="pequenoFuerte" color={C.lima}>
-                          {(esLocal(p) ? p.cuotas.local : p.cuotas.visitante).toFixed(2)}
-                        </Txt>
-                      </View>
+                      // Aquí iba la cuota del equipo: la app no enseña precios.
+                      <Icono nombre="flechaDerecha" tam={15} color={C.texto3} />
                     )}
                   </Tarjeta>
                 </Pulsable>

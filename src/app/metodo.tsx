@@ -23,16 +23,16 @@ const PASOS: { icono: NombreIcono; titulo: string; texto: string }[] = [
       'Para cada línea de mercado se cuenta cuántas veces la superó en los últimos 5, 10 y 20 partidos. Un pick solo entra en la lista si acierta 7 de los últimos 10 o más. La probabilidad del modelo mezcla la racha corta con la muestra larga y se acerca al 50% cuando hay pocos partidos.',
   },
   {
-    icono: 'moneda',
-    titulo: '3. El precio, solo cuando existe',
+    icono: 'grafico',
+    titulo: '3. Solo estadísticas',
     texto:
-      'De los mercados de jugador, equipo y totales no hay cuota publicada en ninguna parte a la que la app pueda mirar, así que no se enseña ningún precio: enseñar uno calculado por el modelo —y una "ventaja" medida contra él— sería el modelo dándose la razón a sí mismo, y al ir a apostar te encontrarías otro número. Solo el 1X2 lleva cuota, y es la que publica la casa.',
+      'La app no enseña cuotas, precios ni casas de apuestas. Cada pick se sostiene en lo que ha pasado de verdad: cuántas veces se cumplió en los últimos 5, 10 y 20 partidos y contra qué rivales.',
   },
   {
     icono: 'filtro',
     titulo: '4. Se filtra el ruido',
     texto:
-      'Se descartan los mercados sin recorrido (precios por debajo de 1.18 o por encima de 6), los "menos de 0.5" que solo dicen que alguien no hará nada, y las repeticiones: de cada métrica se queda la mejor línea y de cada jugador como mucho dos picks.',
+      'Se descartan las líneas que se cumplen casi siempre o casi nunca, los "menos de 0.5" que solo dicen que alguien no hará nada, y las repeticiones: de cada métrica se queda la mejor línea y de cada jugador como mucho dos picks.',
   },
 ];
 
@@ -93,9 +93,9 @@ export default function Metodo() {
           </View>
           <Txt v="pequeno" color={C.texto2}>
             Golden Picks no es una casa de apuestas, no acepta depósitos y no cobra comisión de
-            nadie. Tampoco predice el futuro: enseña con qué frecuencia se ha repetido algo y a qué
-            precio se paga. Una racha de 10 partidos es una muestra pequeña y el resultado de un
-            partido puede ser cualquiera.
+            nadie. Tampoco predice el futuro: enseña con qué frecuencia se ha repetido algo. Una
+            racha de 10 partidos es una muestra pequeña y el resultado de un partido puede ser
+            cualquiera.
           </Txt>
           <Separador />
           <Txt v="mini" color={C.texto3}>

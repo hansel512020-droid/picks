@@ -71,14 +71,7 @@ function EjemploPick() {
       <Txt v="cuerpo">
         Vinícius Jr. superó los 0,5 remates a puerta en 9 de sus últimos 10 partidos (2,3 por partido).
       </Txt>
-      {/* Sin cuota: la maqueta enseña lo que enseña la app de verdad, y la app
-          solo pone precio cuando lo publica una casa. */}
-      <FilaMercado
-        mercado="Más de 0.5 remates a puerta"
-        cuota={1.22}
-        casaId="medio"
-        precioReal={false}
-      />
+      <FilaMercado mercado="Más de 0.5 remates a puerta" />
       <BarraL10
         racha={[true, true, true, true, true, true, false, true, true, true]}
         porcentaje={90}
@@ -201,7 +194,7 @@ function resumen(): { icono: NombreIcono; texto: string }[] { return [
   { icono: 'usuario', texto: 'Qué elige la comunidad' },
   { icono: 'grafico', texto: 'Tu rendimiento partido a partido' },
   { icono: 'mundo', texto: `+${cuantasCompeticiones()} competiciones` },
-  { icono: 'moneda', texto: 'Precios y estadísticas en vivo' },
+  { icono: 'rayo', texto: 'Estadísticas y marcadores en vivo' },
 ];
 }
 
@@ -219,7 +212,7 @@ function diapositivas(): Diapositiva[] { return [
     contenido: (
       <Tarjeta style={{ padding: E.lg, gap: E.md }}>
         {[
-          ['Precios', 'Precios de mercado y márgenes'],
+          ['Jugadores', 'Fichas con notas, goles y asistencias'],
           ['Insights', 'Picks, alineaciones y lesiones'],
           ['Duelo', 'Cara a cara de los dos equipos'],
         ].map(([t, d]) => (

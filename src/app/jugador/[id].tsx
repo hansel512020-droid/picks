@@ -10,7 +10,6 @@ import { marca } from '@/componentes/movimiento';
 import { CabeceraAtras, FilaDato, Segmentado, TiraChips } from '@/componentes/navegacion';
 import { BarraL10 } from '@/componentes/pick';
 import { competicion } from '@/datos/competiciones';
-import { probMercadoJugador } from '@/datos/mercado';
 import { registrosDelJugador, temporada } from '@/datos/motor';
 import { coma, linea as formatoLinea, METRICAS_JUGADOR } from '@/datos/picks';
 import type { RegistroJugador } from '@/datos/tipos';
@@ -469,8 +468,7 @@ export default function PantallaJugador() {
         {vista === 'props' && filtrados.length > 0 ? (
           <View style={{ gap: E.sm, paddingHorizontal: E.lg }}>
             <Txt v="pequeno" color={C.texto3}>
-              Cada línea con su tasa de acierto en la muestra seleccionada y el precio que pondría el
-              mercado.
+              Cada línea con cuántas veces la superó en la muestra seleccionada.
             </Txt>
             {METRICAS_JUGADOR.filter(
               (m) =>
@@ -496,13 +494,6 @@ export default function PantallaJugador() {
                   {m.lineas.map((l) => {
                     const aciertos = valores.filter((v) => v > l).length;
                     const tasa = (aciertos / valores.length) * 100;
-                    const pMercado = probMercadoJugador(
-                      m.clave,
-                      l,
-                      jugador.posicion,
-                      jugador.nivel,
-                      mediaMetrica,
-                    );
                     return (
                       <View
                         key={l}
@@ -532,7 +523,8 @@ export default function PantallaJugador() {
                           color={tasa >= 70 ? C.lima : C.texto2}
                           style={{ width: 42, textAlign: 'right' }}
                         >
-                          {(1 / Math.min(0.95, pMercado * 1.055)).toFixed(2)}
+                          {/* Aquí iba un precio estimado; ahora, las veces que la superó. */}
+                          {aciertos}/{valores.length}
                         </Txt>
                       </View>
                     );

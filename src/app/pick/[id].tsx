@@ -735,7 +735,7 @@ ${enlace}`;
                     </Txt>
                   </View>
                   <Txt v="pequeno" color={C.texto2}>
-                    Desbloquea el argumento, el precio y la tendencia de los últimos 10 partidos de
+                    Desbloquea el argumento y la tendencia de los últimos 10 partidos de
                     {' '}{competicion(pick.competicionId).nombre}.
                   </Txt>
                 </View>
@@ -746,31 +746,7 @@ ${enlace}`;
               </Txt>
             )}
 
-            {bloqueado ? null : (
-              <FilaMercado
-                mercado={pick.mercado}
-                cuota={pick.cuota}
-                casaId={pick.casa}
-                precioReal={pick.precioReal}
-              />
-            )}
-
-            {/*
-              Y se dice de dónde sale el precio, con todas las letras.
-              *
-              * El sello "EST" de la fila de arriba lo entiende quien ya sabe
-              * qué significa. Aquí, que es donde alguien decide si apuesta,
-              * hace falta la frase entera: este precio no lo paga nadie, es una
-              * referencia del modelo para poder comparar. Quien vaya a una casa
-              * encontrará otro, y es mejor que lo sepa antes.
-            */}
-            {!bloqueado && pick.precioReal === false ? (
-              <Txt v="mini" color={C.texto3}>
-                Este mercado no tiene cuota publicada a la que la app pueda mirar, así que no se
-                enseña ningún precio. Mira el de tu casa de apuestas y decide con el histórico de
-                aquí abajo.
-              </Txt>
-            ) : null}
+            {bloqueado ? null : <FilaMercado mercado={pick.mercado} />}
 
             {/*
               La tercera casilla era la "Ventaja". Ahora es la probabilidad: la
@@ -859,10 +835,6 @@ ${enlace}`;
               <FilaDato
                 etiqueta="Probabilidad del modelo"
                 valor={`${(pick.probabilidad * 100).toFixed(0)}%`}
-              />
-              <FilaDato
-                etiqueta="Probabilidad implícita del precio"
-                valor={`${((1 / pick.cuota) * 100).toFixed(0)}%`}
               />
             </Tarjeta>
           </View>

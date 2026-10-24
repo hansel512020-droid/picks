@@ -319,8 +319,10 @@ function FilaGuardado({ g, onQuitar }: { g: PickGuardado; onQuitar: () => void }
           backgroundColor: C.carta2,
         }}
       >
+        {/* Aquí iba la cuota del pick. La app no enseña precios: va el día en que se guardó. */}
         <Txt v="pequeno" color={C.texto2}>
-          Cuota <Txt v="pequenoFuerte" color={C.texto}>{`@${g.cuota.toFixed(2)}`}</Txt>
+          Guardado el{' '}
+          {new Date(g.guardadoEn).toLocaleDateString('es', { day: 'numeric', month: 'short' })}
         </Txt>
         <Pulsable onPress={onQuitar} hitSlop={8}>
           <Txt v="pequeno" color={C.texto3}>
@@ -371,7 +373,6 @@ export default function Rendimiento() {
     const ganados = delPeriodo.filter((g) => g.resultado === 'ganado');
     const perdidos = delPeriodo.filter((g) => g.resultado === 'perdido');
     const resueltos = ganados.length + perdidos.length;
-    const beneficio = ganados.reduce((a, g) => a + (g.cuota - 1), 0) - perdidos.length;
     // Los diez últimos que ya tienen resultado, del más antiguo al más reciente.
     const racha = delPeriodo
       .filter((g) => g.resultado === 'ganado' || g.resultado === 'perdido')
@@ -382,8 +383,6 @@ export default function Rendimiento() {
     return {
       acierto: resueltos ? (ganados.length / resueltos) * 100 : 0,
       total: delPeriodo.length,
-      roi: resueltos ? (beneficio / resueltos) * 100 : 0,
-      beneficio,
       resueltos,
       ganados: ganados.length,
       perdidos: perdidos.length,

@@ -76,7 +76,7 @@ const PARCIALES: Oferta[] = [
 ];
 
 const VENTAJAS: { icono: Parameters<typeof Icono>[0]['nombre']; texto: string }[] = [
-  { icono: 'rayo', texto: 'Todos los picks donde el modelo ve ventaja' },
+  { icono: 'rayo', texto: 'Todos los picks, con su histórico completo' },
   { icono: 'usuario', texto: 'Jugadores y equipos de las ligas bloqueadas' },
   // Se cuentan las descargadas, no el catálogo entero: prometer 61 cuando
   // la mitad no tiene datos es vender humo.
@@ -84,7 +84,7 @@ const VENTAJAS: { icono: Parameters<typeof Icono>[0]['nombre']; texto: string }[
   { icono: 'filtro', texto: 'Filtros avanzados y cortes por contexto' },
   { icono: 'camiseta', texto: 'Alineaciones probables, bajas y sustituciones' },
   { icono: 'grafico', texto: '30+ métricas por jugador y partido' },
-  { icono: 'moneda', texto: 'Precios de mercado y comparación por margen' },
+  { icono: 'duelo', texto: 'Duelos y comparativas con el resto de la liga' },
 ];
 
 function TarjetaPlan({

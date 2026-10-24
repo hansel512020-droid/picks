@@ -20,10 +20,9 @@ import { Campo, CampoReal } from '@/componentes/campo';
 import { Icono } from '@/componentes/iconos';
 import { Escudo, LogoCompeticion } from '@/componentes/imagen';
 import { marca } from '@/componentes/movimiento';
-import { CabeceraAtras, FilaDato, Pestanas, Segmentado, TiraChips } from '@/componentes/navegacion';
-import { SelloCasa, TarjetaPick } from '@/componentes/pick';
+import { CabeceraAtras, Pestanas, Segmentado, TiraChips } from '@/componentes/navegacion';
+import { TarjetaPick } from '@/componentes/pick';
 import { alineacionesDelPartido, type OnceEquipo } from '@/datos/alineaciones';
-import { ANTIGUOS_POR_PERFIL, CASAS, casa as casaPorId } from '@/datos/casas';
 import { competicion, competicionOpcional } from '@/datos/competiciones';
 import {
   equiposImportados,
@@ -33,7 +32,7 @@ import {
 } from '@/datos/importado';
 import { extrasDelPartido, type Extras } from '@/datos/penales';
 import { alineacion, lesiones, posicionesEnLiga, temporada } from '@/datos/motor';
-import { coma, desglose1x2, FAMILIAS } from '@/datos/picks';
+import { coma, FAMILIAS } from '@/datos/picks';
 import type { Equipo, Familia, Partido } from '@/datos/tipos';
 import { useDerechos } from '@/estado/derechos';
 import { useTienda } from '@/estado/tienda';
@@ -41,7 +40,9 @@ import { usePartidoVivoDe, usePicksVigentes } from '@/estado/vivo';
 import { C, COLUMNA, E, R } from '@/tema';
 import { useCalculo } from '@/utiles/carga';
 
-type Vista = 'cuotas' | 'insights' | 'duelo';
+// Había una tercera, "Precios", con cuotas de casas de apuestas. Fuera: la app
+// es de análisis y estadísticas.
+type Vista = 'insights' | 'duelo';
 type Pestana = 'picks' | 'formaciones' | 'lesiones';
 
 /**
@@ -186,48 +187,6 @@ export default function PantallaPartido() {
 
   const { partido, local, visitante, posLocal, posVisitante, jugadores } = datos;
 
-  /*
-   * Las filas de la tabla de precios, en dos bloques y en este orden.
-   *
-   * Primero las casas que publicaron el precio de verdad, con su nombre.
-   * Después el mismo precio llevado a distintos márgenes, sin nombre de nadie.
-   *
-   * La tabla enseñaba diez marcas con un precio cada una y solo había un dato
-   * real: los otros nueve se derivaban del primero. Quien leía "Pinnacle 2.58"
-   * y se iba a Pinnacle no encontraba ese precio.
-   */
-  const filasDePrecio = (() => {
-    const porCasa = partido.cuotas?.porCasa ?? {};
-
-    /*
-     * El precio publicado, con el nombre de quien lo publicó.
-     *
-     * No siempre está dentro de `porCasa`: cuando la fuente es el proveedor de
-     * ESPN —DraftKings, casi siempre— el precio va en el 1X2 de cabecera y en
-     * `casasReales` solo queda el nombre. Buscándolo únicamente en `porCasa` la
-     * fila desaparecía, y la tabla se quedaba con tres cálculos nuestros y
-     * ningún dato real, que es justo lo contrario de lo que queríamos.
-     */
-    const cabecera = {
-      local: partido.cuotas?.local ?? 0,
-      empate: partido.cuotas?.empate ?? 0,
-      visitante: partido.cuotas?.visitante ?? 0,
-    };
-    const reales = (partido.cuotas?.casasReales ?? [])
-      .map((id) => ({ casa: casaPorId(id), c: porCasa[id] ?? cabecera }))
-      .filter(({ c }) => c.local > 0);
-
-    const estimados = CASAS.map((x) => {
-      // El perfil, o la clave antigua equivalente mientras no se reimporte.
-      const c =
-        porCasa[x.id] ??
-        (ANTIGUOS_POR_PERFIL[x.id] ?? []).map((viejo) => porCasa[viejo]).find(Boolean);
-      return c ? { casa: x, c } : null;
-    }).filter((x): x is { casa: (typeof CASAS)[number]; c: (typeof porCasa)[string] } => !!x);
-
-    return [...reales, ...estimados];
-  })();
-  const hayReales = (partido.cuotas?.casasReales ?? []).length > 0;
   // Lo que ESPN diga ahora mismo pesa más que la foto del archivo importado.
   const estado = enDirecto?.estado ?? partido.estado;
   const golesLocal = enDirecto?.golesLocal ?? partido.golesLocal;
@@ -496,7 +455,6 @@ export default function PantallaPartido() {
               valor={vista}
               onCambia={setVista}
               opciones={[
-                { id: 'cuotas', texto: 'Precios', icono: 'moneda' },
                 { id: 'insights', texto: 'Insights', icono: 'grafico' },
                 { id: 'duelo', texto: 'Duelo', icono: 'duelo' },
               ]}
@@ -601,7 +559,7 @@ export default function PantallaPartido() {
                       }
                       detalle={
                         jugado
-                          ? 'Este partido ya se jugó: mira los precios o el duelo.'
+                          ? 'Este partido ya se jugó: mira el duelo.'
                           : picksVisibles.length
                             ? 'Con el marcador que lleva ya no queda nada que apostar aquí.'
                             : 'Prueba con otro mercado.'
@@ -649,181 +607,6 @@ export default function PantallaPartido() {
                 </View>
               ) : null}
             </>
-          ) : null}
-
-          {vista === 'cuotas' ? (
-            <View style={{ paddingHorizontal: E.lg, gap: E.lg }}>
-              {/*
-                El 1X2 completo, para enseñar. La portada solo publica lo que tiene
-                ventaja —casi siempre la doble oportunidad del equipo flojo—, así
-                que parecía que no había mercado de "quién gana". Aquí salen las
-                seis opciones con su probabilidad y su cuota, y la de valor marcada.
-              */}
-              {(() => {
-                const ops = desglose1x2(competicionId, partidoId, ajustes.casaId);
-                if (!ops.length) return null;
-                return (
-                  <Tarjeta style={{ overflow: 'hidden' }}>
-                    <View
-                      style={{
-                        flexDirection: 'row',
-                        paddingHorizontal: E.md,
-                        paddingVertical: 10,
-                        backgroundColor: C.carta2,
-                      }}
-                    >
-                      <Txt v="mini" color={C.texto3} style={{ flex: 1 }}>
-                        RESULTADO (1X2)
-                      </Txt>
-                      <Txt v="mini" color={C.texto3} style={{ width: 52, textAlign: 'center' }}>
-                        MODELO
-                      </Txt>
-                      <Txt v="mini" color={C.texto3} style={{ width: 52, textAlign: 'center' }}>
-                        CUOTA
-                      </Txt>
-                    </View>
-                    {ops.map((o, i) => (
-                      <View key={o.nombre}>
-                        {i > 0 ? <Separador /> : null}
-                        <View
-                          style={{
-                            flexDirection: 'row',
-                            alignItems: 'center',
-                            paddingHorizontal: E.md,
-                            paddingVertical: 12,
-                            gap: E.sm,
-                          }}
-                        >
-                          <View
-                            style={{
-                              flex: 1,
-                              flexDirection: 'row',
-                              alignItems: 'center',
-                              gap: 6,
-                              flexWrap: 'wrap',
-                            }}
-                          >
-                            <Txt v="pequeno" numberOfLines={1}>
-                              {o.nombre}
-                            </Txt>
-                            {o.valor ? (
-                              <Insignia texto="VALOR" color={C.lima} fondo={C.limaTenue} />
-                            ) : null}
-                          </View>
-                          <Txt
-                            v="cuerpoFuerte"
-                            color={o.valor ? C.lima : C.texto}
-                            style={{ width: 52, textAlign: 'center' }}
-                          >
-                            {(o.probModelo * 100).toFixed(0)}%
-                          </Txt>
-                          <Txt v="cuerpoFuerte" style={{ width: 52, textAlign: 'center' }}>
-                            {o.cuota.toFixed(2)}
-                          </Txt>
-                        </View>
-                      </View>
-                    ))}
-                  </Tarjeta>
-                );
-              })()}
-              <Tarjeta style={{ overflow: 'hidden' }}>
-                <View
-                  style={{
-                    flexDirection: 'row',
-                    paddingHorizontal: E.md,
-                    paddingVertical: 10,
-                    backgroundColor: C.carta2,
-                  }}
-                >
-                  <Txt v="mini" color={C.texto3} style={{ flex: 1 }}>
-                    FUENTE
-                  </Txt>
-                  {['1', '×', '2'].map((t) => (
-                    <Txt key={t} v="mini" color={C.texto3} style={{ width: 54, textAlign: 'center' }}>
-                      {t}
-                    </Txt>
-                  ))}
-                </View>
-                {filasDePrecio.map(({ casa, c }, i) => {
-                  const mejor = Math.max(c.local, c.empate, c.visitante);
-                  return (
-                    <View key={casa.id}>
-                      {i > 0 ? <Separador /> : null}
-                      <View
-                        style={{
-                          flexDirection: 'row',
-                          alignItems: 'center',
-                          paddingHorizontal: E.md,
-                          paddingVertical: 12,
-                        }}
-                      >
-                        <View
-                          style={{ flex: 1, flexDirection: 'row', alignItems: 'center', gap: E.sm }}
-                        >
-                          <SelloCasa casaId={casa.id} tam={20} />
-                          <Txt v="pequeno" numberOfLines={1}>
-                            {casa.nombre}
-                          </Txt>
-                          {/*
-                            Cuál es un precio que alguien publicó y cuál una
-                            cuenta nuestra. El orden y la nota de abajo lo dicen,
-                            pero en una tabla se lee fila a fila, no de arriba
-                            abajo: la marca tiene que estar en la propia fila.
-                          */}
-                          {casa.real ? (
-                            <Insignia texto="PUBLICADO" color={C.lima} fondo={C.limaTenue} />
-                          ) : (
-                            <Insignia texto="CALCULADO" color={C.texto3} fondo={C.carta2} />
-                          )}
-                        </View>
-                        {[c.local, c.empate, c.visitante].map((v, k) => (
-                          <Txt
-                            key={k}
-                            v="cuerpoFuerte"
-                            color={v === mejor ? C.lima : C.texto}
-                            style={{ width: 54, textAlign: 'center' }}
-                          >
-                            {v.toFixed(2)}
-                          </Txt>
-                        ))}
-                      </View>
-                    </View>
-                  );
-                })}
-              </Tarjeta>
-
-              {/*
-                Quién dijo qué, en una línea.
-
-                Sin esto la tabla vuelve a mentir por omisión: las filas de arriba
-                son precios publicados y las de abajo son cuentas nuestras, y a
-                simple vista se leen igual. Quien va a arriesgar dinero con esos
-                números tiene derecho a saber cuál puede ir a buscar.
-              */}
-              <Txt v="mini" color={C.texto3} style={{ paddingHorizontal: E.sm }}>
-                {hayReales
-                  ? 'Arriba, precios publicados por su fuente. Debajo, el mismo precio llevado a distintos márgenes de mercado: son cálculos nuestros, no ofertas de nadie.'
-                  : 'Nadie ha publicado precio para este partido todavía. Lo que ves son estimaciones a distintos márgenes de mercado, calculadas por la app.'}
-              </Txt>
-
-              <Tarjeta style={{ padding: E.md }}>
-                <Txt v="cuerpoFuerte" style={{ marginBottom: E.sm }}>
-                  Otros mercados
-                </Txt>
-                <FilaDato etiqueta="Más de 2.5 goles" valor={partido.cuotas.mas25.toFixed(2)} destacado />
-                <Separador />
-                <FilaDato etiqueta="Menos de 2.5 goles" valor={partido.cuotas.menos25.toFixed(2)} />
-                <Separador />
-                <FilaDato etiqueta="Ambos marcan" valor={partido.cuotas.ambosMarcan.toFixed(2)} />
-                <Separador />
-                <FilaDato etiqueta="Ambos no marcan" valor={partido.cuotas.ambosNoMarcan.toFixed(2)} />
-              </Tarjeta>
-
-              <Txt v="mini" color={C.texto3}>
-                Precios de referencia calculados por el modelo de Golden. Comprueba siempre el precio
-                real en su fuente antes de decidir.
-              </Txt>
-            </View>
           ) : null}
 
           {vista === 'duelo' ? (
