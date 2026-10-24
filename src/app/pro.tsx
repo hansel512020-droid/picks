@@ -7,7 +7,6 @@ import { Icono } from '@/componentes/iconos';
 import { Resplandor, Simbolo } from '@/componentes/marca';
 import { marca } from '@/componentes/movimiento';
 import { BotonPayphone } from '@/componentes/payphone';
-import { BotonPolar, usePolarListo, useVueltaDePolar } from '@/componentes/polar';
 import { COMPETICIONES, competicionesVisibles } from '@/datos/competiciones';
 import { useDerechos } from '@/estado/derechos';
 import { useSesion } from '@/estado/sesion';
@@ -159,14 +158,6 @@ export default function Pro() {
   // Los planes parciales no desbloquean nada al pagar: dan huecos que hay que
   // repartir en "Mis ligas" antes de que sirvan.
   const parcial = elegido === 'dosligas' || elegido === 'tresligas';
-  // Polar (tarjeta de cualquier país) sale solo cuando el servidor lo tiene
-  // configurado; hasta entonces, Payphone como siempre.
-  const conPolar = usePolarListo();
-  const vueltaPolar = useVueltaDePolar(sesion?.token, async (comprado) => {
-    await refrescaDerechos();
-    // Como con Payphone: los parciales van primero a elegir sus ligas.
-    router.replace(comprado === 'dosligas' || comprado === 'tresligas' ? '/mis-ligas' : '/');
-  });
 
   return (
     <View style={{ flex: 1, backgroundColor: C.fondo }}>
@@ -286,75 +277,53 @@ export default function Pro() {
           ) : plan === elegido ? (
             <Boton ancho texto="Plan activo" deshabilitado />
           ) : (
-            <>
-              {conPolar ? (
-                <BotonPolar
-                  plan={elegido}
-                  token={sesion.token}
-                  etiqueta={`Pagar ${ofertaElegida?.precio ?? ''} con tarjeta`}
-                />
-              ) : null}
-              <BotonPayphone
-                plan={elegido}
-                token={sesion.token}
-                variante={conPolar ? 'secundario' : 'principal'}
-                etiqueta={
-                  conPolar
-                    ? 'Pagar con Payphone (Ecuador)'
-                    : `Pagar ${ofertaElegida?.precio ?? ''}`.trim()
+            <BotonPayphone
+              plan={elegido}
+              token={sesion.token}
+              etiqueta={`Pagar ${ofertaElegida?.precio ?? ''}`.trim()}
+              onComprado={async (confirmado) => {
+                /*
+                 * Si no se pudo confirmar, se queda en la pantalla: el botón ya
+                 * le ha avisado de que se activará solo en unos minutos.
+                 */
+                /*
+                 * Se sale de esta pantalla PASE LO QUE PASE.
+                 *
+                 * Antes, si el pago no se podía confirmar, se volvía aquí y se
+                 * dejaba al usuario en Pro con un mensaje. Pero al volver de
+                 * Payphone no hay pantalla anterior, así que se quedaba
+                 * encerrado mirando la lista de planes que acababa de pagar.
+                 *
+                 * Ahora se va a Inicio en los dos casos. Si el cobro quedó sin
+                 * confirmar, el aviso de "pago en proceso" se lo cuenta allí, y
+                 * el respaldo del servidor concede el acceso en cuanto Payphone
+                 * confirme.
+                 */
+                if (!confirmado) {
+                  router.replace('/');
+                  return;
                 }
-                onComprado={async (confirmado) => {
-                  /*
-                   * Si no se pudo confirmar, se queda en la pantalla: el botón ya
-                   * le ha avisado de que se activará solo en unos minutos.
-                   */
-                  /*
-                   * Se sale de esta pantalla PASE LO QUE PASE.
-                   *
-                   * Antes, si el pago no se podía confirmar, se volvía aquí y se
-                   * dejaba al usuario en Pro con un mensaje. Pero al volver de
-                   * Payphone no hay pantalla anterior, así que se quedaba
-                   * encerrado mirando la lista de planes que acababa de pagar.
-                   *
-                   * Ahora se va a Inicio en los dos casos. Si el cobro quedó sin
-                   * confirmar, el aviso de "pago en proceso" se lo cuenta allí, y
-                   * el respaldo del servidor concede el acceso en cuanto Payphone
-                   * confirme.
-                   */
-                  if (!confirmado) {
-                    router.replace('/');
-                    return;
-                  }
-                  /*
-                   * El servidor ya comprobó el cobro con Payphone y escribió el
-                   * derecho; se vuelven a leer para que los candados se abran al
-                   * instante en vez de esperar al refresco periódico.
-                   */
-                  await refrescaDerechos();
-                  /*
-                   * Los parciales van primero a elegir sus ligas; esa pantalla,
-                   * al guardar, manda al Inicio. Los completos ya no tienen nada
-                   * que elegir: directos al Inicio. Con replace para que "atrás"
-                   * no vuelva a la pantalla de pago.
-                   */
-                  router.replace(parcial ? '/mis-ligas' : '/');
-                }}
-              />
-            </>
+                /*
+                 * El servidor ya comprobó el cobro con Payphone y escribió el
+                 * derecho; se vuelven a leer para que los candados se abran al
+                 * instante en vez de esperar al refresco periódico.
+                 */
+                await refrescaDerechos();
+                /*
+                 * Los parciales van primero a elegir sus ligas; esa pantalla,
+                 * al guardar, manda al Inicio. Los completos ya no tienen nada
+                 * que elegir: directos al Inicio. Con replace para que "atrás"
+                 * no vuelva a la pantalla de pago.
+                 */
+                router.replace(parcial ? '/mis-ligas' : '/');
+              }}
+            />
           )}
 
-          {vueltaPolar.confirmando || vueltaPolar.mensaje ? (
-            <Txt v="pequeno" color={C.texto2} style={{ textAlign: 'center' }}>
-              {vueltaPolar.confirmando ? 'Confirmando tu pago…' : vueltaPolar.mensaje}
-            </Txt>
-          ) : null}
-
           <Txt v="mini" color={C.texto3} style={{ textAlign: 'center' }}>
-            {conPolar
-              ? 'El cobro lo gestiona Polar (tarjeta de cualquier país) o Payphone (Ecuador).'
-              : 'El cobro lo gestiona Payphone.'}{' '}
-            Es un pago único por el periodo que elijas: no se renueva solo, así que no hay nada que
-            cancelar. Cuando termina, el acceso se cierra sin volver a cobrarte.
+            El cobro lo gestiona Payphone. Es un pago único por el periodo que elijas: no se
+            renueva solo, así que no hay nada que cancelar. Cuando termina, el acceso se cierra
+            sin volver a cobrarte.
           </Txt>
 
           <Pulsable onPress={() => router.push('/legal')}>
