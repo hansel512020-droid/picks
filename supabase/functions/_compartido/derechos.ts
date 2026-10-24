@@ -247,6 +247,9 @@ export async function retiraPlanAnterior(usuarioId: string, compraActual: string
    * sin usar dos de ellas, y se enteraría por el extracto del banco.
    */
   for (const suscripcion of viejas) {
+    // Solo las suscripciones de PayPal (I-…) se renuevan solas. Lo pagado con
+    // Payphone o con Polar es un pago único: no hay nada que dar de baja.
+    if (!suscripcion.startsWith('I-')) continue;
     const ok = await cancelaEnPaypal(suscripcion, 'Sustituida por un plan nuevo');
     console.log(ok ? 'suscripcion anterior cancelada:' : 'no se pudo cancelar:', suscripcion);
   }

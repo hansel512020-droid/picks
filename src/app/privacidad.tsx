@@ -85,9 +85,9 @@ export default function Privacidad() {
 
         <Seccion titulo="3. Quién más los ve">
           <P>
-            Golden Picks se apoya en dos proveedores, y solo en lo justo: Supabase, que guarda las
-            cuentas y los datos, y Payphone, que procesa los pagos. Los datos de tu tarjeta los
-            maneja la pasarela; a la app nunca llegan.
+            Golden Picks se apoya en pocos proveedores, y solo en lo justo: Supabase, que guarda las
+            cuentas y los datos, y Payphone o Polar, que procesan los pagos. Los datos de tu tarjeta
+            los maneja la pasarela; a la app nunca llegan.
           </P>
           <P>
             Si entras con Google, Google nos da tu correo y tu nombre. Nada más.

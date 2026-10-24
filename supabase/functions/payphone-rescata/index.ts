@@ -53,7 +53,8 @@ async function comprasPendientes(usuarioId: string): Promise<Record<string, unkn
   if (!url || !clave) return [];
 
   const r = await fetch(
-    `${url}/rest/v1/compras?usuario_id=eq.${usuarioId}&estado=eq.pendiente&select=*`,
+    // Solo las de Payphone (GP…): las de Polar las cierra su propio aviso.
+    `${url}/rest/v1/compras?usuario_id=eq.${usuarioId}&estado=eq.pendiente&referencia=like.GP*&select=*`,
     { headers: { apikey: clave, Authorization: `Bearer ${clave}` } },
   );
   if (!r.ok) {

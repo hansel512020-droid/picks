@@ -157,6 +157,7 @@ export function BotonPayphone({
   plan,
   token,
   etiqueta,
+  variante,
   onComprado,
 }: {
   /** El plan elegido: `semanal`, `mensual`, `anual`, `dosligas` o `tresligas`. */
@@ -165,6 +166,8 @@ export function BotonPayphone({
   token: string;
   /** Texto del botón, p. ej. "Pagar $17.99". */
   etiqueta: string;
+  /** Secundario cuando al lado está el pago con tarjeta de Polar. */
+  variante?: 'principal' | 'secundario';
   /** `confirmado` dice si el acceso ya quedó concedido o si habrá que esperar. */
   onComprado: (confirmado: boolean) => void;
 }) {
@@ -323,6 +326,7 @@ export function BotonPayphone({
       <Boton
         ancho
         icono="moneda"
+        variante={variante}
         texto={cargando ? 'Abriendo el pago…' : confirmando ? 'Confirmando tu pago…' : etiqueta}
         deshabilitado={cargando || confirmando}
         onPress={paga}

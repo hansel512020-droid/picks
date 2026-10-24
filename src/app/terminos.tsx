@@ -119,7 +119,9 @@ export default function Terminos() {
             si vuelves a comprar.
           </P>
           <P>
-            Los cobros los procesa Payphone. Golden Picks no ve ni guarda los datos de tu tarjeta.
+            Los cobros los procesa Payphone (Ecuador) o Polar (tarjeta desde cualquier país). Con
+            Polar, la venta la hace Polar como revendedor autorizado y se aplican también sus
+            condiciones. Golden Picks no ve ni guarda los datos de tu tarjeta.
           </P>
         </Seccion>
 
