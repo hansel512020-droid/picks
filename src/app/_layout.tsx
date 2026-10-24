@@ -1,3 +1,4 @@
+import { Analytics } from '@vercel/analytics/react';
 import { Stack, useRouter, useSegments } from 'expo-router';
 import { StatusBar } from 'expo-status-bar';
 import React, { useEffect, useState, type ReactNode } from 'react';
@@ -238,6 +239,11 @@ export default function Raiz() {
                   </ConLateral>
                   {/* Encima de todo: si se ha publicado una versión nueva. */}
                   <AvisoVersionNueva />
+                  {/*
+                    Las visitas, en la pestaña Analytics de Vercel. Solo en la
+                    web: en el teléfono no hay página que contar.
+                  */}
+                  {Platform.OS === 'web' ? <Analytics /> : null}
                 </MarcoMovil>
               </ProveedorVivo>
             </ProveedorComunidad>
