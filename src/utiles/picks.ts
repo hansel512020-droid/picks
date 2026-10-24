@@ -1,7 +1,10 @@
 import { useEffect, useMemo, useState, useSyncExternalStore } from 'react';
 import {
   cargaPicks,
+  cuandoAvanceLaCarga,
   cuandoLleguenLosPicks,
+  estadoDeLaCarga,
+  type EstadoCarga,
   hayPicksDelServidor,
   picksCompletos,
   picksFallaron,
@@ -75,6 +78,11 @@ export function usePicksDelPartido(partidoId: string): Pick[] | undefined {
 /** Si el último intento de traer los picks falló. Se repinta al reintentar. */
 export function usePicksFallaron(): boolean {
   return useSyncExternalStore(cuandoLleguenLosPicks, picksFallaron, () => false);
+}
+
+/** En qué va la carga de los picks: paso, cuántos han llegado y desde cuándo. */
+export function useEstadoCarga(): EstadoCarga {
+  return useSyncExternalStore(cuandoAvanceLaCarga, estadoDeLaCarga, estadoDeLaCarga);
 }
 
 /** El gratis de hoy. */

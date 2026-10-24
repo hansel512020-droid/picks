@@ -13,7 +13,7 @@ import { useSafeAreaInsets } from 'react-native-safe-area-context';
 import { Icono, type NombreIcono } from '@/componentes/iconos';
 import { marca } from '@/componentes/movimiento';
 import { ALTO_TABS, C, MARGEN_TABS, R, T } from '@/tema';
-import { useHayLateral } from '@/utiles/pantalla';
+import { ocultaLateral, useHayLateral } from '@/utiles/pantalla';
 
 /**
  * El icono de la pestaña, con una pastilla lima detrás cuando está elegida.
@@ -69,13 +69,20 @@ const Ctx = createContext<(cargando: boolean) => void>(() => {});
  */
 const antesDePintar = typeof window === 'undefined' ? useEffect : useLayoutEffect;
 
-/** Oculta la barra de pestañas mientras `cargando` sea cierto. */
+/**
+ * Oculta la barra de pestañas mientras `cargando` sea cierto, y en el
+ * escritorio también el menú lateral: mientras carga, se ve la carga y nada más.
+ */
 export function useOcultaPestanas(cargando: boolean) {
   const avisa = useContext(Ctx);
   antesDePintar(() => {
     avisa(cargando);
-    // Al salir de la pantalla la barra vuelve, cargue lo que cargue.
-    return () => avisa(false);
+    ocultaLateral(cargando);
+    // Al salir de la pantalla la navegación vuelve, cargue lo que cargue.
+    return () => {
+      avisa(false);
+      ocultaLateral(false);
+    };
   }, [avisa, cargando]);
 }
 
