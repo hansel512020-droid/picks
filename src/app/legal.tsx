@@ -63,7 +63,7 @@ const TERMINOS: Apartado[] = [
     titulo: 'Suscripciones y pagos',
     parrafos: [
       'Golden Pro se vende por periodos: semanal, mensual o anual para todas las competiciones, o planes de 2 y 3 competiciones a elegir. El precio de cada plan es el que aparece en la pantalla de pago en el momento de comprar.',
-      'El cobro lo procesa Payphone. No vemos ni guardamos los datos de tu tarjeta en ningún momento.',
+      'El cobro lo procesa Payphone si pagas desde Ecuador, o Polar (polar.sh) si pagas con tarjeta desde cualquier país. Con Polar, la venta la hace Polar como revendedor autorizado: emite el recibo y se ocupa de los impuestos de tu país. No vemos ni guardamos los datos de tu tarjeta en ningún momento.',
       'Es un pago único por el periodo contratado: NO se renueva solo y no hay nada que cancelar. Cuando el periodo termina, el acceso se cierra y no se te vuelve a cobrar. Si quieres seguir, compras otro periodo.',
       'Los planes de 2 y 3 competiciones dan derecho a elegir esa cantidad de competiciones. La elección vale para todo el periodo contratado.',
     ],
@@ -96,14 +96,14 @@ const PRIVACIDAD: Apartado[] = [
     parrafos: [
       'Tu correo electrónico, para identificar tu cuenta y poder recuperarla. Si entras con Google, también el nombre y la foto que Google nos comparte.',
       'Los picks que guardas, tus ligas seguidas y tus ajustes, para que los tengas en cualquier dispositivo donde entres.',
-      'Qué plan compraste, cuándo y por cuánto, junto con el identificador de la operación de Payphone. Hace falta para darte el acceso y para resolver cualquier reclamación sobre un cobro.',
+      'Qué plan compraste, cuándo y por cuánto, junto con el identificador de la operación de Payphone o de Polar. Hace falta para darte el acceso y para resolver cualquier reclamación sobre un cobro.',
       'Un identificador anónimo del dispositivo, que sirve para contar cuánta gente ha guardado cada pick. No lleva ningún dato personal.',
     ],
   },
   {
     titulo: 'Qué NO guardamos',
     parrafos: [
-      'Datos de tu tarjeta. El pago ocurre entero dentro de Payphone; nosotros solo recibimos la confirmación de si se cobró o no.',
+      'Datos de tu tarjeta. El pago ocurre entero dentro de Payphone o de Polar; nosotros solo recibimos la confirmación de si se cobró o no.',
       'Tampoco guardamos tu ubicación, tu agenda de contactos ni nada de lo que hagas fuera de la aplicación.',
     ],
   },
@@ -117,7 +117,7 @@ const PRIVACIDAD: Apartado[] = [
   {
     titulo: 'Dónde viven',
     parrafos: [
-      'En Supabase, el proveedor que aloja nuestra base de datos, con acceso restringido. Los pagos los procesa Payphone, que trata los datos de pago según sus propias condiciones.',
+      'En Supabase, el proveedor que aloja nuestra base de datos, con acceso restringido. Los pagos los procesan Payphone o Polar, que tratan los datos de pago según sus propias condiciones.',
       'Las estadísticas deportivas provienen de fuentes públicas y no contienen información sobre ti.',
     ],
   },

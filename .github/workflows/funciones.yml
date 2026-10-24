@@ -1,0 +1,122 @@
+# Sube las funciones de cobro a Supabase y les pone las claves de Polar.
+#
+# Se lanza a mano desde la pestaña Actions → Funciones → Run workflow. Así no
+# hace falta instalar nada en el ordenador ni pegar claves en la consola: las
+# claves viven en los secretos de GitHub y de ahí pasan a los de Supabase sin
+# que se impriman nunca.
+#
+# ── Secretos que hay que poner en GitHub ────────────────────────────────────
+#   Settings → Secrets and variables → Actions → New repository secret
+#
+#   SUPABASE_ACCESS_TOKEN   el mismo que usa el robot de datos (sbp_…)
+#   POLAR_ACCESS_TOKEN      Polar → Settings → Developers → New Token, con
+#                           checkouts:read, checkouts:write y products:read
+#   POLAR_WEBHOOK_SECRET    el secreto del webhook creado en Polar → Settings
+#                           → Webhooks (whsec_…)
+#
+# Al terminar, el último paso pregunta a la función si Polar está listo y dice
+# qué planes encontró. Si falta alguno, es que en Polar no hay un producto de
+# pago único con ese precio exacto.
+
+name: Funciones
+
+on:
+  workflow_dispatch:
+    inputs:
+      entorno:
+        description: 'Polar de verdad (produccion) o de pruebas (sandbox)'
+        type: choice
+        options: [produccion, sandbox]
+        default: produccion
+
+# Dos despliegues a la vez se pisarían los secretos.
+concurrency:
+  group: funciones
+  cancel-in-progress: false
+
+jobs:
+  desplegar:
+    runs-on: ubuntu-24.04
+    timeout-minutes: 15
+    steps:
+      - uses: actions/checkout@v4
+
+      - name: Comprobar los secretos
+        env:
+          SUPABASE_ACCESS_TOKEN: ${{ secrets.SUPABASE_ACCESS_TOKEN }}
+          POLAR_ACCESS_TOKEN: ${{ secrets.POLAR_ACCESS_TOKEN }}
+          POLAR_WEBHOOK_SECRET: ${{ secrets.POLAR_WEBHOOK_SECRET }}
+        run: |
+          set -uo pipefail
+          # Nunca se imprime un valor: solo si está y cuántos caracteres tiene,
+          # que basta para ver si se pegó a medias.
+          falta=0
+          for nombre in SUPABASE_ACCESS_TOKEN POLAR_ACCESS_TOKEN POLAR_WEBHOOK_SECRET; do
+            valor="${!nombre:-}"
+            if [ -z "$valor" ]; then
+              echo "::error::Falta el secreto $nombre (Settings → Secrets and variables → Actions)."
+              falta=1
+            else
+              echo "$nombre presente (${#valor} caracteres)"
+            fi
+          done
+          case "${POLAR_ACCESS_TOKEN:-}" in
+            polar_oat_*|"") ;;
+            *) echo "::warning::POLAR_ACCESS_TOKEN no empieza por polar_oat_: ¿es un token de organización?" ;;
+          esac
+          case "${POLAR_WEBHOOK_SECRET:-}" in
+            whsec_*|"") ;;
+            *) echo "::warning::POLAR_WEBHOOK_SECRET no empieza por whsec_: cópialo tal cual del webhook de Polar." ;;
+          esac
+          exit $falta
+
+      # La misma versión de la CLI que usa el robot de datos.
+      - name: Instalar la CLI de Supabase
+        run: npm install -g supabase@2.116.0
+
+      - name: Poner las claves de Polar en Supabase
+        env:
+          SUPABASE_ACCESS_TOKEN: ${{ secrets.SUPABASE_ACCESS_TOKEN }}
+          POLAR_ACCESS_TOKEN: ${{ secrets.POLAR_ACCESS_TOKEN }}
+          POLAR_WEBHOOK_SECRET: ${{ secrets.POLAR_WEBHOOK_SECRET }}
+          ENTORNO: ${{ inputs.entorno }}
+        run: |
+          set -euo pipefail
+          # Por un archivo y no en la línea de órdenes, para que los valores no
+          # aparezcan en la lista de procesos. Se borra al acabar.
+          umask 077
+          archivo="$(mktemp)"
+          trap 'rm -f "$archivo"' EXIT
+          {
+            printf 'POLAR_ACCESS_TOKEN=%s\n' "$(printf %s "$POLAR_ACCESS_TOKEN" | tr -d '\r\n')"
+            printf 'POLAR_WEBHOOK_SECRET=%s\n' "$(printf %s "$POLAR_WEBHOOK_SECRET" | tr -d '\r\n')"
+            printf 'POLAR_ENTORNO=%s\n' "$ENTORNO"
+          } > "$archivo"
+          supabase secrets set --env-file "$archivo" --project-ref "$(cat supabase/.temp/project-ref)"
+          echo "Claves puestas (entorno: $ENTORNO)."
+
+      # --use-api: se empaquetan en los servidores de Supabase, sin Docker.
+      # --no-verify-jwt: cada función comprueba la sesión por su cuenta (y el
+      # webhook, la firma de Polar), para poder contestar con un motivo claro.
+      - name: Subir las funciones
+        env:
+          SUPABASE_ACCESS_TOKEN: ${{ secrets.SUPABASE_ACCESS_TOKEN }}
+        run: |
+          set -euo pipefail
+          supabase functions deploy \
+            polar-crea polar-confirma polar-webhook payphone-crea payphone-rescata \
+            --no-verify-jwt --use-api --project-ref "$(cat supabase/.temp/project-ref)"
+
+      - name: Comprobar que responden
+        env:
+          SUPABASE_URL: ${{ secrets.SUPABASE_URL }}
+        run: |
+          set -uo pipefail
+          base="${SUPABASE_URL:-https://$(cat supabase/.temp/project-ref).supabase.co}"
+          echo "¿Está listo el cobro con Polar?"
+          curl -sS "$base/functions/v1/polar-crea"; echo
+          # Sin firma tiene que rechazarlo: si dijera que sí, cualquiera podría
+          # mandar un pago inventado.
+          codigo=$(curl -sS -o /dev/null -w '%{http_code}' -X POST "$base/functions/v1/polar-webhook" -d '{}')
+          echo "Aviso sin firma → HTTP $codigo (tiene que ser 403)"
+          [ "$codigo" = "403" ] || { echo "::error::El webhook no rechazó un aviso sin firma."; exit 1; }
