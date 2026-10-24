@@ -103,10 +103,13 @@ export async function guardaSesion(s: Sesion | null): Promise<void> {
 export async function renueva(refresco: string): Promise<Sesion | null> {
   if (!CUENTAS_ACTIVAS) return null;
   try {
+    // Con tope: es lo primero que se hace al abrir, y si se quedaba colgada
+    // todo lo que espera a la cuenta —los picks— se quedaba esperando con ella.
     const r = await fetch(`${URL}/auth/v1/token?grant_type=refresh_token`, {
       method: 'POST',
       headers: cabeceras(),
       body: JSON.stringify({ refresh_token: refresco }),
+      signal: AbortSignal.timeout?.(15_000),
     });
     if (!r.ok) return null;
     const s = aSesion(await r.json());

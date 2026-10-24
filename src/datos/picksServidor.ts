@@ -69,6 +69,48 @@ let parcial = false;
 /** Si el último intento de traerlos falló (sin red, servidor caído, tiempo agotado). */
 let fallo = false;
 
+/**
+ * En qué va la carga, para la pantalla de espera.
+ *
+ * La portada decía "Trayendo los picks de hoy" con la barra quieta en el 40%
+ * pasara lo que pasara: no se sabía si iba lenta, si estaba esperando a la
+ * cuenta o si se había quedado colgada. Ahora dice el paso y cuántos van.
+ */
+export interface EstadoCarga {
+  fase: 'esperando' | 'cuenta' | 'pidiendo' | 'preparando' | 'resto' | 'listo' | 'error';
+  recibidos: number;
+  total?: number;
+  /** Cuándo empezó este intento, para decir cuánto lleva. */
+  desde: number;
+  error?: string;
+}
+let estadoCarga: EstadoCarga = { fase: 'esperando', recibidos: 0, desde: Date.now() };
+/*
+ * Oyentes aparte de `avisos`: esos dan la lista por cargada en cuanto suenan,
+ * y el progreso suena muchas veces antes de que haya nada.
+ */
+const oyentesCarga: (() => void)[] = [];
+
+function marcaCarga(cambio: Partial<EstadoCarga>) {
+  estadoCarga = { ...estadoCarga, ...cambio };
+  for (const avisa of oyentesCarga) avisa();
+}
+
+export function estadoDeLaCarga(): EstadoCarga {
+  return estadoCarga;
+}
+
+export function cuandoAvanceLaCarga(avisa: () => void): () => void {
+  oyentesCarga.push(avisa);
+  return () => {
+    const i = oyentesCarga.indexOf(avisa);
+    if (i >= 0) oyentesCarga.splice(i, 1);
+  };
+}
+
+/** Un respiro para que el navegador pinte el paso antes de un trabajo largo. */
+const respira = () => new Promise<void>((ok) => setTimeout(ok, 0));
+
 const avisos: (() => void)[] = [];
 
 /** Se apunta aquí quien tenga que repintar cuando lleguen los picks. */
@@ -143,12 +185,17 @@ async function tanda(
  * Lo que falta después de la primera tanda. Sabiendo el total se piden varias
  * a la vez; sin él (si la cabecera no llega), una detrás de otra como antes.
  */
-async function resto(token: string, total: number | undefined): Promise<FilaServidor[]> {
+async function resto(
+  token: string,
+  total: number | undefined,
+  alLlegar: (cuantas: number) => void,
+): Promise<FilaServidor[]> {
   if (total === undefined) {
     const filas: FilaServidor[] = [];
     for (let desde = TAMANO; ; desde += TAMANO) {
       const { filas: suyas } = await tanda(token, desde);
       filas.push(...suyas);
+      alLlegar(suyas.length);
       if (suyas.length < TAMANO) break;
     }
     return filas;
@@ -161,6 +208,7 @@ async function resto(token: string, total: number | undefined): Promise<FilaServ
     while (siguiente < desdes.length) {
       const i = siguiente++;
       tandas[i] = (await tanda(token, desdes[i])).filas;
+      alLlegar(tandas[i].length);
     }
   };
   await Promise.all(Array.from({ length: Math.min(A_LA_VEZ, desdes.length) }, obrero));
@@ -210,24 +258,39 @@ export async function cargaPicks(forzar = false): Promise<void> {
 
   cargando = (async () => {
     try {
+      marcaCarga({ fase: 'cuenta', recibidos: 0, total: undefined, desde: Date.now(), error: undefined });
       const sesion = await sesionGuardada();
-      if (!sesion?.token) return;
+      if (!sesion?.token) {
+        marcaCarga({ fase: 'error', error: 'sin sesión' });
+        return;
+      }
 
+      marcaCarga({ fase: 'pidiendo' });
       const primera = await tanda(sesion.token, 0, true);
+      marcaCarga({ fase: 'preparando', recibidos: primera.filas.length, total: primera.total });
+      await respira();
       aplica(primera.filas);
 
       if (primera.filas.length === TAMANO) {
         // Las pantallas se pintan ya con los de hoy; el resto, por detrás.
         parcial = true;
         intentado = true;
+        marcaCarga({ fase: 'resto' });
         for (const repinta of avisos) repinta();
-        aplica([...primera.filas, ...(await resto(sesion.token, primera.total))]);
+        let recibidos = primera.filas.length;
+        const demas = await resto(sesion.token, primera.total, (n) => {
+          recibidos += n;
+          marcaCarga({ recibidos });
+        });
+        aplica([...primera.filas, ...demas]);
       }
 
       cargados = true;
       fallo = false;
-    } catch {
+      marcaCarga({ fase: 'listo' });
+    } catch (e) {
       fallo = true;
+      marcaCarga({ fase: 'error', error: e instanceof Error ? e.message : String(e) });
       /*
        * Sin red o con el servidor caído no se rompe nada: quien llame verá la
        * lista vacía y la pantalla dirá que no hay picks, igual que un día sin

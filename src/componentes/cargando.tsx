@@ -1,7 +1,7 @@
 import { Platform, View } from 'react-native';
 import Svg, { Circle } from 'react-native-svg';
 import { Simbolo } from '@/componentes/marca';
-import { Txt } from '@/componentes/base';
+import { Pulsable, Txt } from '@/componentes/base';
 import { marca } from '@/componentes/movimiento';
 import { C, E } from '@/tema';
 
@@ -82,12 +82,15 @@ export function PantallaCargando({
   detalle,
   pie,
   parte,
+  accion,
 }: {
   titulo: string;
   detalle?: string;
   pie?: string;
   /** De 0 a 1. Sin esto la barra no sale: no se finge un progreso que no se sabe. */
   parte?: number;
+  /** Un botón debajo, para cuando la espera se alarga ("Reintentar"). */
+  accion?: { texto: string; onPress: () => void };
 }) {
   return (
     <View
@@ -140,9 +143,27 @@ export function PantallaCargando({
       </View>
 
       {pie ? (
-        <Txt v="mini" color={C.texto3}>
+        <Txt v="mini" color={C.texto3} style={{ textAlign: 'center' }}>
           {pie}
         </Txt>
+      ) : null}
+
+      {accion ? (
+        <Pulsable
+          onPress={accion.onPress}
+          style={{
+            paddingHorizontal: 20,
+            paddingVertical: 11,
+            borderRadius: 12,
+            borderWidth: 1,
+            borderColor: C.limaBorde,
+            backgroundColor: C.limaTenue,
+          }}
+        >
+          <Txt v="cuerpoFuerte" color={C.lima}>
+            {accion.texto}
+          </Txt>
+        </Pulsable>
       ) : null}
     </View>
   );

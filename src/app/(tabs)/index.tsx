@@ -38,7 +38,7 @@ import { usePicksVigentes, useVivo } from '@/estado/vivo';
 import { brillo, C, COLUMNA, E, HUECO_PESTANAS, R } from '@/tema';
 import { useCalculo } from '@/utiles/carga';
 import { useHayLateral } from '@/utiles/pantalla';
-import { usePicksDelServidor, usePicksFallaron } from '@/utiles/picks';
+import { useEstadoCarga, usePicksDelServidor, usePicksFallaron } from '@/utiles/picks';
 import { useRejilla } from '@/utiles/rejilla';
 import { useOcultaPestanas } from './_layout';
 
@@ -138,16 +138,61 @@ function Cargando({
   /** Los picks ya están; faltan los escudos. */
   esperandoEscudos?: boolean;
 }) {
+  /*
+   * El paso en el que va, y no una frase fija con la barra quieta en el 40%:
+   * así se ve si avanza, y si algo se atasca se sabe dónde.
+   */
+  const estado = useEstadoCarga();
+  const [ahora, setAhora] = useState(() => Date.now());
+  useEffect(() => {
+    const t = setInterval(() => setAhora(Date.now()), 1000);
+    return () => clearInterval(t);
+  }, []);
+
   if (esperandoEscudos) {
     return (
       <PantallaCargando titulo="Cargando escudos" detalle="Un momento" pie="Ya casi" parte={0.92} />
     );
   }
+
+  const segundos = Math.max(0, Math.round((ahora - estado.desde) / 1000));
+  const llegados = estado.total
+    ? `${estado.recibidos.toLocaleString('es')} de ${estado.total.toLocaleString('es')} picks`
+    : undefined;
+  const detalle =
+    estado.fase === 'cuenta'
+      ? 'Comprobando tu cuenta'
+      : estado.fase === 'preparando'
+        ? `Preparando ${llegados ?? 'los picks'}`
+        : 'Trayendo los picks de hoy';
+  const parte =
+    estado.fase === 'cuenta'
+      ? 0.15
+      : estado.fase === 'pidiendo'
+        ? 0.35
+        : estado.fase === 'preparando'
+          ? 0.8
+          : 0.25;
+  // Más de quince segundos ya no es normal: se dice, y se ofrece volver a probar.
+  const tarda = segundos >= 15;
+
   return (
     <PantallaCargando
       titulo={`Cargando ${nombre}`}
-      detalle="Trayendo los picks de hoy"
-      parte={0.4}
+      detalle={detalle}
+      parte={parte}
+      pie={tarda ? `Está tardando más de lo normal (${segundos} s). Puede ser la conexión.` : undefined}
+      accion={
+        tarda
+          ? {
+              texto: 'Reintentar',
+              onPress: () => {
+                if (typeof window !== 'undefined') window.location.reload();
+                else void cargaPicks(true);
+              },
+            }
+          : undefined
+      }
     />
   );
 }

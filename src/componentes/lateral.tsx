@@ -10,7 +10,7 @@ import { useDerechos } from '@/estado/derechos';
 import { useSesion } from '@/estado/sesion';
 import { useTienda } from '@/estado/tienda';
 import { brillo, C, E, R } from '@/tema';
-import { ANCHO_LATERAL, useHayLateral } from '@/utiles/pantalla';
+import { ANCHO_LATERAL, useHayLateral, useLateralOculto } from '@/utiles/pantalla';
 
 /**
  * El menú lateral del escritorio.
@@ -300,10 +300,18 @@ export function ConLateral({ children }: { children: React.ReactNode }) {
   const { cargada, exigeCuenta } = useSesion();
   // Mientras abre, o antes de tener cuenta, la pantalla va sola.
   const listo = cargado && cargada && onboarding && !exigeCuenta;
+  // Una pantalla cargando pide pantalla entera (ver `useOcultaPestanas`).
+  const oculto = useLateralOculto();
   if (!hay || !listo || SIN_MENU.has(segmentos[0] ?? '')) return <>{children}</>;
+  /*
+   * Se esconde sin quitarlo del árbol: si cambiara la estructura, la pantalla
+   * de al lado se montaría de nuevo y volvería a empezar a cargar.
+   */
   return (
     <View style={{ flex: 1, flexDirection: 'row' }}>
-      <Menu />
+      <View style={{ display: oculto ? 'none' : 'flex' }}>
+        <Menu />
+      </View>
       <View style={{ flex: 1, minWidth: 0 }}>{children}</View>
     </View>
   );
